@@ -1,4 +1,3 @@
-// src/pages/admin/ProductosView.tsx
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,26 +10,21 @@ import { Plus, Search, Edit, Package, Trash2, Eye, ChevronLeft, ChevronRight, Lo
 import { useToast } from "@/hooks/use-toast";
 import { FormularioProductos } from "./FormularioProductos";
 import {
-  getColoresDiseno,
-  getColoresLuz,
-  getWatts,
-  getTamanos,
   getUbicaciones,
   getCategorias,
-  getTipos,
   getProductos,
   buscarProductos,
   getAllProductos,
   deleteProducto,
-  updateStockVariante,
-  Producto
+  Producto,
+  updateStockProducto
 } from "@/api/ProductsApi";
 
 interface StockFormData {
   stockActual: number;
   cantidadAñadir: string;
-  varianteId: number;
-  varianteNombre: string;
+  productoId: number;
+  productoNombre: string;
 }
 
 // Componente para el carrusel de imágenes (se mantiene igual)
@@ -44,14 +38,6 @@ function ImageCarousel({ images, productName, className = "" }: ImageCarouselPro
   // ... (código del carrusel se mantiene igual)
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  if (!images || images.length === 0) {
-    return (
-      <div className={`flex items-center justify-center bg-gray-100 rounded ${className}`}>
-        <Package className="h-8 w-8 text-gray-400" />
-      </div>
-    );
-  }
-
   useEffect(() => {
     if (images.length <= 1) return;
 
@@ -63,6 +49,14 @@ function ImageCarousel({ images, productName, className = "" }: ImageCarouselPro
 
     return () => clearInterval(interval);
   }, [images.length]);
+
+  if (!images || images.length === 0) {
+    return (
+      <div className={`flex items-center justify-center bg-gray-100 rounded ${className}`}>
+        <Package className="h-8 w-8 text-gray-400" />
+      </div>
+    );
+  }
 
   const goToPrevious = () => {
     setCurrentIndex(currentIndex === 0 ? images.length - 1 : currentIndex - 1);
@@ -176,8 +170,8 @@ export function ProductosView() {
   const [stockFormData, setStockFormData] = useState<StockFormData>({
     stockActual: 0,
     cantidadAñadir: "",
-    varianteId: 0,
-    varianteNombre: ""
+    productoId: 0,
+    productoNombre: ""
   });
   const { toast } = useToast();
 
@@ -190,29 +184,14 @@ export function ProductosView() {
         setLoading(true);
         const [
           ubicacionesData,
-          coloresDisenoData,
-          coloresLuzData,
-          wattsData,
-          tamanosData,
-          categoriasData,
-          tiposData
+          categoriasData
         ] = await Promise.all([
           getUbicaciones(),
-          getColoresDiseno(),
-          getColoresLuz(),
-          getWatts(),
-          getTamanos(),
           getCategorias(),
-          getTipos()
         ]);
 
         setUbicaciones(ubicacionesData.map(item => item.nombre));
-        setColoresDiseno(coloresDisenoData.map(item => item.nombre));
-        setColoresLuz(coloresLuzData.map(item => item.nombre));
-        setWatts(wattsData.map(item => item.nombre));
-        setTamaños(tamanosData.map(item => item.nombre));
         setCategorias(categoriasData.map(item => item.nombre));
-        setTiposProducto(tiposData.map(item => item.nombre));
       } catch (error) {
         console.error("Error cargando datos básicos:", error);
         toast({
@@ -298,28 +277,28 @@ export function ProductosView() {
     setIsFormOpen(true);
   };
 
-  const handleIncreaseStock = (product: Producto, variante: any) => {
+  const handleIncreaseStock = (product: Producto) => {
     setCurrentStockProduct(product);
     setStockFormData({
-      stockActual: variante.stock,
+      stockActual: product.stock,
       cantidadAñadir: "",
-      varianteId: variante.idvariante,
-      varianteNombre: variante.nombre_variante
+      productoId: product.idproducto,
+      productoNombre: product.nombre
     });
     setIsStockFormOpen(true);
   };
 
   const handleStockSubmit = async () => {
     try {
-      await updateStockVariante(
-        stockFormData.varianteId,
+      await updateStockProducto(
+        stockFormData.productoId,
         parseInt(stockFormData.cantidadAñadir || "0")
       );
 
       const newTotal = stockFormData.stockActual + parseInt(stockFormData.cantidadAñadir || "0");
       toast({
         title: "Stock actualizado",
-        description: `Stock de ${currentStockProduct?.nombre} - ${stockFormData.varianteNombre} aumentado a ${newTotal} unidades.`,
+        description: `Stock de ${currentStockProduct?.nombre} - ${stockFormData.productoNombre} aumentado a ${newTotal} unidades.`,
       });
 
       // Recargar productos para actualizar la vista
@@ -335,8 +314,8 @@ export function ProductosView() {
       setStockFormData({
         stockActual: 0,
         cantidadAñadir: "",
-        varianteId: 0,
-        varianteNombre: ""
+        productoId: 0,
+        productoNombre: ""
       });
     } catch (error) {
       toast({
@@ -408,18 +387,12 @@ export function ProductosView() {
     setEditingProduct(null);
   };
 
-  const getTotalStock = (variantes: any[]) => {
-    return variantes.reduce((sum, variant) => sum + variant.stock, 0);
+  const getTotalStock = (producto: Producto): number => {
+    return producto.stock || 0;
   };
 
-  const getAllProductImages = useCallback((product: Producto): string[] => {
-    const allImages: string[] = [];
-    product.variantes.forEach(variante => {
-      if (variante.imagenes && variante.imagenes.length > 0) {
-        allImages.push(...variante.imagenes);
-      }
-    });
-    return allImages.slice(0, 10);
+  const getProductImage = useCallback((product: Producto): string[] => {
+    return product.imagen ? [product.imagen] : [];
   }, []);
 
   if (loading) {
@@ -453,11 +426,6 @@ export function ProductosView() {
                 product={editingProduct}
                 ubicaciones={ubicaciones}
                 categorias={categorias}
-                tiposProducto={tiposProducto}
-                coloresDiseno={coloresDiseno}
-                coloresLuz={coloresLuz}
-                watts={watts}
-                tamaños={tamaños}
                 onSubmit={handleFormSubmit}
                 onCancel={handleFormCancel}
               />
@@ -475,7 +443,7 @@ export function ProductosView() {
           <div className="space-y-4">
             <div className="space-y-2">
               <div className="text-sm font-medium">Producto: {currentStockProduct?.nombre}</div>
-              <div className="text-sm font-medium">Variante: {stockFormData.varianteNombre}</div>
+              <div className="text-sm font-medium">Variante: {stockFormData.productoNombre}</div>
             </div>
             <div className="space-y-2">
               <div className="text-sm font-medium">Stock actual</div>
@@ -570,8 +538,8 @@ export function ProductosView() {
                   {/* Vista móvil - Cards */}
                   <div className="block md:hidden space-y-3 w-full overflow-hidden">
                     {products.map((product) => {
-                      const totalStock = getTotalStock(product.variantes);
-                      const allImages = getAllProductImages(product);
+                      const totalStock = getTotalStock(product);
+                      const allImages = getProductImage(product);
 
                       return (
                         <Card key={product.idproducto} className="p-3 w-full">
@@ -593,11 +561,6 @@ export function ProductosView() {
                                       {categoria}
                                     </Badge>
                                   ))}
-                                  {product.tipos.map((tipo, index) => (
-                                    <Badge key={index} variant="outline" className="text-xs px-1.5 py-0-5 max-w-full truncate">
-                                      {tipo}
-                                    </Badge>
-                                  ))}
                                 </div>
                                 <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">
                                   {product.descripcion}
@@ -610,26 +573,24 @@ export function ProductosView() {
                             </div>
 
                             <div className="border-t pt-2 w-full overflow-hidden">
-                              <p className="text-xs font-medium mb-1">Variantes & Stock:</p>
+                              <p className="text-xs font-medium mb-1">Detalles & Stock:</p>
                               <div className="space-y-1 w-full">
-                                {product.variantes.map((variante, index) => (
-                                  <div key={index} className="text-xs border-b border-border/50 pb-0.5 last:border-0 w-full overflow-hidden">
-                                    <div className="font-medium text-xs truncate">{variante.nombre_variante}</div>
-                                    <div className="text-muted-foreground text-xs truncate">
-                                      {variante.color_disenio} + {variante.color_luz} | {variante.watt} - {variante.tamano}
-                                    </div>
-                                    <div className="text-primary text-xs">Stock: {variante.stock} | Bs {variante.precio_venta.toFixed(2)}</div>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleIncreaseStock(product, variante)}
-                                      className="h-6 text-xs mt-1"
-                                    >
-                                      <Package className="h-3 w-3 mr-1" />
-                                      Añadir Stock
-                                    </Button>
+                                <div className="text-xs border-b border-border/50 pb-0.5 last:border-0 w-full overflow-hidden">
+                                  <div className="font-medium text-xs truncate">{product.nombre}</div>
+                                  <div className="text-muted-foreground text-xs truncate">
+                                    {product.categorias?.join(' · ') || 'Sin categoría'}
                                   </div>
-                                ))}
+                                  <div className="text-primary text-xs">Stock: {product.stock} | Bs {Number(product.precio_venta).toFixed(2)}</div>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleIncreaseStock(product)}
+                                    className="h-6 text-xs mt-1"
+                                  >
+                                    <Package className="h-3 w-3 mr-1" />
+                                    Añadir Stock
+                                  </Button>
+                                </div>
                                 <div className="text-xs font-semibold border-t pt-0.5 flex justify-between mt-1 w-full">
                                   <span>Total Stock:</span>
                                   <span>{totalStock} u.</span>
@@ -689,14 +650,14 @@ export function ProductosView() {
                             <TableHead className="min-w-[120px]">Imagen</TableHead>
                             <TableHead className="min-w-[200px]">Nombre</TableHead>
                             <TableHead className="min-w-[120px]">Ubicación</TableHead>
-                            <TableHead className="min-w-[250px]">Variantes, Watts & Stock</TableHead>
+                            <TableHead className="min-w-[250px]">Detalles & Stock</TableHead>
                             <TableHead className="text-right min-w-[120px]">Acciones</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {products.map((product) => {
-                            const totalStock = getTotalStock(product.variantes);
-                            const allImages = getAllProductImages(product);
+                            const totalStock = getTotalStock(product);
+                            const allImages = getProductImage(product);
 
                             return (
                               <TableRow key={product.idproducto}>
@@ -718,11 +679,6 @@ export function ProductosView() {
                                           {categoria}
                                         </Badge>
                                       ))}
-                                      {product.tipos.map((tipo, index) => (
-                                        <Badge key={index} variant="outline" className="mr-1 mb-1">
-                                          {tipo}
-                                        </Badge>
-                                      ))}
                                     </div>
                                     <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
                                       {product.descripcion}
@@ -734,24 +690,22 @@ export function ProductosView() {
                                 </TableCell>
                                 <TableCell>
                                   <div className="space-y-1">
-                                    {product.variantes.map((variante, index) => (
-                                      <div key={index} className="text-xs border-b border-border/50 pb-1 last:border-0">
-                                        <div className="font-medium">{variante.nombre_variante}</div>
-                                        <div className="text-muted-foreground">
-                                          {variante.color_disenio} + {variante.color_luz} | {variante.watt} - {variante.tamano}
-                                        </div>
-                                        <div className="text-primary">Stock: {variante.stock} | Precio: Bs {variante.precio_venta.toFixed(2)}</div>
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() => handleIncreaseStock(product, variante)}
-                                          className="h-6 text-xs mt-1"
-                                        >
-                                          <Package className="h-3 w-3 mr-1" />
-                                          Añadir Stock
-                                        </Button>
+                                    <div className="text-xs border-b border-border/50 pb-1 last:border-0">
+                                      <div className="font-medium">{product.nombre}</div>
+                                      <div className="text-muted-foreground">
+                                        {product.categorias?.join(' · ') || 'Sin categoría'}
                                       </div>
-                                    ))}
+                                      <div className="text-primary">Stock: {product.stock} | Precio: Bs {Number(product.precio_venta).toFixed(2)}</div>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleIncreaseStock(product)}
+                                        className="h-6 text-xs mt-1"
+                                      >
+                                        <Package className="h-3 w-3 mr-1" />
+                                        Añadir Stock
+                                      </Button>
+                                    </div>
                                     <div className="text-xs font-semibold border-t pt-1 mt-1">
                                       Total: {totalStock} unidades
                                     </div>

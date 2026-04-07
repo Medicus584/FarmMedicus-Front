@@ -63,7 +63,8 @@ CREATE TABLE productos (
     imagen bytea,
     precio_venta integer NOT NULL DEFAULT 0,
     precio_compra integer NOT NULL DEFAULT 0,
-    stock integer NOT NULL DEFAULT 0
+    stock integer NOT NULL DEFAULT 0,
+    stock_minimo INTEGER NOT NULL DEFAULT 0
 );
 
 -- Relación muchos a muchos: Productos - Categorías

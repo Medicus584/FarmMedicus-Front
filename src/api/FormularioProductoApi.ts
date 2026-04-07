@@ -9,23 +9,11 @@ export interface ProductoRequest {
   descripcion: string;
   idubicacion: number;
   categorias: number[];
-  tipos: number[];
-  variantes: VarianteRequest[];
-}
-
-export interface VarianteRequest {
-  idvariante?: number;
-  nombre_variante: string;
+  imagen: string;
   precio_venta: number;
   precio_compra: number;
-  idcolor_disenio: number | null;
-  idcolor_luz: number | null;
-  idwatt: number | null;
-  idtamano: number | null;
   stock: number;
   stock_minimo: number;
-  imagenes?: File[];
-  imagenes_existentes?: string[];
 }
 
 export interface ProductoResponse {
@@ -36,28 +24,11 @@ export interface ProductoResponse {
   ubicacion: string;
   estado: number;
   categorias: string[];
-  tipos: string[];
-  variantes: VarianteResponse[];
-}
-
-export interface VarianteResponse {
-  idvariante: number;
-  idproducto: number;
-  nombre_variante: string;
+  imagen: string;
   precio_venta: number;
   precio_compra: number;
-  idcolor_disenio: number | null;
-  idcolor_luz: number | null;
-  idwatt: number | null;
-  idtamano: number | null;
   stock: number;
   stock_minimo: number;
-  estado: number;
-  color_disenio: string | null;
-  color_luz: string | null;
-  watt: string | null;
-  tamano: string | null;
-  imagenes: string[];
 }
 
 // Configuración de axios

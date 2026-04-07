@@ -371,8 +371,8 @@ export function ProductosView() {
         setProducts(results);
       }
 
-      setIsFormOpen(false);
       setEditingProduct(null);
+      setIsFormOpen(false);
     } catch (error) {
       toast({
         title: "Error",
@@ -410,7 +410,12 @@ export function ProductosView() {
           {isAssistant ? "Visualización de Productos" : "Gestión de Productos"}
         </h1>
         {!isAssistant && (
-          <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+          <Dialog open={isFormOpen} onOpenChange={(open) => {
+            setIsFormOpen(open);
+            if (!open) {
+              handleFormCancel();
+            }}}
+          >
             <DialogTrigger asChild>
               <Button className="bg-primary hover:bg-primary/90 w-full md:w-auto flex-shrink-0">
                 <Plus className="mr-2 h-4 w-4" />

@@ -11,11 +11,10 @@ export interface BackendUsuario {
 
 interface BackendDetalleVenta {
   iddetalle_venta: number;
-  idvariante: number;
+  idproducto: number;
   cantidad: number;
   precio_unitario: string;
   subtotal_linea: string;
-  nombre_variante: string;
   nombre_producto: string;
 }
 
@@ -36,7 +35,7 @@ interface BackendVenta {
 
 export interface DetalleVenta {
   iddetalle_venta: number;
-  idvariante: number;
+  idproducto: number;
   cantidad: number;
   precio_unitario: number;
   subtotal_linea: number;
@@ -122,11 +121,11 @@ export const getVentas = async (filtros?: VentasFiltros): Promise<Venta[]> => {
       descripcion: venta.descripcion,
       detalle: venta.detalle.map((detalle) => ({
         iddetalle_venta: detalle.iddetalle_venta,
-        idvariante: detalle.idvariante,
+        idproducto: detalle.idproducto,
         cantidad: detalle.cantidad,
         precio_unitario: parseFloat(detalle.precio_unitario),
         subtotal_linea: parseFloat(detalle.subtotal_linea),
-        producto: detalle.nombre_variante || detalle.nombre_producto || "Producto sin nombre"
+        producto: detalle.nombre_producto || "Producto sin nombre"
       })),
       subtotal: parseFloat(venta.sub_total),
       descuento: parseFloat(venta.descuento),
@@ -157,11 +156,11 @@ export const getVentasByFecha = async (fecha: string): Promise<Venta[]> => {
       descripcion: venta.descripcion,
       detalle: venta.detalle.map((detalle) => ({
         iddetalle_venta: detalle.iddetalle_venta,
-        idvariante: detalle.idvariante,
+        idproducto: detalle.idproducto,
         cantidad: detalle.cantidad,
         precio_unitario: parseFloat(detalle.precio_unitario),
         subtotal_linea: parseFloat(detalle.subtotal_linea),
-        producto: detalle.nombre_variante || detalle.nombre_producto || "Producto sin nombre"
+        producto: detalle.nombre_producto || "Producto sin nombre"
       })),
       subtotal: parseFloat(venta.sub_total),
       descuento: parseFloat(venta.descuento),
@@ -193,11 +192,11 @@ export const getVentasByRango = async (fechaInicio: string, fechaFin: string): P
       descripcion: venta.descripcion,
       detalle: venta.detalle.map((detalle) => ({
         iddetalle_venta: detalle.iddetalle_venta,
-        idvariante: detalle.idvariante,
+        idproducto: detalle.idproducto,
         cantidad: detalle.cantidad,
         precio_unitario: parseFloat(detalle.precio_unitario),
         subtotal_linea: parseFloat(detalle.subtotal_linea),
-        producto: detalle.nombre_variante || detalle.nombre_producto || "Producto sin nombre"
+        producto: detalle.nombre_producto || "Producto sin nombre"
       })),
       subtotal: parseFloat(venta.sub_total),
       descuento: parseFloat(venta.descuento),
@@ -310,11 +309,11 @@ export const getVentasHoyAsistente = async (username: string): Promise<Venta[]> 
       descripcion: venta.descripcion,
       detalle: venta.detalle.map((detalle) => ({
         iddetalle_venta: detalle.iddetalle_venta,
-        idvariante: detalle.idvariante,
+        idproducto: detalle.idproducto,
         cantidad: detalle.cantidad,
         precio_unitario: parseFloat(detalle.precio_unitario),
         subtotal_linea: parseFloat(detalle.subtotal_linea),
-        producto: detalle.nombre_variante || detalle.nombre_producto || "Producto sin nombre"
+        producto: detalle.nombre_producto || "Producto sin nombre"
       })),
       subtotal: parseFloat(venta.sub_total),
       descuento: parseFloat(venta.descuento),

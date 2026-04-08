@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, Eye, Filter, RefreshCw, X } from "lucide-react";
 import { DashboardView } from "@/pages/Dashboard";
-import { getInventory, getLowMarginCount, InventoryItem, getCategories, getTypes, Category, ProductType } from "@/api/InventoryApi";
+import { getInventory, getLowMarginCount, InventoryItem, getCategories, Category } from "@/api/InventoryApi";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -20,9 +20,7 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showLowMarginOnly, setShowLowMarginOnly] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [types, setTypes] = useState<ProductType[]>([]);
   const [inventoryData, setInventoryData] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [lowMarginCount, setLowMarginCount] = useState(0);
@@ -36,12 +34,11 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
     loadInventoryData();
     loadLowMarginCount();
     loadCategories();
-    loadTypes();
   }, []);
 
   useEffect(() => {
     loadInventoryData();
-  }, [searchTerm, showLowMarginOnly, selectedCategories, selectedTypes]);
+  }, [searchTerm, showLowMarginOnly, selectedCategories]);
 
   const loadInventoryData = async () => {
     try {
@@ -50,8 +47,7 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
       const response = await getInventory(
         searchTerm || undefined, 
         showLowMarginOnly || undefined,
-        selectedCategories.length > 0 ? selectedCategories : undefined,
-        selectedTypes.length > 0 ? selectedTypes : undefined
+        selectedCategories.length > 0 ? selectedCategories : undefined
       );
       setInventoryData(response.items);
     } catch (err) {
@@ -80,15 +76,6 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
     }
   };
 
-  const loadTypes = async () => {
-    try {
-      const typesData = await getTypes();
-      setTypes(typesData);
-    } catch (err) {
-      console.error("Error loading types:", err);
-    }
-  };
-
   const handleRefresh = () => {
     loadInventoryData();
     loadLowMarginCount();
@@ -102,39 +89,26 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
     );
   };
 
-  const handleTypeChange = (typeId: string) => {
-    setSelectedTypes(prev =>
-      prev.includes(typeId)
-        ? prev.filter(id => id !== typeId)
-        : [...prev, typeId]
-    );
-  };
-
   const clearCategoryFilters = () => {
     setSelectedCategories([]);
   };
 
-  const clearTypeFilters = () => {
-    setSelectedTypes([]);
-  };
 
   const clearAllFilters = () => {
     setSelectedCategories([]);
-    setSelectedTypes([]);
     setSearchTerm("");
     setShowLowMarginOnly(false);
   };
 
   // Filtrar por término de búsqueda
   const filteredData = inventoryData.filter(item => {
-    const matchesSearch = item.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.variante.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = item.nombre.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesMargin = showLowMarginOnly ? item.margenPorcentaje < 50 : true;
     return matchesSearch && matchesMargin;
   });
 
   const handleViewProduct = (item: InventoryItem) => {
-    sessionStorage.setItem('searchProductId', item.baseId || item.id);
+    sessionStorage.setItem('searchProductId', item.id);
     sessionStorage.setItem('searchProductName', item.nombre);
     
     if (onViewChange) {
@@ -220,48 +194,6 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
             </PopoverContent>
           </Popover>
 
-          {/* Filtro de Tipos */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="w-full sm:w-auto">
-                <Filter className="mr-2 h-4 w-4" />
-                Tipos
-                {selectedTypes.length > 0 && (
-                  <Badge variant="secondary" className="ml-2">
-                    {selectedTypes.length}
-                  </Badge>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-medium">Tipos</h4>
-                  {selectedTypes.length > 0 && (
-                    <Button variant="ghost" size="sm" onClick={clearTypeFilters}>
-                      <X className="h-3 w-3 mr-1" />
-                      Limpiar
-                    </Button>
-                  )}
-                </div>
-                <div className="max-h-60 overflow-y-auto space-y-2">
-                  {types.map((type) => (
-                    <div key={type.id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`type-${type.id}`}
-                        checked={selectedTypes.includes(type.id)}
-                        onCheckedChange={() => handleTypeChange(type.id)}
-                      />
-                      <Label htmlFor={`type-${type.id}`} className="flex-1">
-                        {type.nombre}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
-
           <Button
             variant={showLowMarginOnly ? "default" : "outline"}
             onClick={() => setShowLowMarginOnly(!showLowMarginOnly)}
@@ -271,7 +203,7 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
             Margen Bajo ({lowMarginCount})
           </Button>
           
-          {(selectedCategories.length > 0 || selectedTypes.length > 0 || searchTerm || showLowMarginOnly) && (
+          {(selectedCategories.length > 0 || searchTerm || showLowMarginOnly) && (
             <Button
               variant="outline"
               onClick={clearAllFilters}
@@ -295,7 +227,7 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
       </div>
 
       {/* Indicadores de filtros activos */}
-      {(selectedCategories.length > 0 || selectedTypes.length > 0) && (
+      {(selectedCategories.length > 0 ) && (
         <div className="flex flex-wrap gap-2">
           {selectedCategories.map(categoryId => {
             const category = categories.find(c => c.id === categoryId);
@@ -305,18 +237,6 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
                 <X 
                   className="h-3 w-3 cursor-pointer" 
                   onClick={() => handleCategoryChange(categoryId)}
-                />
-              </Badge>
-            ) : null;
-          })}
-          {selectedTypes.map(typeId => {
-            const type = types.find(t => t.id === typeId);
-            return type ? (
-              <Badge key={typeId} variant="secondary" className="flex items-center gap-1">
-                Tipo: {type.nombre}
-                <X 
-                  className="h-3 w-3 cursor-pointer" 
-                  onClick={() => handleTypeChange(typeId)}
                 />
               </Badge>
             ) : null;
@@ -338,7 +258,6 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
               <TableHeader className="hidden md:table-header-group">
                 <TableRow>
                   <TableHead className="px-4 py-3">Nombre</TableHead>
-                  <TableHead className="px-4 py-3">Variante</TableHead>
                   <TableHead className="px-4 py-3">P. Compra</TableHead>
                   <TableHead className="px-4 py-3">P. Venta</TableHead>
                   <TableHead className="px-4 py-3">Cantidad</TableHead>
@@ -371,9 +290,6 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
                       {/* Desktop View */}
                       <TableCell className="hidden md:table-cell px-4 py-3 font-medium">
                         {item.nombre}
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell px-4 py-3 text-muted-foreground">
-                        {item.variante}
                       </TableCell>
                       <TableCell className="hidden md:table-cell px-4 py-3">
                         <div className="text-sm">Bs. {item.precioCompra.toFixed(2)}</div>
@@ -434,10 +350,6 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
                           </div>
                           
                           <div className="grid grid-cols-2 gap-2 text-sm">
-                            <div>
-                              <div className="text-xs font-medium text-muted-foreground mb-1">VARIANTE</div>
-                              <div className="text-muted-foreground">{item.variante}</div>
-                            </div>
                             <div>
                               <div className="text-xs font-medium text-muted-foreground mb-1">ÚLTIMA EDICIÓN</div>
                               <div className="text-muted-foreground">{item.ultimaEdicion}</div>

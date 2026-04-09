@@ -170,7 +170,7 @@ export function PagosPendientesView() {
 
       await actualizarEntregas(pagoParaEntrega.id, {
         productos: productosActualizados.map(p => ({
-          idvariante: parseInt(p.id),
+          idproducto: parseInt(p.id),
           cantidadEntregada: p.cantidadEntregada
         })),
         montoPago: montoPago > 0 ? montoPago : undefined,

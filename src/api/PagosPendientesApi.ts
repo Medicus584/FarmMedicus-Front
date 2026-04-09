@@ -2,15 +2,11 @@
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
   interface BackendProductoCotizado {
-    idvariante: number;
+    idproducto: number;
     nombre: string;
     precio_unitario: string;
     cantidad: number;
     cantidad_pendiente: number;
-    color_disenio?: string;
-    color_luz?: string;
-    watt?: string;
-    tamano?: string;
     imagen?: string;
   }
 
@@ -59,7 +55,7 @@
 
   export interface EntregaRequest {
     productos: Array<{
-      idvariante: number;
+      idproducto: number;
       cantidadEntregada: number;
     }>;
     montoPago?: number;
@@ -87,12 +83,11 @@
         monto: parseFloat(pago.total),
         saldo: parseFloat(pago.saldo),
         productos: pago.productos.map((producto) => ({
-          id: producto.idvariante.toString(),
+          id: producto.idproducto.toString(),
           nombre: producto.nombre,
           precio: parseFloat(producto.precio_unitario),
           cantidad: producto.cantidad,
           cantidadEntregada: producto.cantidad - producto.cantidad_pendiente,
-          color: producto.color_disenio || producto.color_luz || producto.watt || producto.tamano || undefined,
           imagen: producto.imagen || "/lovable-uploads/default-product.png"
         })),
         pagado: parseFloat(pago.saldo) <= 0,

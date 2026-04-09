@@ -3,9 +3,8 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 // Interfaces para Productos Más Vendidos
 interface BackendProductoMasVendido {
-  idvariante: number;
+  idproducto: number;
   nombre_producto: string;
-  nombre_variante: string;
   categoria: string;
   cantidad_vendida: number;
   ingresos: string;
@@ -19,11 +18,9 @@ export interface ProductoMasVendido {
   ingresos: number;
 }
 
-// Interfaces para Productos Sin Vender
 interface BackendProductoSinVender {
-  idvariante: number;
+  idproducto: number;
   nombre_producto: string;
-  nombre_variante: string;
   categoria: string;
   fecha_agregado: string;
   ultima_venta: string | null;
@@ -41,9 +38,8 @@ export interface ProductoSinVender {
 
 // Interfaces para Análisis de Productos
 interface BackendProductoAnalisis {
-  idvariante: number;
+  idproducto: number;
   nombre_producto: string;
-  nombre_variante: string;
   categoria: string;
   precio_venta: string;
   precio_compra: string;
@@ -117,8 +113,8 @@ export const getProductosMasVendidos = async (mes?: number, año?: number): Prom
     const response = await api.get<BackendProductoMasVendido[]>("/reportes/productos-mas-vendidos", { params });
     
     return response.data.map((producto, index) => ({
-      id: producto.idvariante,
-      producto: `${producto.nombre_producto} - ${producto.nombre_variante}`,
+      id: producto.idproducto,
+      producto: `${producto.nombre_producto}`,
       categoria: producto.categoria,
       cantidadVendida: producto.cantidad_vendida,
       ingresos: parseFloat(producto.ingresos),
@@ -135,8 +131,8 @@ export const getProductosSinVender = async (): Promise<ProductoSinVender[]> => {
     const response = await api.get<BackendProductoSinVender[]>("/reportes/productos-sin-vender");
     
     return response.data.map((producto, index) => ({
-      id: producto.idvariante,
-      producto: `${producto.nombre_producto} - ${producto.nombre_variante}`,
+      id: producto.idproducto,
+      producto: `${producto.nombre_producto}`,
       categoria: producto.categoria,
       fechaAgregado: new Date(producto.fecha_agregado),
       ultimaVenta: producto.ultima_venta ? new Date(producto.ultima_venta) : null,
@@ -161,8 +157,8 @@ export const getAnalisisProductos = async (mes: number, año: number): Promise<P
     ];
     
     return response.data.map((producto, index) => ({
-      id: producto.idvariante,
-      nombre: `${producto.nombre_producto} - ${producto.nombre_variante}`,
+      id: producto.idproducto,
+      nombre: `${producto.nombre_producto}`,
       categoria: producto.categoria,
       precioVenta: parseFloat(producto.precio_venta),
       precioCompra: parseFloat(producto.precio_compra),

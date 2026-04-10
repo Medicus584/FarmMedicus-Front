@@ -192,8 +192,8 @@ CREATE TABLE carruseles (
     estado SMALLINT DEFAULT 0 CHECK (estado IN (0, 1, 2)) -- 0 activo, 1 inactivo, 2 eliminado
 );
 
-CREATE TABLE carrusel_variantes (
-    idcarrusel_variante SERIAL PRIMARY KEY,
+CREATE TABLE carrusel_productos (
+    idcarrusel_producto SERIAL PRIMARY KEY,
     idcarrusel INTEGER REFERENCES carruseles(idcarrusel) ON DELETE CASCADE,
     idproducto INTEGER REFERENCES productos(idproducto) ON DELETE CASCADE,
     UNIQUE(idcarrusel, idproducto)

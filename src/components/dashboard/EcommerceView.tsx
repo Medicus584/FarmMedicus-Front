@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -202,12 +201,9 @@ export function EcommerceView() {
       name: "Cargando...",
       description: "",
       category: "Cargando...",
-      type: "Cargando...",
-      color: "Cargando...",
       price: 0,
       stock: 0,
-      images: [],
-      variants: []
+      image: ''
     }));
     
     return [...basicProducts, ...missingProducts];
@@ -427,10 +423,8 @@ export function EcommerceView() {
                 <TableHead className="w-12 md:w-16">Imagen</TableHead>
                 <TableHead className="min-w-[120px]">Nombre</TableHead>
                 <TableHead className="hidden md:table-cell">Categoría</TableHead>
-                <TableHead className="hidden md:table-cell">Tipo</TableHead>
                 <TableHead className="min-w-[80px]">Precio</TableHead>
-                <TableHead className="hidden lg:table-cell">Variantes</TableHead>
-                <TableHead className="w-8 md:w-12"></TableHead>
+                <TableHead className="w-8 md:w-12">Stock</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -438,55 +432,26 @@ export function EcommerceView() {
                 <TableRow key={product.id}>
                   <TableCell>
                     <img 
-                      src={product.images?.[0] || "/placeholder.svg"} 
+                      src={product?.image || "https://static.vecteezy.com/system/resources/previews/011/781/801/non_2x/medicine-3d-render-icon-illustration-png.png"} 
                       alt={product.name}
                       className="w-8 h-8 md:w-10 md:h-10 object-cover rounded-md"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
-                        target.src = "/placeholder.svg";
+                        target.src = "https://static.vecteezy.com/system/resources/previews/011/781/801/non_2x/medicine-3d-render-icon-illustration-png.png";
                       }}
                     />
                   </TableCell>
                   <TableCell className="font-medium">
                     <div className="space-y-1">
                       <div className="line-clamp-2 md:line-clamp-1">{product.name}</div>
-                      <div className="md:hidden text-xs text-muted-foreground space-y-1">
-                        <div>{product.category} • {product.type}</div>
-                        <div className="flex flex-wrap gap-1 lg:hidden">
-                          {product.variants && product.variants.length > 0 ? (
-                            product.variants.slice(0, 2).map((variant, index) => (
-                              <Badge key={index} variant="outline" className="text-[10px] px-1">
-                                {variant.color}
-                              </Badge>
-                            ))
-                          ) : (
-                            <Badge variant="outline" className="text-[10px] px-1">
-                              {product.color}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
                     </div>
                   </TableCell>
                   <TableCell className="hidden md:table-cell">{product.category}</TableCell>
-                  <TableCell className="hidden md:table-cell">{product.type}</TableCell>
                   <TableCell className="text-sm md:text-base">
-                    {product.price > 0 ? `Bs${product.price.toFixed(2)}` : "Bs0.00"}
+                    {product.price > 0 ? `Bs ${product.price.toFixed(2)}` : "Bs 0.00"}
                   </TableCell>
-                  <TableCell className="hidden lg:table-cell">
-                    <div className="flex flex-wrap gap-1">
-                      {product.variants && product.variants.length > 0 ? (
-                        product.variants.map((variant, index) => (
-                          <Badge key={index} variant="outline" className="text-xs">
-                            {variant.color} ({variant.stock})
-                          </Badge>
-                        ))
-                      ) : (
-                        <Badge variant="outline" className="text-xs">
-                          {product.color} ({product.stock})
-                        </Badge>
-                      )}
-                    </div>
+                  <TableCell className="text-sm md:text-base">
+                    {product.stock ? product.stock : 0}
                   </TableCell>
                   <TableCell>
                     <Button
@@ -549,41 +514,28 @@ export function EcommerceView() {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 md:gap-4">
                         <img 
-                          src={product.images?.[0] || "/placeholder.svg"} 
+                          src={product?.image || "https://static.vecteezy.com/system/resources/previews/011/781/801/non_2x/medicine-3d-render-icon-illustration-png.png"} 
                           alt={product.name}
                           className="w-8 h-8 md:w-12 md:h-12 object-cover rounded-md flex-shrink-0"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
-                            target.src = "/placeholder.svg";
+                            target.src = "https://static.vecteezy.com/system/resources/previews/011/781/801/non_2x/medicine-3d-render-icon-illustration-png.png";
                           }}
                         />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium line-clamp-1">{product.name}</p>
                           <p className="text-xs text-muted-foreground line-clamp-1">
-                            {product.category} • {product.type}
+                            {product.category}
                           </p>
-                          <div className="text-xs text-muted-foreground">
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {product.variants && product.variants.length > 0 ? (
-                                product.variants.slice(0, 2).map((variant, index) => (
-                                  <Badge key={index} variant="outline" className="text-[10px] px-1 py-0">
-                                    {variant.color}
-                                  </Badge>
-                                ))
-                              ) : (
-                                <Badge variant="outline" className="text-[10px] px-1 py-0">
-                                  {product.color}
-                                </Badge>
-                              )}
-                              {product.variants && product.variants.length > 2 && (
-                                <span className="text-[10px] text-muted-foreground">+{product.variants.length - 2}</span>
-                              )}
-                            </div>
-                          </div>
                         </div>
                         <div className="text-right flex-shrink-0">
                           <p className="text-sm font-medium">
-                            {product.price > 0 ? `Bs${product.price.toFixed(2)}` : "Bs0.00"}
+                            {product.price > 0 ? `Bs ${product.price.toFixed(2)}` : "Bs 0.00"}
+                          </p>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-sm font-medium">
+                            {product.stock ? product.stock : 0}
                           </p>
                         </div>
                       </div>

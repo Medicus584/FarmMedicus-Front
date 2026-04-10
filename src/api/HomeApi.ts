@@ -221,7 +221,7 @@ function mapBackendProduct(product: BackendProduct): Product {
   const variants: ProductVariant[] = product.variantes.map(variant => {
     const images = variant.imagenes && variant.imagenes.length > 0 
       ? variant.imagenes 
-      : ['/placeholder-product.jpg'];
+      : ['https://static.vecteezy.com/system/resources/previews/011/781/801/non_2x/medicine-3d-render-icon-illustration-png.png'];
     
     // Convertir imágenes base64 a URLs si es necesario
     const processedImages = images.map(img => {
@@ -256,7 +256,7 @@ function mapBackendProduct(product: BackendProduct): Product {
         }
         return img;
       })
-    : ['/placeholder-product.jpg'];
+    : ['https://static.vecteezy.com/system/resources/previews/011/781/801/non_2x/medicine-3d-render-icon-illustration-png.png'];
 
   return {
     id: product.idproducto.toString(),

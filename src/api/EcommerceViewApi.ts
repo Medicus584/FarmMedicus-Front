@@ -9,8 +9,7 @@ interface BackendCarrusel {
   estado: number;
 }
 
-interface BackendCarruselVariante {
-  idcarrusel_variante: number;
+interface BackendCarruselProducto {
   idcarrusel: number;
   idproducto: number;
 }
@@ -21,33 +20,11 @@ interface BackendProducto {
   descripcion: string;
   idubicacion: number;
   estado: number;
-}
-
-interface BackendVariante {
-  idvariante: number;
-  idproducto: number;
-  nombre_variante: string;
   precio_venta: string;
   precio_compra: string;
-  idcolor_disenio: number | null;
-  idcolor_luz: number | null;
-  idwatt: number | null;
-  idtamano: number | null;
   stock: number;
   stock_minimo: number;
-  estado: number;
-}
-
-interface BackendImagen {
-  idimagen: number;
-  idvariante: number;
   imagen: string;
-}
-
-interface ColorResponse {
-  idcolor_disenio: number;
-  nombre: string;
-  estado: number;
 }
 
 export interface Carrusel {
@@ -62,19 +39,9 @@ export interface Product {
   name: string;
   description: string;
   category: string;
-  type: string;
-  color: string;
   price: number;
   stock: number;
-  images: string[];
-  variants?: Variant[];
-}
-
-export interface Variant {
-  id: string;
-  color: string;
-  stock: number;
-  price: number;
+  image: string;
 }
 
 export interface CarruselRequest {
@@ -92,32 +59,7 @@ const api = axios.create({
   timeout: 10000,
 });
 
-// Cache para colores
-const colorCache = new Map<number, string>();
-
-// Cache para productos completos
 const productCache = new Map<string, Product>();
-
-// Función para obtener color de forma segura
-const getColorDisenioSafe = async (idcolor: number | null): Promise<string> => {
-  if (!idcolor) {
-    return "Sin color";
-  }
-  
-  if (colorCache.has(idcolor)) {
-    return colorCache.get(idcolor)!;
-  }
-  
-  try {
-    const response = await api.get<ColorResponse>(`/ecommerce/colores-disenio/${idcolor}`);
-    const colorName = response.data.nombre || "Sin color";
-    colorCache.set(idcolor, colorName);
-    return colorName;
-  } catch (error: any) {
-    colorCache.set(idcolor, "Color no disponible");
-    return "Color no disponible";
-  }
-};
 
 // Función segura para obtener datos de API
 const safeApiGet = async <T>(url: string, defaultValue: T): Promise<T> => {
@@ -139,28 +81,9 @@ const createBasicProduct = (backendProducto: BackendProducto): Product => {
     name: backendProducto.nombre,
     description: backendProducto.descripcion || "",
     category: "Cargando...",
-    type: "Cargando...",
-    color: "Cargando...",
     price: 0,
     stock: 0,
-    images: [],
-    variants: []
-  };
-};
-
-// Crear producto completo usando datos existentes (sin llamar a endpoints que no existen)
-const createFullProductFromBasic = (productId: string, basicData: Partial<Product>): Product => {
-  return {
-    id: productId,
-    name: basicData.name || "Producto",
-    description: basicData.description || "",
-    category: basicData.category || "Sin categoría",
-    type: basicData.type || "Sin tipo",
-    color: basicData.color || "Sin color",
-    price: basicData.price || 0,
-    stock: basicData.stock || 0,
-    images: basicData.images || [],
-    variants: basicData.variants || []
+    image: ''
   };
 };
 
@@ -175,47 +98,11 @@ const getProductosBasicos = async (): Promise<BackendProducto[]> => {
   }
 };
 
-// Obtener variantes de un producto
-const getVariantesProducto = async (productId: string): Promise<BackendVariante[]> => {
-  try {
-    return await safeApiGet<BackendVariante[]>(
-      `/ecommerce/productos/${productId}/variantes`,
-      []
-    );
-  } catch (error) {
-    return [];
-  }
-};
-
-// Obtener imágenes de una variante
-const getImagenesVariante = async (varianteId: number): Promise<BackendImagen[]> => {
-  try {
-    return await safeApiGet<BackendImagen[]>(
-      `/ecommerce/variantes/${varianteId}/imagenes`,
-      []
-    );
-  } catch (error) {
-    return [];
-  }
-};
-
 // Obtener categorías de un producto
 const getCategoriasProducto = async (productId: string): Promise<string[]> => {
   try {
     return await safeApiGet<string[]>(
       `/ecommerce/productos/${productId}/categorias`,
-      []
-    );
-  } catch (error) {
-    return [];
-  }
-};
-
-// Obtener tipos de un producto
-const getTiposProducto = async (productId: string): Promise<string[]> => {
-  try {
-    return await safeApiGet<string[]>(
-      `/ecommerce/productos/${productId}/tipos`,
       []
     );
   } catch (error) {
@@ -234,10 +121,8 @@ const buildProductFromAvailableData = async (
   }
   
   try {
-    // Obtener datos básicos si no se proporcionan
     let productoBasico = basicInfo;
     if (!productoBasico) {
-      // Intentar obtener del endpoint general de productos
       const productos = await getProductosBasicos();
       productoBasico = productos.find(p => p.idproducto.toString() === productId);
     }
@@ -249,67 +134,38 @@ const buildProductFromAvailableData = async (
         name: "Producto no encontrado",
         description: "",
         category: "No disponible",
-        type: "No disponible",
-        color: "No disponible",
         price: 0,
         stock: 0,
-        images: [],
-        variants: []
+        image: '',
       };
       productCache.set(productId, minimalProduct);
       return minimalProduct;
     }
     
-    // Obtener datos adicionales en paralelo
     const [
-      categorias,
-      tipos,
-      variantes
+      categorias
     ] = await Promise.all([
-      getCategoriasProducto(productId),
-      getTiposProducto(productId),
-      getVariantesProducto(productId)
+      getCategoriasProducto(productId)
     ]);
     
-    // Obtener imágenes de la primera variante si existe
-    let images: string[] = [];
-    if (variantes.length > 0) {
-      const imagenes = await getImagenesVariante(variantes[0].idvariante);
-      images = imagenes.map(img => `data:image/jpeg;base64,${img.imagen}`);
+    let image: string = '';
+    if (productoBasico) {
+      image = `data:image/jpeg;base64,${productoBasico.imagen}`;
     }
-    
-    // Procesar variantes
-    const variants: Variant[] = await Promise.all(
-      variantes.map(async (variante) => {
-        const colorName = await getColorDisenioSafe(variante.idcolor_disenio);
         
-        return {
-          id: variante.idvariante.toString(),
-          color: colorName,
-          stock: variante.stock || 0,
-          price: parseFloat(variante.precio_venta) || 0
-        };
-      })
-    );
-    
     // Calcular valores
     const categoria = categorias.length > 0 ? categorias[0] : "Sin categoría";
-    const tipo = tipos.length > 0 ? tipos[0] : "Sin tipo";
-    const color = variants.length > 0 ? variants[0].color : "Sin color";
-    const price = variants.length > 0 ? variants[0].price : 0;
-    const stock = variants.reduce((total, variant) => total + (variant.stock || 0), 0);
+    const price = productoBasico.precio_venta ? Number(productoBasico.precio_venta) : 0;
+    const stock = productoBasico.stock ? productoBasico.stock : 0;
     
     const fullProduct: Product = {
       id: productoBasico.idproducto.toString(),
       name: productoBasico.nombre,
       description: productoBasico.descripcion || "",
       category: categoria,
-      type: tipo,
-      color: color,
       price: price,
       stock: stock,
-      images: images,
-      variants: variants.length > 0 ? variants : undefined
+      image: image
     };
     
     // Guardar en cache
@@ -325,12 +181,9 @@ const buildProductFromAvailableData = async (
       name: "Error al cargar",
       description: "",
       category: "Error",
-      type: "Error",
-      color: "Error",
       price: 0,
       stock: 0,
-      images: [],
-      variants: []
+      image: ''
     };
     
     productCache.set(productId, emergencyProduct);
@@ -347,12 +200,12 @@ export const getCarruseles = async (): Promise<Carrusel[]> => {
         .filter(carrusel => carrusel.estado === 0)
         .map(async (carrusel) => {
           try {
-            const variantesResponse = await safeApiGet<BackendCarruselVariante[]>(
-              `/ecommerce/carruseles/${carrusel.idcarrusel}/variantes`,
+            const productosResponse = await safeApiGet<BackendCarruselProducto[]>(
+              `/ecommerce/carruseles/${carrusel.idcarrusel}/productos`,
               []
             );
             
-            const productIds = variantesResponse.map(v => v.idproducto.toString());
+            const productIds = productosResponse.map(v => v.idproducto.toString());
             
             return {
               id: carrusel.idcarrusel.toString(),
@@ -469,12 +322,9 @@ export const getFullProductsForCarousel = async (productIds: string[]): Promise<
               name: "Producto no encontrado",
               description: "",
               category: "No disponible",
-              type: "No disponible",
-              color: "No disponible",
               price: 0,
               stock: 0,
-              images: [],
-              variants: []
+              image: ''
             };
             return notFoundProduct;
           }
@@ -485,12 +335,9 @@ export const getFullProductsForCarousel = async (productIds: string[]): Promise<
             name: "Error al cargar",
             description: "",
             category: "Error",
-            type: "Error",
-            color: "Error",
             price: 0,
             stock: 0,
-            images: [],
-            variants: []
+            image: ''
           };
           return errorProduct;
         }
@@ -513,20 +360,20 @@ export const createCarrusel = async (carrusel: CarruselRequest): Promise<Carruse
     
     if (carrusel.productIds && carrusel.productIds.length > 0) {
       try {
-        await api.post(`/ecommerce/carruseles/${response.data.idcarrusel}/variantes`, {
+        await api.post(`/ecommerce/carruseles/${response.data.idcarrusel}/productos`, {
           productos: carrusel.productIds
         });
-      } catch (variantesError: any) {
-        console.error("Error adding products to carousel:", variantesError.message);
+      } catch (error: any) {
+        console.error("Error adding products to carousel:", error.message);
       }
     }
     
-    const variantesResponse = await safeApiGet<BackendCarruselVariante[]>(
-      `/ecommerce/carruseles/${response.data.idcarrusel}/variantes`,
+    const productosResponse = await safeApiGet<BackendCarruselProducto[]>(
+      `/ecommerce/carruseles/${response.data.idcarrusel}/productos`,
       []
     );
     
-    const productIds = variantesResponse.map(v => v.idproducto.toString());
+    const productIds = productosResponse.map(v => v.idproducto.toString());
     
     return {
       id: response.data.idcarrusel.toString(),
@@ -553,20 +400,20 @@ export const updateCarrusel = async (id: string, carrusel: CarruselRequest): Pro
     
     if (carrusel.productIds && carrusel.productIds.length >= 0) {
       try {
-        await api.put(`/ecommerce/carruseles/${id}/variantes`, {
+        await api.put(`/ecommerce/carruseles/${id}/productos`, {
           productos: carrusel.productIds
         });
-      } catch (variantesError: any) {
-        console.error("Error updating products in carousel:", variantesError.message);
+      } catch (error: any) {
+        console.error("Error updating products in carousel:", error.message);
       }
     }
     
-    const variantesResponse = await safeApiGet<BackendCarruselVariante[]>(
-      `/ecommerce/carruseles/${id}/variantes`,
+    const productosResponse = await safeApiGet<BackendCarruselProducto[]>(
+      `/ecommerce/carruseles/${id}/productos`,
       []
     );
     
-    const productIds = variantesResponse.map(v => v.idproducto.toString());
+    const productIds = productosResponse.map(v => v.idproducto.toString());
     
     return {
       id: response.data.idcarrusel.toString(),

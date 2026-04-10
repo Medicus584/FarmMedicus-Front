@@ -7,39 +7,22 @@ interface BackendAlert {
   descripcion: string | null;
   idubicacion: number;
   nombre_ubicacion: string;
-  variantes: BackendVariant[];
-}
-
-interface BackendVariant {
-  idvariante: number;
-  nombre_variante: string;
   precio_venta: string;
   precio_compra: string;
-  color_disenio: string;
-  color_luz: string;
-  watt: string;
-  tamano: string;
   stock: number;
   stock_minimo: number;
   estado: number;
-  imagenes: string[];
+  imagen: string;
 }
 
 export interface Alert {
   id: number;
   producto: string;
+  descripcion: string | null;
   ubicacion: string;
-  variantes: Variant[];
-}
-
-export interface Variant {
-  idvariante: number;
-  colorDiseno: string;
-  colorLuz: string;
-  watts: string;
   cantidad: number;
   stockMinimo: number;
-  imagenes: string[];
+  imagen: string;
 }
 
 const api = axios.create({
@@ -50,26 +33,8 @@ const api = axios.create({
   },
 });
 
-// Imágenes por defecto para cuando no hay imagen en la base de datos
-const defaultImages = {
-  "Tira LED 5050": "https://images.unsplash.com/photo-1582562124811-c09040d0a901?w=100&h=100&fit=crop",
-  "Foco LED 12W": "https://images.unsplash.com/photo-1618160702438-9b02ab6515c9?w=100&h=100&fit=crop",
-  "Controlador RGB": "https://images.unsplash.com/photo-1535268647677-300dbf3078d1?w=100&h=100&fit=crop",
-  "Reflector LED 50W": "https://images.unsplash.com/photo-1485833077593-4278bba3f11f?w=100&h=100&fit=crop"
-};
-
 const getDefaultImage = (productName: string): string => {
-  // Buscar una imagen por defecto basada en palabras clave del nombre del producto
-  if (productName.toLowerCase().includes('tira') || productName.toLowerCase().includes('led')) {
-    return defaultImages["Tira LED 5050"];
-  } else if (productName.toLowerCase().includes('foco')) {
-    return defaultImages["Foco LED 12W"];
-  } else if (productName.toLowerCase().includes('controlador')) {
-    return defaultImages["Controlador RGB"];
-  } else if (productName.toLowerCase().includes('reflector')) {
-    return defaultImages["Reflector LED 50W"];
-  }
-  return defaultImages["Tira LED 5050"];
+  return "https://static.vecteezy.com/system/resources/previews/011/781/801/non_2x/medicine-3d-render-icon-illustration-png.png";
 };
 
 export const getLowStockAlerts = async (): Promise<Alert[]> => {
@@ -80,22 +45,13 @@ export const getLowStockAlerts = async (): Promise<Alert[]> => {
       id: producto.idproducto,
       producto: producto.nombre,
       ubicacion: producto.nombre_ubicacion,
-      variantes: producto.variantes.map(variante => {
-        // Si no hay imágenes, usar imagen por defecto
-        let imagenes = variante.imagenes && variante.imagenes.length > 0 
-          ? variante.imagenes 
-          : [getDefaultImage(producto.nombre)];
-        
-        return {
-          idvariante: variante.idvariante,
-          colorDiseno: variante.color_disenio,
-          colorLuz: variante.color_luz,
-          watts: variante.watt,
-          cantidad: variante.stock,
-          stockMinimo: variante.stock_minimo,
-          imagenes: imagenes
-        };
-      })
+      descripcion: producto.descripcion,
+      cantidad: producto.stock,
+      stockMinimo: producto.stock_minimo,
+      imagen: producto.imagen ? 
+        producto.imagen
+        :
+        getDefaultImage(producto.nombre)
     }));
   } catch (error) {
     console.error("Error fetching low stock alerts:", error);
@@ -111,22 +67,13 @@ export const getCriticalStockAlerts = async (): Promise<Alert[]> => {
       id: producto.idproducto,
       producto: producto.nombre,
       ubicacion: producto.nombre_ubicacion,
-      variantes: producto.variantes.map(variante => {
-        // Si no hay imágenes, usar imagen por defecto
-        let imagenes = variante.imagenes && variante.imagenes.length > 0 
-          ? variante.imagenes 
-          : [getDefaultImage(producto.nombre)];
-        
-        return {
-          idvariante: variante.idvariante,
-          colorDiseno: variante.color_disenio,
-          colorLuz: variante.color_luz,
-          watts: variante.watt,
-          cantidad: variante.stock,
-          stockMinimo: variante.stock_minimo,
-          imagenes: imagenes
-        };
-      })
+      descripcion: producto.descripcion,
+      cantidad: producto.stock,
+      stockMinimo: producto.stock_minimo,
+      imagen: producto.imagen ? 
+        producto.imagen
+        :
+        getDefaultImage(producto.nombre)
     }));
   } catch (error) {
     console.error("Error fetching critical stock alerts:", error);

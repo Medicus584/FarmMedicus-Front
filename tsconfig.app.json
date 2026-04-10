@@ -21,10 +21,12 @@
     "noImplicitAny": false,
     "noFallthroughCasesInSwitch": false,
 
+    /* Opciones de rutas - hereda del tsconfig principal */
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
-    }
+    },
+    "ignoreDeprecations": "6.0"
   },
   "include": ["src"]
 }

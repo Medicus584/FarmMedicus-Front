@@ -6,6 +6,7 @@ import {
   Trash2,
   ChevronDown,
   ChevronUp,
+  Camera,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -31,6 +32,7 @@ import {
   type SaleRequest,
 } from "@/api/SalesApi";
 import { getUserId, getCurrentUser } from "@/api/AuthApi";
+import BarcodeScanner from "./BarcodeScanner";
 
 interface SaleItem extends Product {
   cantidad: number;
@@ -127,6 +129,7 @@ export function VenderView() {
   const [loadingSimilars, setLoadingSimilars] = useState<Map<number, boolean>>(
     new Map(),
   );
+  const [showScanner, setShowScanner] = useState(false);
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const cartRef = useRef<HTMLDivElement>(null);
@@ -176,6 +179,71 @@ export function VenderView() {
       }
     }
   }, [expandedProduct, searchResults]);
+
+  // Manejar historial del navegador para el escáner
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (showScanner) {
+        event.preventDefault();
+        setShowScanner(false);
+        window.history.pushState(null, '', window.location.pathname);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [showScanner]);
+
+  const openScanner = () => {
+    setShowScanner(true);
+    window.history.pushState({ scanner: true }, '');
+  };
+
+  const handleBarcodeScanned = async (barcode: string) => {
+    setShowScanner(false);
+    
+    try {
+      // Realizar búsqueda con el código de barras escaneado
+      setSearchQuery(barcode);
+      setLoading(true);
+      
+      const results = await searchProducts(barcode);
+      setSearchResults(results);
+      setSimilarProductsData(new Map());
+      
+      if (results.length > 0) {
+        toast({
+          title: "Producto encontrado",
+          description: `Se encontró: ${results[0].nombre}`,
+          duration: 2000,
+        });
+        
+        // Enfocar el input después del escaneo
+        setTimeout(() => {
+          if (searchInputRef.current) {
+            searchInputRef.current.focus();
+          }
+        }, 100);
+      } else {
+        toast({
+          title: "Producto no encontrado",
+          description: `No se encontró producto con código: ${barcode}`,
+          variant: "destructive",
+          duration: 2000,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Error al buscar el producto escaneado",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadSimilarProducts = async (
     productId: number,
@@ -583,6 +651,17 @@ export function VenderView() {
 
   return (
     <div className="space-y-6">
+      {/* Escáner de código de barras - solo visible en móvil */}
+      {showScanner && (
+        <BarcodeScanner
+          onScanSuccess={handleBarcodeScanned}
+          onClose={() => {
+            setShowScanner(false);
+            window.history.back();
+          }}
+        />
+      )}
+
       <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
         <div className="flex justify-between items-center">
           <div>
@@ -620,7 +699,7 @@ export function VenderView() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
                 ref={searchInputRef}
-                placeholder="Buscar por nombre, descripción o código de barras... (mín. 2 caracteres)"
+                placeholder="Buscar por nombre o código de barras"
                 value={searchQuery}
                 onChange={handleSearchChange}
                 onKeyDown={handleSearchKeyDown}
@@ -628,6 +707,18 @@ export function VenderView() {
                 disabled={loading}
                 autoFocus={true}
               />
+              {/* Botón de escáner - SOLO para móvil */}
+              {isMobile && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={openScanner}
+                  className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0"
+                >
+                  <Camera className="h-4 w-4" />
+                </Button>
+              )}
             </div>
 
             {loading && (

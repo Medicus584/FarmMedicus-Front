@@ -17,30 +17,6 @@ CREATE TABLE tipos (
     estado SMALLINT DEFAULT 0 CHECK (estado IN (0, 1))
 );
 
-CREATE TABLE colores_disenio (
-    idcolor_disenio SERIAL PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL UNIQUE,
-    estado SMALLINT DEFAULT 0 CHECK (estado IN (0, 1))
-);
-
-CREATE TABLE colores_luz (
-    idcolor_luz SERIAL PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL UNIQUE,
-    estado SMALLINT DEFAULT 0 CHECK (estado IN (0, 1))
-);
-
-CREATE TABLE watts (
-    idwatt SERIAL PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL UNIQUE,
-    estado SMALLINT DEFAULT 0 CHECK (estado IN (0, 1))
-);
-
-CREATE TABLE tamanos (
-    idtamano SERIAL PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL UNIQUE,
-    estado SMALLINT DEFAULT 0 CHECK (estado IN (0, 1))
-);
-
 -- Usuarios con rol directo
 CREATE TABLE usuarios (
     idusuario SERIAL PRIMARY KEY,
@@ -80,27 +56,6 @@ CREATE TABLE producto_tipos (
     idproducto INTEGER REFERENCES productos(idproducto) ON DELETE CASCADE,
     idtipo INTEGER REFERENCES tipos(idtipo) ON DELETE CASCADE,
     PRIMARY KEY (idproducto, idtipo)
-);
-
-CREATE TABLE variantes (
-    idvariante SERIAL PRIMARY KEY,
-    idproducto INTEGER REFERENCES productos(idproducto) ON DELETE CASCADE,
-    nombre_variante VARCHAR(100) NOT NULL,
-    precio_venta DECIMAL(10,2) NOT NULL CHECK (precio_venta >= 0),
-    precio_compra DECIMAL(10,2) NOT NULL CHECK (precio_compra >= 0),
-    idcolor_disenio INTEGER REFERENCES colores_disenio(idcolor_disenio),
-    idcolor_luz INTEGER REFERENCES colores_luz(idcolor_luz),
-    idwatt INTEGER REFERENCES watts(idwatt),
-    idtamano INTEGER REFERENCES tamanos(idtamano),
-    stock INTEGER NOT NULL DEFAULT 0 CHECK (stock >= 0),
-    stock_minimo INTEGER NOT NULL DEFAULT 0 CHECK (stock_minimo >= 0),
-    estado SMALLINT DEFAULT 0
-);
-
-CREATE TABLE imagenes_variantes (
-    idimagen SERIAL PRIMARY KEY,
-    idvariante INTEGER REFERENCES variantes(idvariante) ON DELETE CASCADE,
-    imagen BYTEA NOT NULL
 );
 
 -- Tablas de ventas y transacciones
@@ -218,8 +173,6 @@ CREATE INDEX idx_ventas_fecha ON ventas(fecha_hora);
 CREATE INDEX idx_ventas_usuario ON ventas(idusuario);
 CREATE INDEX idx_transacciones_caja_fecha ON transacciones_caja(fecha);
 CREATE INDEX idx_transacciones_caja_usuario ON transacciones_caja(idusuario);
-CREATE INDEX idx_variantes_producto ON variantes(idproducto);
-CREATE INDEX idx_variantes_stock ON variantes(stock);
 CREATE INDEX idx_detalle_ventas_venta ON detalle_ventas(idventa);
 CREATE INDEX idx_detalle_cotizaciones_cotizacion ON detalle_cotizaciones(idcotizacion);
 CREATE INDEX idx_productos_codigo_barras ON productos(codigo_barras);

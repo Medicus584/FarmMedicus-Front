@@ -14,7 +14,7 @@ import {
   Clock,
   StickyNote,
 } from "lucide-react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   Sidebar,
   SidebarContent,
@@ -45,12 +45,13 @@ const menuItems = [
     icon: ShoppingCart,
     roles: ["admin", "asistente"],
   },
-  {
-    title: "Notas",
-    url: "notas",
-    icon: StickyNote,
-    roles: ["admin", "asistente"],
-  },
+  // Notas - ELIMINADO para ambos
+  // {
+  //   title: "Notas",
+  //   url: "notas",
+  //   icon: StickyNote,
+  //   roles: ["admin", "asistente"],
+  // },
   {
     title: "Productos",
     url: "productos",
@@ -64,18 +65,20 @@ const menuItems = [
     icon: TrendingUp,
     roles: ["admin", "asistente"],
   },
-  {
-    title: "Cotización",
-    url: "cotizacion",
-    icon: FileText,
-    roles: ["admin", "asistente"],
-  },
-  {
-    title: "Pagos Pendientes",
-    url: "pagos-pendientes",
-    icon: Clock,
-    roles: ["admin", "asistente"],
-  },
+  // Cotización - ELIMINADO para ambos
+  // {
+  //   title: "Cotización",
+  //   url: "cotizacion",
+  //   icon: FileText,
+  //   roles: ["admin", "asistente"],
+  // },
+  // Pagos Pendientes - ELIMINADO para ambos
+  // {
+  //   title: "Pagos Pendientes",
+  //   url: "pagos-pendientes",
+  //   icon: Clock,
+  //   roles: ["admin", "asistente"],
+  // },
   { title: "Caja", url: "caja", icon: CreditCard, roles: ["admin"] },
   {
     title: "Registra Movimiento",
@@ -83,8 +86,10 @@ const menuItems = [
     icon: CreditCard,
     roles: ["admin", "asistente"],
   },
-  { title: "Reportes", url: "reportes", icon: FileBarChart, roles: ["admin"] },
-  { title: "Ecommerce", url: "ecommerce", icon: Globe, roles: ["admin"] },
+  // Reportes - ELIMINADO para admin
+  // { title: "Reportes", url: "reportes", icon: FileBarChart, roles: ["admin"] },
+  // Ecommerce - ELIMINADO para admin
+  // { title: "Ecommerce", url: "ecommerce", icon: Globe, roles: ["admin"] },
   {
     title: "Configuración",
     url: "configuracion",
@@ -125,7 +130,6 @@ export function AppSidebar({ currentView, onViewChange }: AppSidebarProps) {
       navigate("/login");
     } catch (error) {
       console.error("Error al cerrar sesión:", error);
-      // Limpiar localStorage incluso si hay error en el servidor
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       toast({
@@ -138,9 +142,7 @@ export function AppSidebar({ currentView, onViewChange }: AppSidebarProps) {
 
   const isActive = (view: string) => currentView === view;
 
-  // Función para contraer el sidebar en móviles al hacer clic en un menú
   const handleMenuItemClick = (view: DashboardView) => {
-    // Verificar si estamos en un dispositivo móvil
     const isMobile = window.innerWidth < 768;
     if (isMobile) {
       setOpenMobile(false);
@@ -148,7 +150,6 @@ export function AppSidebar({ currentView, onViewChange }: AppSidebarProps) {
     onViewChange(view);
   };
 
-  // Efecto para contraer el sidebar en móviles cuando cambia la vista
   useEffect(() => {
     const handleRouteChange = () => {
       const isMobile = window.innerWidth < 768;
@@ -156,8 +157,6 @@ export function AppSidebar({ currentView, onViewChange }: AppSidebarProps) {
         setOpenMobile(false);
       }
     };
-
-    // Ejecutar cuando el componente se monta o cuando cambia currentView
     handleRouteChange();
   }, [currentView, setOpenMobile]);
 

@@ -45,12 +45,13 @@ const menuItems = [
     icon: ShoppingCart,
     roles: ["admin", "asistente"],
   },
-  {
-    title: "Notas",
-    url: "notas",
-    icon: StickyNote,
-    roles: ["admin", "asistente"],
-  },
+  // Notas - ELIMINADO para ambos
+  // {
+  //   title: "Notas",
+  //   url: "notas",
+  //   icon: StickyNote,
+  //   roles: ["admin", "asistente"],
+  // },
   {
     title: "Productos",
     url: "productos",
@@ -64,18 +65,20 @@ const menuItems = [
     icon: TrendingUp,
     roles: ["admin", "asistente"],
   },
-  {
-    title: "Cotización",
-    url: "cotizacion",
-    icon: FileText,
-    roles: ["admin", "asistente"],
-  },
-  {
-    title: "Pagos Pendientes",
-    url: "pagos-pendientes",
-    icon: Clock,
-    roles: ["admin", "asistente"],
-  },
+  // Cotización - ELIMINADO para ambos
+  // {
+  //   title: "Cotización",
+  //   url: "cotizacion",
+  //   icon: FileText,
+  //   roles: ["admin", "asistente"],
+  // },
+  // Pagos Pendientes - ELIMINADO para ambos
+  // {
+  //   title: "Pagos Pendientes",
+  //   url: "pagos-pendientes",
+  //   icon: Clock,
+  //   roles: ["admin", "asistente"],
+  // },
   { title: "Caja", url: "caja", icon: CreditCard, roles: ["admin"] },
   {
     title: "Registra Movimiento",
@@ -83,8 +86,10 @@ const menuItems = [
     icon: CreditCard,
     roles: ["admin", "asistente"],
   },
-  { title: "Reportes", url: "reportes", icon: FileBarChart, roles: ["admin"] },
-  { title: "Ecommerce", url: "ecommerce", icon: Globe, roles: ["admin"] },
+  // Reportes - ELIMINADO para admin
+  // { title: "Reportes", url: "reportes", icon: FileBarChart, roles: ["admin"] },
+  // Ecommerce - ELIMINADO para admin
+  // { title: "Ecommerce", url: "ecommerce", icon: Globe, roles: ["admin"] },
   {
     title: "Configuración",
     url: "configuracion",
@@ -108,6 +113,7 @@ export function AppSidebar({ currentView, onViewChange }: AppSidebarProps) {
   const user = getCurrentUser();
   const userRole = user?.rol.toLowerCase() || "admin";
 
+  // Filtrar opciones de menú según el rol
   const filteredMenuItems = menuItems.filter((item) =>
     item.roles.includes(userRole),
   );

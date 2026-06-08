@@ -429,6 +429,7 @@ export function VenderView() {
   };
 
   const agregarProducto = (product: Product) => {
+    setSearchQuery('');
     const nuevoItem: SaleItem = {
       ...product,
       cantidad: 1,

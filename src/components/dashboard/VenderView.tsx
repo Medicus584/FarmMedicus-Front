@@ -33,6 +33,7 @@ import {
 } from "@/api/SalesApi";
 import { getUserId, getCurrentUser } from "@/api/AuthApi";
 import BarcodeScanner from "./BarcodeScanner";
+import { Textarea } from "../ui/textarea";
 
 interface SaleItem extends Product {
   cantidad: number;
@@ -129,6 +130,8 @@ export function VenderView() {
   const [loadingSimilars, setLoadingSimilars] = useState<Map<number, boolean>>(
     new Map(),
   );
+  const [showDiscountField, setShowDiscountField] = useState(false);
+  const [discountReason, setDiscountReason] = useState('');
   const [showScanner, setShowScanner] = useState(false);
   const { toast } = useToast();
   const isMobile = useIsMobile();
@@ -243,6 +246,16 @@ export function VenderView() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDiscountChange = (discountValue: number) => {
+    if (discountValue > 0) {
+      setShowDiscountField(true);
+    } else {
+      setShowDiscountField(false);
+      setDiscountReason('');
+    }
+    setDescuento(discountValue);
   };
 
   const loadSimilarProducts = async (
@@ -573,6 +586,15 @@ export function VenderView() {
       return;
     }
 
+    if (descuento > 0 && !discountReason.trim()) {
+      toast({
+        title: "Error",
+        description: "Proporcione una razon para el descuento",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!userId) {
       toast({
         title: "Error",
@@ -607,6 +629,7 @@ export function VenderView() {
             : descripcion,
         sub_total: subtotal,
         descuento: descuento,
+        descripcion_descuento: discountReason,
         total: total,
         metodo_pago: metodoPago,
         items: items,
@@ -618,6 +641,8 @@ export function VenderView() {
       setDescuento(0);
       setMontoPagado(0);
       setShowConfirm(false);
+      setDiscountReason('');
+      setShowDiscountField(false);
 
       toast({
         title: "¡Venta procesada!",
@@ -1042,27 +1067,39 @@ export function VenderView() {
                 <span>Bs {formatBs(subtotal)}</span>
               </div>
 
-              <div className="flex items-center gap-2 flex-wrap">
-                <Label
-                  htmlFor="descuento"
-                  className="text-sm whitespace-nowrap"
-                >
-                  Descuento (Bs):
-                </Label>
-                <Input
-                  id="descuento"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={descuento || ""}
-                  onChange={(e) => setDescuento(Number(e.target.value) || 0)}
-                  placeholder="0"
-                  className="w-20 h-8 number-input-no-scroll"
-                  onWheel={(e) => e.currentTarget.blur()}
-                />
-                <span className="text-sm whitespace-nowrap">
-                  -Bs {formatBs(descuento)}
-                </span>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Label htmlFor="descuento" className="text-sm whitespace-nowrap">
+                    Descuento (Bs):
+                  </Label>
+                  <Input
+                    id="descuento"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={descuento || ""}
+                    onChange={(e) => handleDiscountChange(Number(e.target.value) || 0)}
+                    placeholder="0"
+                    className="w-20 h-8 number-input-no-scroll"
+                    onWheel={(e) => e.currentTarget.blur()}
+                  />
+                  <span className="text-sm whitespace-nowrap">
+                    -Bs {formatBs(descuento)}
+                  </span>
+                </div>
+
+                {showDiscountField && (
+                  <div className="mt-2">
+                    <Label htmlFor="discountReason">Justificación del descuento *</Label>
+                    <Textarea
+                      id="discountReason"
+                      value={discountReason}
+                      onChange={(e) => setDiscountReason(e.target.value)}
+                      placeholder="Explique el motivo del descuento..."
+                      rows={3}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-between text-lg font-bold border-t pt-2">

@@ -36,10 +36,10 @@ interface ProductFormData {
   categorias: string[];
   descripcion: string;
   ubicacion: string;
-  precioVenta: string;
-  precioCompra?: string;
-  stock: number;
-  stockMinimo?: number;
+  precioVenta: string | number;
+  precioCompra?: string | number;
+  stock: number | string;
+  stockMinimo?: number | string;
   imagen?: string;
   imagenFile?: File | string | string[];
   codigoBarras?: string;
@@ -288,10 +288,10 @@ export function FormularioProductos({
         categorias: product.categorias || [],
         descripcion: product.descripcion || "",
         ubicacion: product.ubicacion || "",
-        precioVenta: product.precio_venta?.toString() || "0",
-        precioCompra: product.precio_compra?.toString() || "0",
-        stock: product.stock || 0,
-        stockMinimo: product.stock_minimo || 0,
+        precioVenta: product.precio_venta?.toString() || "",
+        precioCompra: product.precio_compra?.toString() || "",
+        stock: product.stock?.toString() || "",
+        stockMinimo: product.stock_minimo?.toString() || "",
         imagen: product.imagen || "",
         imagenFile: product.imagen
           ? base64ToFile(product.imagen, "producto.jpg")
@@ -307,10 +307,10 @@ export function FormularioProductos({
       categorias: [],
       descripcion: "",
       ubicacion: "",
-      precioVenta: "0",
-      precioCompra: "0",
-      stock: 0,
-      stockMinimo: 0,
+      precioVenta: "",
+      precioCompra: "",
+      stock: "",
+      stockMinimo: "",
       imagen: "",
       imagenFile: null,
       codigoBarras: "",
@@ -445,7 +445,7 @@ export function FormularioProductos({
       return;
     }
 
-    if (!formData.precioVenta) {
+    if (!formData.precioVenta || formData.precioVenta === "") {
       toast({
         title: "Error",
         description: "El precio de venta es obligatorio",
@@ -498,16 +498,30 @@ export function FormularioProductos({
           ),
         ),
       );
-      formDataToSend.append("precio_venta", formData.precioVenta.toString());
-      formDataToSend.append(
-        "precio_compra",
-        (formData.precioCompra || "0").toString(),
-      );
-      formDataToSend.append("stock", formData.stock.toString());
-      formDataToSend.append(
-        "stock_minimo",
-        (formData.stockMinimo || 0).toString(),
-      );
+
+      // Convertir precioVenta a número, si es string vacío o null, usar 0
+      const precioVentaValue = formData.precioVenta === "" || formData.precioVenta === null || formData.precioVenta === undefined
+        ? 0
+        : Number(formData.precioVenta);
+      formDataToSend.append("precio_venta", precioVentaValue.toString());
+
+      // Convertir precioCompra a número, si es string vacío o null, usar 0
+      const precioCompraValue = formData.precioCompra === "" || formData.precioCompra === null || formData.precioCompra === undefined
+        ? 0
+        : Number(formData.precioCompra);
+      formDataToSend.append("precio_compra", precioCompraValue.toString());
+
+      // Convertir stock a número, si es string vacío o null, usar 0
+      const stockValue = formData.stock === "" || formData.stock === null || formData.stock === undefined
+        ? 0
+        : Number(formData.stock);
+      formDataToSend.append("stock", stockValue.toString());
+
+      // Convertir stockMinimo a número, si es string vacío o null, usar 0
+      const stockMinimoValue = formData.stockMinimo === "" || formData.stockMinimo === null || formData.stockMinimo === undefined
+        ? 0
+        : Number(formData.stockMinimo);
+      formDataToSend.append("stock_minimo", stockMinimoValue.toString());
 
       if (formData.codigoBarras && formData.codigoBarras.trim()) {
         formDataToSend.append("codigo_barras", formData.codigoBarras.trim());
@@ -809,7 +823,7 @@ export function FormularioProductos({
           </div>
         </div>
 
-        {/* Precio Venta y Precio Compra */}
+        {/* Precio Venta y Precio Compra - CORREGIDO: ahora permite borrar los ceros */}
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
             <Label htmlFor="precioVenta" className="text-xs font-medium">
@@ -820,10 +834,14 @@ export function FormularioProductos({
               type="number"
               step="0.01"
               value={formData.precioVenta}
-              onChange={(e) => handleInputChange("precioVenta", e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                // Permitir string vacío para poder borrar
+                handleInputChange("precioVenta", value === "" ? "" : Number(value));
+              }}
+              placeholder="0"
               className="h-8 text-xs number-input-no-scroll"
               onWheel={(e) => e.currentTarget.blur()}
-              required
             />
           </div>
 
@@ -836,16 +854,19 @@ export function FormularioProductos({
               type="number"
               step="0.01"
               value={formData.precioCompra}
-              onChange={(e) =>
-                handleInputChange("precioCompra", e.target.value)
-              }
+              onChange={(e) => {
+                const value = e.target.value;
+                // Permitir string vacío para poder borrar
+                handleInputChange("precioCompra", value === "" ? "" : Number(value));
+              }}
+              placeholder="0"
               className="h-8 text-xs number-input-no-scroll"
               onWheel={(e) => e.currentTarget.blur()}
             />
           </div>
         </div>
 
-        {/* Stock y Stock Mínimo */}
+        {/* Stock y Stock Mínimo - CORREGIDO: ahora permite borrar los ceros */}
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
             <Label className="text-xs font-medium">
@@ -854,14 +875,15 @@ export function FormularioProductos({
             <Input
               type="number"
               value={formData.stock}
-              onChange={(e) =>
-                handleInputChange("stock", parseInt(e.target.value) || 0)
-              }
+              onChange={(e) => {
+                const value = e.target.value;
+                // Permitir string vacío para poder borrar
+                handleInputChange("stock", value === "" ? "" : Number(value));
+              }}
               placeholder="0"
               min="0"
               className="h-8 text-xs number-input-no-scroll"
               onWheel={(e) => e.currentTarget.blur()}
-              required
             />
           </div>
 
@@ -870,9 +892,11 @@ export function FormularioProductos({
             <Input
               type="number"
               value={formData.stockMinimo}
-              onChange={(e) =>
-                handleInputChange("stockMinimo", parseInt(e.target.value) || 0)
-              }
+              onChange={(e) => {
+                const value = e.target.value;
+                // Permitir string vacío para poder borrar
+                handleInputChange("stockMinimo", value === "" ? "" : Number(value));
+              }}
               placeholder="0"
               min="0"
               className="h-8 text-xs number-input-no-scroll"
@@ -970,13 +994,12 @@ export function FormularioProductos({
       <AddItemDialog
         open={addDialogState.open}
         onOpenChange={(open) => setAddDialogState({ open, type: null })}
-        title={`Agregar ${
-          addDialogState.type === "categoria"
+        title={`Agregar ${addDialogState.type === "categoria"
             ? "Categoría"
             : addDialogState.type === "ubicacion"
               ? "Ubicación"
               : ""
-        }`}
+          }`}
         itemType={
           addDialogState.type === "categoria"
             ? "categorías"

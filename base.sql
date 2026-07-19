@@ -37,8 +37,8 @@ CREATE TABLE productos (
     idubicacion INTEGER REFERENCES ubicaciones(idubicacion),
     estado SMALLINT DEFAULT 0,
     imagen bytea,
-    precio_venta integer NOT NULL DEFAULT 0,
-    precio_compra integer NOT NULL DEFAULT 0,
+    precio_venta DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+    precio_compra DOUBLE PRECISION NOT NULL DEFAULT 0.0,
     stock integer NOT NULL DEFAULT 0,
     stock_minimo INTEGER NOT NULL DEFAULT 0,
     codigo_barras VARCHAR(100) UNIQUE

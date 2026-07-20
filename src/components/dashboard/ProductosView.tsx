@@ -397,6 +397,9 @@ export function ProductosView() {
         description: `${productData.nombre} ha sido ${action} exitosamente.`,
       });
 
+      setEditingProduct(null);
+      setIsFormOpen(false);
+
       // Recargar productos
       if (showAllProducts) {
         const allProducts = await getAllProductos();
@@ -405,9 +408,6 @@ export function ProductosView() {
         const results = await buscarProductos(searchTerm);
         setProducts(results);
       }
-
-      setEditingProduct(null);
-      setIsFormOpen(false);
     } catch (error) {
       toast({
         title: "Error",

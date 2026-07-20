@@ -254,8 +254,12 @@ export function ProductosView() {
   useEffect(() => {
     if (debouncedSearchTerm.trim().length >= 2) {
       performSearch(debouncedSearchTerm);
-    } else if (debouncedSearchTerm.trim().length === 0 && !showAllProducts) {
-      setProducts([]);
+    } else if (debouncedSearchTerm.trim().length === 0) {
+      if (showAllProducts) {
+        loadAllProducts();
+      } else {
+        setProducts([]);
+      }
     }
   }, [debouncedSearchTerm, showAllProducts]);
 
@@ -278,26 +282,31 @@ export function ProductosView() {
     }
   };
 
+  const loadAllProducts = async () => {
+    setLoadingAll(true);
+    try {
+      const allProducts = await getAllProductos();
+      setProducts(allProducts);
+    } catch (error) {
+      console.error("Error cargando todos los productos:", error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar todos los productos",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingAll(false);
+    }
+  };
+
   // Función para cargar todos los productos
   const handleShowAllProducts = async () => {
     const newShowAll = !showAllProducts;
     setShowAllProducts(newShowAll);
 
     if (newShowAll) {
-      setLoadingAll(true);
-      try {
-        const allProducts = await getAllProductos();
-        setProducts(allProducts);
-      } catch (error) {
-        console.error("Error cargando todos los productos:", error);
-        toast({
-          title: "Error",
-          description: "No se pudieron cargar todos los productos",
-          variant: "destructive",
-        });
-      } finally {
-        setLoadingAll(false);
-      }
+      await loadAllProducts();
+      setSearchTerm("");
     } else {
       setProducts([]);
       setSearchTerm("");

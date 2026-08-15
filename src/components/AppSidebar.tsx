@@ -65,12 +65,14 @@ const menuItems = [
     icon: CreditCard,
     roles: ["admin", "asistente"],
   },
+  /*
   {
     title: "Configuración",
     url: "configuracion",
     icon: Settings,
     roles: ["admin"],
   },
+  */
   { title: "Alertas", url: "alertas", icon: Bell, roles: ["admin"] },
   {
     title: "Gestión de Usuarios",

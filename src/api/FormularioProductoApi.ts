@@ -8,12 +8,19 @@ export interface ProductoRequest {
   nombre: string;
   descripcion: string;
   idubicacion: number;
+  idlaboratorio: number;
   categorias: number[];
   imagen: string;
   precio_venta: number;
   precio_compra: number;
   stock: number;
   stock_minimo: number;
+  codigo_barras?: string;
+  productos_similares?: number[];
+  lotes?: Array<{
+    stock: number;
+    fecha_vencimiento: string;
+  }>;
 }
 
 export interface ProductoResponse {
@@ -22,13 +29,33 @@ export interface ProductoResponse {
   descripcion: string;
   idubicacion: number;
   ubicacion: string;
+  idlaboratorio: number;
+  laboratorio: string;
   estado: number;
   categorias: string[];
   imagen: string;
   precio_venta: number;
   precio_compra: number;
-  stock: number;
+  stock_total: number;
   stock_minimo: number;
+  codigo_barras?: string;
+  productos_similares?: Array<{
+    idproducto: number;
+    nombre: string;
+  }>;
+  lotes?: Array<{
+    idlote: number;
+    stock: number;
+    fecha_vencimiento: string;
+  }>;
+}
+
+export interface LoteResponse {
+  idlote: number;
+  idproducto: number;
+  stock: number;
+  fecha_vencimiento: string;
+  estado: number;
 }
 
 // Configuración de axios
@@ -43,17 +70,10 @@ const debugFormData = (formData: FormData) => {
   for (let [key, value] of formData.entries()) {
     if (value instanceof File) {
       console.log(`${key}: File - ${value.name} (${value.type}, ${value.size} bytes)`);
-    } else if (key === 'variantes') {
+    } else if (key === 'lotes' || key === 'categorias' || key === 'productos_similares') {
       try {
         const parsed = JSON.parse(value as string);
         console.log(`${key}:`, JSON.stringify(parsed, null, 2));
-      } catch {
-        console.log(`${key}:`, value);
-      }
-    } else if (key === 'categorias' || key === 'tipos') {
-      try {
-        const parsed = JSON.parse(value as string);
-        console.log(`${key}:`, parsed);
       } catch {
         console.log(`${key}:`, value);
       }
@@ -69,14 +89,13 @@ export const createProducto = async (formData: FormData): Promise<ProductoRespon
   try {
     console.log("Enviando datos al servidor...");
     
-    // Debug mejorado
     debugFormData(formData);
 
     const response = await api.post<ProductoResponse>("/formulario-productos/productos", formData, {
       headers: {
         "Content-Type": "multipart/form-data",
       },
-      timeout: 30000, // 30 segundos timeout
+      timeout: 30000,
     });
     
     console.log("Producto creado exitosamente:", response.data);
@@ -140,5 +159,66 @@ export const deleteProducto = async (id: number): Promise<void> => {
   } catch (error: any) {
     console.error("Error deleting producto:", error);
     throw new Error(error.response?.data?.message || "No se pudo eliminar el producto");
+  }
+};
+
+// API para lotes
+export const getLotesByProducto = async (idproducto: number): Promise<LoteResponse[]> => {
+  try {
+    const response = await api.get<LoteResponse[]>(`/formulario-productos/productos/${idproducto}/lotes`);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error fetching lotes:", error);
+    throw new Error(error.response?.data?.message || "No se pudieron cargar los lotes");
+  }
+};
+
+export const createLote = async (idproducto: number, data: { stock: number; fecha_vencimiento: string }): Promise<LoteResponse> => {
+  try {
+    const response = await api.post<LoteResponse>(`/formulario-productos/productos/${idproducto}/lotes`, data);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error creating lote:", error);
+    throw new Error(error.response?.data?.message || "No se pudo crear el lote");
+  }
+};
+
+export const updateLote = async (idlote: number, data: { stock: number; fecha_vencimiento: string }): Promise<LoteResponse> => {
+  try {
+    const response = await api.put<LoteResponse>(`/formulario-productos/lotes/${idlote}`, data);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error updating lote:", error);
+    throw new Error(error.response?.data?.message || "No se pudo actualizar el lote");
+  }
+};
+
+export const deleteLote = async (idlote: number): Promise<void> => {
+  try {
+    await api.delete(`/formulario-productos/lotes/${idlote}`);
+  } catch (error: any) {
+    console.error("Error deleting lote:", error);
+    throw new Error(error.response?.data?.message || "No se pudo eliminar el lote");
+  }
+};
+
+// API para laboratorios (ya que los incluimos en ManagementSectionApi, pero por si acaso)
+export const getLaboratorios = async (): Promise<Array<{ idlaboratorio: number; nombre: string; estado: number }>> => {
+  try {
+    const response = await api.get("/laboratorios");
+    return response.data;
+  } catch (error: any) {
+    console.error("Error fetching laboratorios:", error);
+    throw new Error(error.response?.data?.message || "No se pudieron cargar los laboratorios");
+  }
+};
+
+export const createLaboratorio = async (data: { nombre: string }): Promise<{ idlaboratorio: number; nombre: string; estado: number }> => {
+  try {
+    const response = await api.post("/laboratorios", data);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error creating laboratorio:", error);
+    throw new Error(error.response?.data?.message || "No se pudo crear el laboratorio");
   }
 };

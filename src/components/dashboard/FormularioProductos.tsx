@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+// components/FormularioProductos.tsx
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,9 +24,11 @@ import BarcodeScanner from "./BarcodeScanner";
 import {
   createUbicacion,
   createCategoria,
+  createLaboratorio,
   getUbicaciones,
   getCategorias,
-} from "@/api/ManagementSectionApi";
+  getLaboratorios,
+} from "@/api/ProductsApi";
 import {
   createProducto,
   updateProducto,
@@ -38,6 +41,7 @@ interface ProductFormData {
   categorias: string[];
   descripcion: string;
   ubicacion: string;
+  laboratorio: string;
   precioVenta: string | number;
   precioCompra?: string | number;
   stock: number | string;
@@ -47,12 +51,19 @@ interface ProductFormData {
   codigoBarras?: string;
   productosSimilares?: number[];
   productosSimilaresData?: Array<{ idproducto: number; nombre: string }>;
+  lotes?: Array<{ stock: number; fechaVencimiento: string }>;
+}
+
+interface LoteForm {
+  stock: number;
+  fechaVencimiento: string;
 }
 
 interface FormularioProductosProps {
   product?: any;
   ubicaciones: string[];
   categorias: string[];
+  laboratorios: string[];
   onSubmit: (productData: ProductFormData, isEditing: boolean) => void;
   onCancel: () => void;
   onRefreshData?: () => void;
@@ -60,22 +71,16 @@ interface FormularioProductosProps {
 
 interface AddDialogState {
   open: boolean;
-  type: "categoria" | "ubicacion" | null;
+  type: "categoria" | "ubicacion" | "laboratorio" | null;
 }
 
 interface ManagementItem {
-  id: number;
+  idubicacion?: number;
+  idcategoria?: number;
+  idlaboratorio?: number;
+  id?: number;
   nombre: string;
   estado: number;
-}
-
-interface SearchSelectProps {
-  options: string[];
-  selectedValues: string[];
-  onSelectionChange: (values: string[]) => void;
-  placeholder: string;
-  label: string;
-  required?: boolean;
 }
 
 const SearchSelect = ({
@@ -85,7 +90,14 @@ const SearchSelect = ({
   placeholder,
   label,
   required,
-}: SearchSelectProps) => {
+}: {
+  options: string[];
+  selectedValues: string[];
+  onSelectionChange: (values: string[]) => void;
+  placeholder: string;
+  label: string;
+  required?: boolean;
+}) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isOpen, setIsOpen] = useState(false);
 
@@ -257,51 +269,100 @@ const ProductoSimilarSelect = ({
   );
 };
 
-const base64ToFile = (base64String, fileName = "imagen.jpg") => {
-  const [metadata, data] = base64String.split(",");
-  const mime = metadata.match(/:(.*?);/)[1];
+// Función mejorada para convertir base64 a File
+const base64ToFile = (base64String: string, fileName = "imagen.jpg"): File | null => {
+  try {
+    // Si es una URL, intentamos convertirla
+    if (base64String.startsWith('http') || base64String.startsWith('https')) {
+      // No podemos convertir URLs a File directamente, devolvemos null
+      return null;
+    }
 
-  const byteCharacters = atob(data);
-  const byteArrays = [];
+    // Si no tiene el formato base64 esperado, devolvemos null
+    if (!base64String.includes(',')) {
+      return null;
+    }
 
-  for (let i = 0; i < byteCharacters.length; i++) {
-    byteArrays.push(byteCharacters.charCodeAt(i));
+    const [metadata, data] = base64String.split(',');
+    if (!data) {
+      return null;
+    }
+
+    const mimeMatch = metadata.match(/:(.*?);/);
+    const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+
+    // Decodificar base64
+    const byteCharacters = atob(data);
+    const byteArrays = [];
+
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteArrays.push(byteCharacters.charCodeAt(i));
+    }
+
+    const byteArray = new Uint8Array(byteArrays);
+    const blob = new Blob([byteArray], { type: mime });
+
+    return new File([blob], fileName, { type: mime });
+  } catch (error) {
+    console.warn('Error al convertir base64 a File:', error);
+    return null;
   }
+};
 
-  const byteArray = new Uint8Array(byteArrays);
-  const blob = new Blob([byteArray], { type: mime });
-
-  return new File([blob], fileName, { type: mime });
+// Función para obtener la URL de la imagen
+const getImageUrl = (imagen: string | undefined): string => {
+  if (!imagen) {
+    return "https://static.vecteezy.com/system/resources/previews/011/781/801/non_2x/medicine-3d-render-icon-illustration-png.png";
+  }
+  
+  // Si es una URL HTTP, la devolvemos tal cual
+  if (imagen.startsWith('http://') || imagen.startsWith('https://')) {
+    return imagen;
+  }
+  
+  // Si es base64, la devolvemos tal cual
+  if (imagen.includes('data:image')) {
+    return imagen;
+  }
+  
+  // Si es una ruta relativa, la devolvemos tal cual
+  return imagen;
 };
 
 export function FormularioProductos({
   product,
   ubicaciones,
   categorias,
+  laboratorios,
   onSubmit,
   onCancel,
   onRefreshData,
 }: FormularioProductosProps) {
   const [formData, setFormData] = useState<ProductFormData>(() => {
     if (product) {
+      // Intentar convertir la imagen a File si es base64
+      let imagenFile = null;
+      if (product.imagen) {
+        imagenFile = base64ToFile(product.imagen, "producto.jpg");
+      }
+
       return {
         id: product.idproducto?.toString(),
-        nombre: product.nombre,
+        nombre: product.nombre || '',
         categorias: product.categorias || [],
-        descripcion: product.descripcion || "",
-        ubicacion: product.ubicacion || "",
-        precioVenta: product.precio_venta?.toString() || "",
-        precioCompra: product.precio_compra?.toString() || "",
-        stock: product.stock?.toString() || "",
-        stockMinimo: product.stock_minimo?.toString() || "",
-        imagen: product.imagen || "",
-        imagenFile: product.imagen
-          ? base64ToFile(product.imagen, "producto.jpg")
-          : null,
-        codigoBarras: product.codigo_barras || "",
-        productosSimilares:
-          product.productos_similares?.map((p: any) => p.idproducto) || [],
+        descripcion: product.descripcion || '',
+        ubicacion: product.ubicacion || '',
+        laboratorio: product.laboratorio || '',
+        precioVenta: product.precio_venta?.toString() || '',
+        precioCompra: product.precio_compra?.toString() || '',
+        stock: product.stock_total?.toString() || '',
+        stockMinimo: product.stock_minimo?.toString() || '',
+        imagen: getImageUrl(product.imagen),
+        imagenFile: imagenFile,
+        codigoBarras: product.codigo_barras || '',
+        productosSimilares: product.productos_similares?.map((p: any) => p.idproducto) || [],
         productosSimilaresData: product.productos_similares || [],
+        lotes: product.lotes || [],
       };
     }
     return {
@@ -309,6 +370,7 @@ export function FormularioProductos({
       categorias: [],
       descripcion: "",
       ubicacion: "",
+      laboratorio: "",
       precioVenta: "",
       precioCompra: "",
       stock: "",
@@ -318,6 +380,7 @@ export function FormularioProductos({
       codigoBarras: "",
       productosSimilares: [],
       productosSimilaresData: [],
+      lotes: [],
     };
   });
 
@@ -328,18 +391,24 @@ export function FormularioProductos({
   const [todosProductos, setTodosProductos] = useState<ProductoSelect[]>([]);
   const [loadingProductos, setLoadingProductos] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
+  const [lotesForm, setLotesForm] = useState<LoteForm[]>([
+    { stock: 0, fechaVencimiento: "" }
+  ]);
 
   const [localLists, setLocalLists] = useState({
     ubicaciones: ubicaciones,
     categorias: categorias,
+    laboratorios: laboratorios,
   });
 
   const [managementItems, setManagementItems] = useState<{
     ubicaciones: ManagementItem[];
     categorias: ManagementItem[];
+    laboratorios: ManagementItem[];
   }>({
     ubicaciones: [],
     categorias: [],
+    laboratorios: [],
   });
 
   const [isSubmittingProduct, setIsSubmittingProduct] = useState(false);
@@ -397,19 +466,37 @@ export function FormularioProductos({
   useEffect(() => {
     const loadManagementItems = async () => {
       try {
-        const [ubicacionesData, categoriasData] = await Promise.all([
+        const [ubicacionesData, categoriasData, laboratoriosData] = await Promise.all([
           getUbicaciones(),
           getCategorias(),
+          getLaboratorios(),
         ]);
 
+        const ubicacionesMapped = ubicacionesData.map(item => ({
+          ...item,
+          id: item.idubicacion
+        }));
+        
+        const categoriasMapped = categoriasData.map(item => ({
+          ...item,
+          id: item.idcategoria
+        }));
+        
+        const laboratoriosMapped = laboratoriosData.map(item => ({
+          ...item,
+          id: item.idlaboratorio
+        }));
+
         setManagementItems({
-          ubicaciones: ubicacionesData,
-          categorias: categoriasData,
+          ubicaciones: ubicacionesMapped,
+          categorias: categoriasMapped,
+          laboratorios: laboratoriosMapped,
         });
 
         setLocalLists({
           ubicaciones: ubicacionesData.map((item) => item.nombre),
           categorias: categoriasData.map((item) => item.nombre),
+          laboratorios: laboratoriosData.map((item) => item.nombre),
         });
       } catch (error) {
         console.error("Error cargando elementos de gestión:", error);
@@ -423,12 +510,13 @@ export function FormularioProductos({
     setLocalLists({
       ubicaciones: ubicaciones,
       categorias: categorias,
+      laboratorios: laboratorios,
     });
-  }, [ubicaciones, categorias]);
+  }, [ubicaciones, categorias, laboratorios]);
 
   const handleInputChange = (
     field: keyof ProductFormData,
-    value: string | string[] | File | number | number[],
+    value: string | string[] | File | number | number[] | LoteForm[],
   ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -445,7 +533,27 @@ export function FormularioProductos({
 
   const getItemIdByName = (items: ManagementItem[], name: string): number => {
     const item = items.find((item) => item.nombre === name);
-    return item?.id || 0;
+    if (item) {
+      return (item as any).idubicacion || (item as any).idcategoria || (item as any).idlaboratorio || item.id || 0;
+    }
+    return 0;
+  };
+
+  const handleLoteChange = (index: number, field: keyof LoteForm, value: any) => {
+    const nuevosLotes = [...lotesForm];
+    nuevosLotes[index] = { ...nuevosLotes[index], [field]: value };
+    setLotesForm(nuevosLotes);
+  };
+
+  const addLoteRow = () => {
+    setLotesForm([...lotesForm, { stock: 0, fechaVencimiento: "" }]);
+  };
+
+  const removeLoteRow = (index: number) => {
+    if (lotesForm.length > 1) {
+      const nuevosLotes = lotesForm.filter((_, i) => i !== index);
+      setLotesForm(nuevosLotes);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -466,6 +574,15 @@ export function FormularioProductos({
       toast({
         title: "Error",
         description: "La ubicación es obligatoria",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.laboratorio) {
+      toast({
+        title: "Error",
+        description: "El laboratorio es obligatorio",
         variant: "destructive",
       });
       return;
@@ -498,6 +615,16 @@ export function FormularioProductos({
       return;
     }
 
+    const lotesValidos = lotesForm.filter(l => l.stock > 0 && l.fechaVencimiento);
+    if (lotesValidos.length === 0) {
+      toast({
+        title: "Error",
+        description: "Debe agregar al menos un lote con stock y fecha de vencimiento",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmittingProduct(true);
 
     try {
@@ -506,10 +633,25 @@ export function FormularioProductos({
         formData.ubicacion,
       );
 
+      const idlaboratorio = getItemIdByName(
+        managementItems.laboratorios,
+        formData.laboratorio,
+      );
+
       if (idubicacion === 0) {
         toast({
           title: "Error",
           description: "La ubicación seleccionada no es válida",
+          variant: "destructive",
+        });
+        setIsSubmittingProduct(false);
+        return;
+      }
+
+      if (idlaboratorio === 0) {
+        toast({
+          title: "Error",
+          description: "El laboratorio seleccionado no es válido",
           variant: "destructive",
         });
         setIsSubmittingProduct(false);
@@ -525,6 +667,7 @@ export function FormularioProductos({
       formDataToSend.append("nombre", formData.nombre);
       formDataToSend.append("descripcion", descripcionFormateada);
       formDataToSend.append("idubicacion", idubicacion.toString());
+      formDataToSend.append("idlaboratorio", idlaboratorio.toString());
       formDataToSend.append(
         "categorias",
         JSON.stringify(
@@ -544,11 +687,6 @@ export function FormularioProductos({
         : Number(formData.precioCompra);
       formDataToSend.append("precio_compra", precioCompraValue.toString());
       
-      const stockValue = formData.stock === "" || formData.stock === null || formData.stock === undefined 
-        ? 0 
-        : Number(formData.stock);
-      formDataToSend.append("stock", stockValue.toString());
-      
       const stockMinimoValue = formData.stockMinimo === "" || formData.stockMinimo === null || formData.stockMinimo === undefined 
         ? 0 
         : Number(formData.stockMinimo);
@@ -567,6 +705,12 @@ export function FormularioProductos({
           JSON.stringify(formData.productosSimilares),
         );
       }
+
+      const lotesData = lotesValidos.map(l => ({
+        stock: l.stock,
+        fecha_vencimiento: l.fechaVencimiento,
+      }));
+      formDataToSend.append("lotes", JSON.stringify(lotesData));
 
       if (formData.imagenFile instanceof File) {
         formDataToSend.append("imagen", formData.imagenFile);
@@ -601,7 +745,7 @@ export function FormularioProductos({
     }
   };
 
-  const openAddDialog = (type: "categoria" | "ubicacion") => {
+  const openAddDialog = (type: "categoria" | "ubicacion" | "laboratorio") => {
     setAddDialogState({ open: true, type });
   };
 
@@ -611,19 +755,39 @@ export function FormularioProductos({
 
       switch (type) {
         case "ubicacion":
-          newData = await getUbicaciones();
+          const ubicacionesData = await getUbicaciones();
+          newData = ubicacionesData.map(item => ({
+            ...item,
+            id: item.idubicacion
+          }));
           setManagementItems((prev) => ({ ...prev, ubicaciones: newData }));
           setLocalLists((prev) => ({
             ...prev,
-            ubicaciones: newData.map((item) => item.nombre),
+            ubicaciones: ubicacionesData.map((item) => item.nombre),
           }));
           break;
         case "categoria":
-          newData = await getCategorias();
+          const categoriasData = await getCategorias();
+          newData = categoriasData.map(item => ({
+            ...item,
+            id: item.idcategoria
+          }));
           setManagementItems((prev) => ({ ...prev, categorias: newData }));
           setLocalLists((prev) => ({
             ...prev,
-            categorias: newData.map((item) => item.nombre),
+            categorias: categoriasData.map((item) => item.nombre),
+          }));
+          break;
+        case "laboratorio":
+          const laboratoriosData = await getLaboratorios();
+          newData = laboratoriosData.map(item => ({
+            ...item,
+            id: item.idlaboratorio
+          }));
+          setManagementItems((prev) => ({ ...prev, laboratorios: newData }));
+          setLocalLists((prev) => ({
+            ...prev,
+            laboratorios: laboratoriosData.map((item) => item.nombre),
           }));
           break;
         default:
@@ -649,6 +813,9 @@ export function FormularioProductos({
           break;
         case "ubicacion":
           await createUbicacion({ nombre: name });
+          break;
+        case "laboratorio":
+          await createLaboratorio({ nombre: name });
           break;
       }
 
@@ -713,14 +880,22 @@ export function FormularioProductos({
   const removeImage = () => {
     setFormData((prev) => ({
       ...prev,
-      imagen: null,
+      imagen: "",
       imagenFile: null,
     }));
   };
 
+  useEffect(() => {
+    if (product && product.lotes && product.lotes.length > 0) {
+      setLotesForm(product.lotes.map((lote: any) => ({
+        stock: lote.stock,
+        fechaVencimiento: lote.fechaVencimiento || '',
+      })));
+    }
+  }, [product]);
+
   return (
     <>
-      {/* Escáner de código de barras - solo visible en móvil */}
       {showScanner && (
         <BarcodeScanner
           onScanSuccess={handleBarcodeScanned}
@@ -741,7 +916,7 @@ export function FormularioProductos({
             id="nombre"
             value={formData.nombre}
             onChange={(e) => handleInputChange("nombre", e.target.value)}
-            placeholder="Ej: Laptop HP Pavilion"
+            placeholder="Ej: Paracetamol 500mg"
             className="h-8 text-xs"
             required
           />
@@ -761,6 +936,9 @@ export function FormularioProductos({
                   src={formData.imagen}
                   className="w-full h-full object-cover"
                   alt="Producto"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = "https://static.vecteezy.com/system/resources/previews/011/781/801/non_2x/medicine-3d-render-icon-illustration-png.png";
+                  }}
                 />
               ) : (
                 <Camera className="w-7 h-7 text-gray-400" />
@@ -865,7 +1043,57 @@ export function FormularioProductos({
           </div>
         </div>
 
-        {/* Precio Venta y Precio Compra */}
+        {/* Laboratorio y Stock Mínimo lado a lado */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="laboratorio" className="text-xs font-medium">
+                Laboratorio <span className="text-red-500">*</span>
+              </Label>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-6 w-6 p-0"
+                onClick={() => openAddDialog("laboratorio")}
+                disabled={isAddingElement}
+              >
+                <Plus className="h-3 w-3" />
+              </Button>
+            </div>
+            <select
+              value={formData.laboratorio}
+              onChange={(e) => handleInputChange("laboratorio", e.target.value)}
+              className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-xs"
+              required
+            >
+              <option value="">Seleccionar</option>
+              {localLists.laboratorios.map((laboratorio) => (
+                <option key={laboratorio} value={laboratorio}>
+                  {laboratorio}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs font-medium">Stock Mínimo</Label>
+            <Input
+              type="number"
+              value={formData.stockMinimo}
+              onChange={(e) => {
+                const value = e.target.value;
+                handleInputChange("stockMinimo", value === "" ? "" : Number(value));
+              }}
+              placeholder="0"
+              min="0"
+              className="h-8 text-xs number-input-no-scroll"
+              onWheel={(e) => e.currentTarget.blur()}
+            />
+          </div>
+        </div>
+
+        {/* Precio Venta y Precio Compra lado a lado */}
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
             <Label htmlFor="precioVenta" className="text-xs font-medium">
@@ -906,43 +1134,6 @@ export function FormularioProductos({
           </div>
         </div>
 
-        {/* Stock y Stock Mínimo */}
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-1">
-            <Label className="text-xs font-medium">
-              Stock <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              type="number"
-              value={formData.stock}
-              onChange={(e) => {
-                const value = e.target.value;
-                handleInputChange("stock", value === "" ? "" : Number(value));
-              }}
-              placeholder="0"
-              min="0"
-              className="h-8 text-xs number-input-no-scroll"
-              onWheel={(e) => e.currentTarget.blur()}
-            />
-          </div>
-
-          <div className="space-y-1">
-            <Label className="text-xs font-medium">Stock Mínimo</Label>
-            <Input
-              type="number"
-              value={formData.stockMinimo}
-              onChange={(e) => {
-                const value = e.target.value;
-                handleInputChange("stockMinimo", value === "" ? "" : Number(value));
-              }}
-              placeholder="0"
-              min="0"
-              className="h-8 text-xs number-input-no-scroll"
-              onWheel={(e) => e.currentTarget.blur()}
-            />
-          </div>
-        </div>
-
         {/* Código de Barras con escáner integrado */}
         <div className="space-y-1">
           <Label htmlFor="codigoBarras" className="text-xs font-medium">
@@ -956,7 +1147,6 @@ export function FormularioProductos({
               placeholder="Escanea o escribe el código"
               className="h-8 text-xs"
             />
-            {/* Botón de escáner - SOLO para móvil */}
             {isMobile && (
               <Button
                 type="button"
@@ -969,6 +1159,65 @@ export function FormularioProductos({
               </Button>
             )}
           </div>
+        </div>
+
+        {/* Lotes - Gestión de stock con fechas de vencimiento */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-medium">
+              Lotes y Stock <span className="text-red-500">*</span>
+            </Label>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={addLoteRow}
+              className="h-6 px-2 text-xs"
+            >
+              <Plus className="h-3 w-3 mr-1" />
+              Agregar Lote
+            </Button>
+          </div>
+
+          {lotesForm.map((lote, index) => (
+            <div key={index} className="flex items-center gap-2 p-2 border rounded-md">
+              <div className="flex-1">
+                <Input
+                  type="number"
+                  placeholder="Stock"
+                  value={lote.stock || ''}
+                  onChange={(e) => handleLoteChange(index, 'stock', Number(e.target.value))}
+                  className="h-8 text-xs"
+                  min="0"
+                />
+              </div>
+              <div className="flex-1">
+                <Input
+                  type="date"
+                  value={lote.fechaVencimiento}
+                  onChange={(e) => handleLoteChange(index, 'fechaVencimiento', e.target.value)}
+                  className="h-8 text-xs"
+                />
+              </div>
+              {lotesForm.length > 1 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => removeLoteRow(index)}
+                  className="h-8 w-8 p-0 text-destructive"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          ))}
+
+          {lotesForm.length > 0 && (
+            <div className="text-xs text-muted-foreground">
+              Stock total: {lotesForm.reduce((sum, l) => sum + (l.stock || 0), 0)} unidades
+            </div>
+          )}
         </div>
 
         {/* Productos Similares */}
@@ -1051,14 +1300,18 @@ export function FormularioProductos({
             ? "Categoría"
             : addDialogState.type === "ubicacion"
               ? "Ubicación"
-              : ""
+              : addDialogState.type === "laboratorio"
+                ? "Laboratorio"
+                : ""
         }`}
         itemType={
           addDialogState.type === "categoria"
             ? "categorías"
             : addDialogState.type === "ubicacion"
               ? "ubicaciones"
-              : ""
+              : addDialogState.type === "laboratorio"
+                ? "laboratorios"
+                : ""
         }
         onAdd={handleAddNewElement}
       />

@@ -22,11 +22,11 @@ export interface ProductGroup {
 
 // Datos agrupados por producto con variantes
 export const productGroups: ProductGroup[] = [
-  
+  // Tus productos aquí
 ];
 
 export const sampleProducts: Product[] = [
- 
+  // Tus productos simples aquí
 ];
 
 // Convertir productos agrupados a productos individuales para compatibilidad
@@ -41,7 +41,7 @@ export const getAllProducts = (): Product[] => {
         name: group.name,
         description: group.description,
         price: variant.price || group.basePrice,
-        images: [variant.images[0]],
+        image: variant.images[0], // Cambiado de 'images' a 'image'
         category: group.category,
         color: variant.color,
         size: group.size,
@@ -66,6 +66,3 @@ export const getUniqueValues = (products: Product[], field: keyof Product): stri
 
 export const allProducts = getAllProducts();
 export const categories = getUniqueValues(allProducts, 'category');
-export const colors = getUniqueValues(allProducts, 'color');
-export const sizes = getUniqueValues(allProducts, 'size');
-export const types = getUniqueValues(allProducts, 'type');

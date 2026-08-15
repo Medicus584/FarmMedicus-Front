@@ -133,3 +133,5 @@ export function ProductCard({ product, onAddToCart, onViewDetails }: ProductCard
     </Card>
   );
 }
+
+export type { Product };

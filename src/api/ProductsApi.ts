@@ -1,37 +1,39 @@
+// api/ProductsApi.ts
 import axios from "axios";
+
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
-// Interfaces para las tablas maestras
-interface BackendUbicacion {
+// Interfaces
+export interface BackendUbicacion {
   idubicacion: number;
   nombre: string;
   estado: number;
 }
 
-interface BackendCategoria {
+export interface BackendCategoria {
   idcategoria: number;
   nombre: string;
   estado: number;
 }
 
-interface BackendProducto {
-  idproducto: number;
+export interface BackendLaboratorio {
+  idlaboratorio: number;
   nombre: string;
-  descripcion: string;
   estado: number;
-  ubicacion_nombre: string;
-  idubicacion: number;
-  categorias: string[];
-  imagen: string;
-  precio_venta: string;
-  precio_compra: string;
+}
+
+export interface BackendLote {
+  idlote: number;
+  idproducto: number;
   stock: number;
-  stock_minimo: number;
-  codigo_barras: string | null;
-  productos_similares: Array<{
-    idproducto: number;
-    nombre: string;
-  }>;
+  fecha_vencimiento: string;
+  estado: number;
+}
+
+export interface ProductoLote {
+  idlote: number;
+  stock: number;
+  fechaVencimiento: string;
 }
 
 export interface Producto {
@@ -41,14 +43,18 @@ export interface Producto {
   idubicacion: number;
   ubicacion_nombre: string;
   ubicacion: string;
+  idlaboratorio: number;
+  laboratorio_nombre: string;
+  laboratorio: string;
   categorias: string[];
   estado: number;
   imagen: string;
   precio_venta: string;
   precio_compra: string;
-  stock: number;
+  stock_total: number;
   stock_minimo: number;
   codigo_barras: string | null;
+  lotes: ProductoLote[];
   productos_similares: Array<{
     idproducto: number;
     nombre: string;
@@ -59,6 +65,7 @@ export interface ProductoRequest {
   nombre: string;
   descripcion: string;
   idubicacion: number;
+  idlaboratorio: number;
   categorias: number[];
   imagen?: File | string | null;
   precio_venta: string;
@@ -67,7 +74,137 @@ export interface ProductoRequest {
   stock_minimo?: number;
   codigo_barras?: string | null;
   productos_similares?: number[];
+  lotes?: Array<{
+    stock: number;
+    fecha_vencimiento: string;
+  }>;
 }
+
+export interface ProductoListResponse {
+  productos: Producto[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+// Mock data
+const MOCK_UBICACIONES: BackendUbicacion[] = [
+  { idubicacion: 1, nombre: "Estante A1", estado: 1 },
+  { idubicacion: 2, nombre: "Estante B2", estado: 1 },
+  { idubicacion: 3, nombre: "Almacén Central", estado: 1 },
+];
+
+const MOCK_CATEGORIAS: BackendCategoria[] = [
+  { idcategoria: 1, nombre: "Analgésicos", estado: 1 },
+  { idcategoria: 2, nombre: "Antibióticos", estado: 1 },
+  { idcategoria: 3, nombre: "Vitaminas", estado: 1 },
+  { idcategoria: 4, nombre: "Antiinflamatorios", estado: 1 },
+];
+
+const MOCK_LABORATORIOS: BackendLaboratorio[] = [
+  { idlaboratorio: 1, nombre: "Laboratorio A", estado: 1 },
+  { idlaboratorio: 2, nombre: "Laboratorio B", estado: 1 },
+  { idlaboratorio: 3, nombre: "Laboratorio C", estado: 1 },
+];
+
+let MOCK_PRODUCTOS: any[] = [];
+let nextProductId = 1;
+let nextLoteId = 1;
+
+// Generar productos mock con productos similares
+const generateMockProducts = () => {
+  const productos = [];
+  const nombres = [
+    "Paracetamol 500mg", "Ibuprofeno 400mg", "Amoxicilina 500mg",
+    "Vitamina C 1000mg", "Omeprazol 20mg", "Loratadina 10mg",
+    "Metformina 850mg", "Losartan 50mg", "Atorvastatina 20mg",
+    "Salbutamol Inhalador", "Dexametasona 4mg", "Diclofenaco 50mg",
+    "Cetirizina 10mg", "Ranitidina 150mg", "Clonazepam 2mg",
+    "Fluoxetina 20mg", "Omeprazol 40mg", "Metronidazol 500mg",
+    "Diazepam 5mg", "Amlodipino 5mg",
+  ];
+  
+  const descripciones = [
+    "Analgésico y antipirético", "Antiinflamatorio", "Antibiótico de amplio espectro",
+    "Suplemento vitamínico", "Inhibidor de bomba de protones", "Antihistamínico",
+    "Antidiabético", "Antihipertensivo", "Hipolipemiante",
+    "Broncodilatador", "Corticoesteroide", "Antiinflamatorio",
+    "Antialérgico", "Antagonista H2", "Ansiolítico",
+    "Antidepresivo", "Inhibidor de bomba de protones", "Antibiótico",
+    "Ansiolítico", "Antihipertensivo",
+  ];
+
+  // Crear productos primero
+  for (let i = 0; i < nombres.length; i++) {
+    const categoriaIdx = i % MOCK_CATEGORIAS.length;
+    const ubicacionIdx = i % MOCK_UBICACIONES.length;
+    const laboratorioIdx = i % MOCK_LABORATORIOS.length;
+    
+    const lotes = [
+      {
+        idlote: nextLoteId++,
+        idproducto: i + 1,
+        stock: Math.floor(Math.random() * 50) + 5,
+        fecha_vencimiento: new Date(2026 + Math.floor(Math.random() * 3), Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toISOString().split('T')[0],
+        estado: 1,
+      },
+      {
+        idlote: nextLoteId++,
+        idproducto: i + 1,
+        stock: Math.floor(Math.random() * 30) + 3,
+        fecha_vencimiento: new Date(2027 + Math.floor(Math.random() * 2), Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toISOString().split('T')[0],
+        estado: 1,
+      },
+    ];
+    
+    const stockTotal = lotes.reduce((sum, lote) => sum + lote.stock, 0);
+    
+    productos.push({
+      idproducto: i + 1,
+      nombre: nombres[i],
+      descripcion: descripciones[i],
+      idubicacion: MOCK_UBICACIONES[ubicacionIdx].idubicacion,
+      ubicacion_nombre: MOCK_UBICACIONES[ubicacionIdx].nombre,
+      idlaboratorio: MOCK_LABORATORIOS[laboratorioIdx].idlaboratorio,
+      laboratorio_nombre: MOCK_LABORATORIOS[laboratorioIdx].nombre,
+      categorias: [MOCK_CATEGORIAS[categoriaIdx].nombre, MOCK_CATEGORIAS[(categoriaIdx + 1) % MOCK_CATEGORIAS.length].nombre],
+      estado: 1,
+      imagen: "https://static.vecteezy.com/system/resources/previews/011/781/801/non_2x/medicine-3d-render-icon-illustration-png.png",
+      precio_venta: (Math.random() * 100 + 20).toFixed(2),
+      precio_compra: (Math.random() * 60 + 10).toFixed(2),
+      stock_total: stockTotal,
+      stock_minimo: Math.floor(Math.random() * 10) + 2,
+      codigo_barras: `750${Math.floor(Math.random() * 10000000000).toString().padStart(10, '0')}`,
+      lotes: lotes,
+      productos_similares: [],
+    });
+  }
+  
+  // Asignar productos similares (cada producto tendrá entre 1 y 3 similares)
+  for (let i = 0; i < productos.length; i++) {
+    const numSimilares = Math.floor(Math.random() * 3) + 1; // 1-3 similares
+    const similaresIds = [];
+    const availableIds = productos.map(p => p.idproducto).filter(id => id !== i + 1);
+    
+    for (let j = 0; j < Math.min(numSimilares, availableIds.length); j++) {
+      const randomIndex = Math.floor(Math.random() * availableIds.length);
+      const selectedId = availableIds[randomIndex];
+      similaresIds.push(selectedId);
+      availableIds.splice(randomIndex, 1);
+    }
+    
+    productos[i].productos_similares = similaresIds.map(id => {
+      const prod = productos.find(p => p.idproducto === id);
+      return prod ? { idproducto: prod.idproducto, nombre: prod.nombre } : null;
+    }).filter(Boolean);
+  }
+  
+  nextProductId = productos.length + 1;
+  return productos;
+};
+
+MOCK_PRODUCTOS = generateMockProducts();
 
 const api = axios.create({
   baseURL: API_URL,
@@ -77,84 +214,178 @@ const api = axios.create({
   },
 });
 
+// Funciones para tablas maestras
 export const getUbicaciones = async (): Promise<BackendUbicacion[]> => {
   try {
-    const response = await api.get<BackendUbicacion[]>("/ubicaciones");
-    return response.data;
+    await new Promise(resolve => setTimeout(resolve, 300));
+    return MOCK_UBICACIONES;
   } catch (error) {
     console.error("Error fetching ubicaciones:", error);
     throw new Error("No se pudieron cargar las ubicaciones");
   }
 };
 
+export const createUbicacion = async (data: { nombre: string }): Promise<BackendUbicacion> => {
+  try {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    const newUbicacion = {
+      idubicacion: MOCK_UBICACIONES.length + 1,
+      nombre: data.nombre,
+      estado: 1,
+    };
+    MOCK_UBICACIONES.push(newUbicacion);
+    return newUbicacion;
+  } catch (error) {
+    console.error("Error creating ubicacion:", error);
+    throw new Error("No se pudo crear la ubicación");
+  }
+};
+
 export const getCategorias = async (): Promise<BackendCategoria[]> => {
   try {
-    const response = await api.get<BackendCategoria[]>("/categorias");
-    return response.data;
+    await new Promise(resolve => setTimeout(resolve, 300));
+    return MOCK_CATEGORIAS;
   } catch (error) {
     console.error("Error fetching categorias:", error);
     throw new Error("No se pudieron cargar las categorías");
   }
 };
 
+export const createCategoria = async (data: { nombre: string }): Promise<BackendCategoria> => {
+  try {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    const newCategoria = {
+      idcategoria: MOCK_CATEGORIAS.length + 1,
+      nombre: data.nombre,
+      estado: 1,
+    };
+    MOCK_CATEGORIAS.push(newCategoria);
+    return newCategoria;
+  } catch (error) {
+    console.error("Error creating categoria:", error);
+    throw new Error("No se pudo crear la categoría");
+  }
+};
+
+export const getLaboratorios = async (): Promise<BackendLaboratorio[]> => {
+  try {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    return MOCK_LABORATORIOS;
+  } catch (error) {
+    console.error("Error fetching laboratorios:", error);
+    throw new Error("No se pudieron cargar los laboratorios");
+  }
+};
+
+export const createLaboratorio = async (data: { nombre: string }): Promise<BackendLaboratorio> => {
+  try {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    const newLaboratorio = {
+      idlaboratorio: MOCK_LABORATORIOS.length + 1,
+      nombre: data.nombre,
+      estado: 1,
+    };
+    MOCK_LABORATORIOS.push(newLaboratorio);
+    return newLaboratorio;
+  } catch (error) {
+    console.error("Error creating laboratorio:", error);
+    throw new Error("No se pudo crear el laboratorio");
+  }
+};
+
+// Funciones para productos
 export const getTodosProductosParaSelect = async (): Promise<
   { idproducto: number; nombre: string }[]
 > => {
   try {
-    const response = await api.get("/todos-select");
-    return response.data;
+    await new Promise(resolve => setTimeout(resolve, 300));
+    return MOCK_PRODUCTOS.map(p => ({ idproducto: p.idproducto, nombre: p.nombre }));
   } catch (error) {
     console.error("Error fetching productos para select:", error);
     return [];
   }
 };
 
-export const buscarProductos = async (termino: string): Promise<Producto[]> => {
+export const buscarProductos = async (
+  termino: string,
+  categoria?: string,
+  laboratorio?: string,
+  page: number = 1,
+  limit: number = 15
+): Promise<ProductoListResponse> => {
   try {
-    if (!termino || termino.trim().length < 2) {
-      return [];
+    await new Promise(resolve => setTimeout(resolve, 400));
+    
+    let filtered = [...MOCK_PRODUCTOS];
+    
+    if (termino && termino.trim().length >= 2) {
+      const searchLower = termino.toLowerCase().trim();
+      filtered = filtered.filter(p =>
+        p.nombre.toLowerCase().includes(searchLower) ||
+        p.descripcion.toLowerCase().includes(searchLower) ||
+        (p.codigo_barras && p.codigo_barras.includes(searchLower))
+      );
     }
-
-    const response = await api.get<BackendProducto[]>(
-      `/buscar?termino=${encodeURIComponent(termino.trim())}`,
-    );
-    return response.data.map(mapBackendProducto);
+    
+    if (categoria) {
+      filtered = filtered.filter(p => p.categorias.includes(categoria));
+    }
+    
+    if (laboratorio) {
+      filtered = filtered.filter(p => p.laboratorio_nombre === laboratorio);
+    }
+    
+    const total = filtered.length;
+    const totalPages = Math.ceil(total / limit);
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginated = filtered.slice(startIndex, endIndex);
+    
+    return {
+      productos: paginated.map(mapBackendProducto),
+      total,
+      page,
+      limit,
+      totalPages,
+    };
   } catch (error) {
     console.error("Error buscando productos:", error);
     throw new Error("No se pudieron buscar los productos");
   }
 };
 
-// Obtener todos los productos
-export const getAllProductos = async (): Promise<Producto[]> => {
+export const getAllProductos = async (
+  page: number = 1,
+  limit: number = 15
+): Promise<ProductoListResponse> => {
   try {
-    const response = await api.get<BackendProducto[]>("/todos");
-    return response.data.map(mapBackendProducto);
+    await new Promise(resolve => setTimeout(resolve, 400));
+    
+    const total = MOCK_PRODUCTOS.length;
+    const totalPages = Math.ceil(total / limit);
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginated = MOCK_PRODUCTOS.slice(startIndex, endIndex);
+    
+    return {
+      productos: paginated.map(mapBackendProducto),
+      total,
+      page,
+      limit,
+      totalPages,
+    };
   } catch (error) {
     console.error("Error fetching todos los productos:", error);
     throw new Error("No se pudieron cargar todos los productos");
   }
 };
 
-// Función original getProductos
-export const getProductos = async (
-  searchTerm?: string,
-): Promise<Producto[]> => {
-  try {
-    if (searchTerm && searchTerm.trim().length >= 2) {
-      return buscarProductos(searchTerm);
-    }
-    return getAllProductos();
-  } catch (error) {
-    console.error("Error fetching productos:", error);
-    throw new Error("No se pudieron cargar los productos");
-  }
-};
-
 export const getProductoById = async (id: number): Promise<Producto> => {
   try {
-    const response = await api.get<BackendProducto>(`/productos/${id}`);
-    return mapBackendProducto(response.data);
+    await new Promise(resolve => setTimeout(resolve, 300));
+    const producto = MOCK_PRODUCTOS.find(p => p.idproducto === id);
+    if (!producto) throw new Error("Producto no encontrado");
+    return mapBackendProducto(producto);
   } catch (error) {
     console.error("Error fetching producto:", error);
     throw new Error("No se pudo cargar el producto");
@@ -163,13 +394,65 @@ export const getProductoById = async (id: number): Promise<Producto> => {
 
 export const createProducto = async (formData: FormData): Promise<Producto> => {
   try {
-    const response = await api.post<BackendProducto>("/productos", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    });
-
-    return mapBackendProducto(response.data);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    const nombre = formData.get('nombre') as string;
+    const descripcion = formData.get('descripcion') as string;
+    const idubicacion = parseInt(formData.get('idubicacion') as string);
+    const idlaboratorio = parseInt(formData.get('idlaboratorio') as string);
+    const categorias = JSON.parse(formData.get('categorias') as string);
+    const precio_venta = formData.get('precio_venta') as string;
+    const precio_compra = formData.get('precio_compra') as string;
+    const stock = parseInt(formData.get('stock') as string);
+    const stock_minimo = parseInt(formData.get('stock_minimo') as string || '0');
+    const codigo_barras = formData.get('codigo_barras') as string || null;
+    const productos_similares = JSON.parse(formData.get('productos_similares') as string || '[]');
+    const lotesData = JSON.parse(formData.get('lotes') as string || '[]');
+    
+    const ubicacion = MOCK_UBICACIONES.find(u => u.idubicacion === idubicacion);
+    const laboratorio = MOCK_LABORATORIOS.find(l => l.idlaboratorio === idlaboratorio);
+    const categoriaNombres = categorias.map((id: number) => {
+      const cat = MOCK_CATEGORIAS.find(c => c.idcategoria === id);
+      return cat ? cat.nombre : '';
+    }).filter(Boolean);
+    
+    const lotes = lotesData.map((lote: any) => ({
+      idlote: nextLoteId++,
+      idproducto: nextProductId,
+      stock: lote.stock,
+      fecha_vencimiento: lote.fecha_vencimiento,
+      estado: 1,
+    }));
+    
+    const stockTotal = lotes.reduce((sum: number, lote: any) => sum + lote.stock, 0);
+    
+    const similaresMapped = productos_similares.map((id: number) => {
+      const p = MOCK_PRODUCTOS.find(prod => prod.idproducto === id);
+      return p ? { idproducto: p.idproducto, nombre: p.nombre } : null;
+    }).filter(Boolean);
+    
+    const newProduct = {
+      idproducto: nextProductId++,
+      nombre,
+      descripcion,
+      idubicacion,
+      ubicacion_nombre: ubicacion?.nombre || '',
+      idlaboratorio,
+      laboratorio_nombre: laboratorio?.nombre || '',
+      categorias: categoriaNombres,
+      estado: 1,
+      imagen: "https://static.vecteezy.com/system/resources/previews/011/781/801/non_2x/medicine-3d-render-icon-illustration-png.png",
+      precio_venta,
+      precio_compra,
+      stock_total: stockTotal,
+      stock_minimo,
+      codigo_barras,
+      lotes,
+      productos_similares: similaresMapped,
+    };
+    
+    MOCK_PRODUCTOS.push(newProduct);
+    return mapBackendProducto(newProduct);
   } catch (error) {
     console.error("Error creating producto:", error);
     throw new Error("No se pudo crear el producto");
@@ -178,20 +461,98 @@ export const createProducto = async (formData: FormData): Promise<Producto> => {
 
 export const updateProducto = async (
   id: number,
-  formData: FormData,
+  formData: FormData
 ): Promise<Producto> => {
   try {
-    const response = await api.put<BackendProducto>(
-      `/productos/${id}`,
-      formData,
-      {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      },
-    );
-
-    return mapBackendProducto(response.data);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    const index = MOCK_PRODUCTOS.findIndex(p => p.idproducto === id);
+    if (index === -1) throw new Error("Producto no encontrado");
+    
+    const existingProduct = MOCK_PRODUCTOS[index];
+    const updatedProduct = { ...existingProduct };
+    
+    const nombre = formData.get('nombre') as string;
+    if (nombre) updatedProduct.nombre = nombre;
+    
+    const descripcion = formData.get('descripcion') as string;
+    if (descripcion) updatedProduct.descripcion = descripcion;
+    
+    const idubicacion = formData.get('idubicacion');
+    if (idubicacion) {
+      const ubicacionId = parseInt(idubicacion as string);
+      updatedProduct.idubicacion = ubicacionId;
+      const ubicacion = MOCK_UBICACIONES.find(u => u.idubicacion === ubicacionId);
+      updatedProduct.ubicacion_nombre = ubicacion?.nombre || '';
+    }
+    
+    const idlaboratorio = formData.get('idlaboratorio');
+    if (idlaboratorio) {
+      const laboratorioId = parseInt(idlaboratorio as string);
+      updatedProduct.idlaboratorio = laboratorioId;
+      const laboratorio = MOCK_LABORATORIOS.find(l => l.idlaboratorio === laboratorioId);
+      updatedProduct.laboratorio_nombre = laboratorio?.nombre || '';
+    }
+    
+    const categorias = formData.get('categorias');
+    if (categorias) {
+      const categoriasIds = JSON.parse(categorias as string);
+      updatedProduct.categorias = categoriasIds.map((id: number) => {
+        const cat = MOCK_CATEGORIAS.find(c => c.idcategoria === id);
+        return cat ? cat.nombre : '';
+      }).filter(Boolean);
+    }
+    
+    const precio_venta = formData.get('precio_venta');
+    if (precio_venta) updatedProduct.precio_venta = precio_venta;
+    
+    const precio_compra = formData.get('precio_compra');
+    if (precio_compra) updatedProduct.precio_compra = precio_compra;
+    
+    const stock_minimo = formData.get('stock_minimo');
+    if (stock_minimo) updatedProduct.stock_minimo = parseInt(stock_minimo as string);
+    
+    const codigo_barras = formData.get('codigo_barras');
+    if (codigo_barras !== undefined) updatedProduct.codigo_barras = codigo_barras as string || null;
+    
+    const productos_similares = formData.get('productos_similares');
+    if (productos_similares) {
+      const similaresIds = JSON.parse(productos_similares as string);
+      updatedProduct.productos_similares = similaresIds.map((id: number) => {
+        const p = MOCK_PRODUCTOS.find(prod => prod.idproducto === id);
+        return p ? { idproducto: p.idproducto, nombre: p.nombre } : null;
+      }).filter(Boolean);
+    }
+    
+    const lotesData = formData.get('lotes');
+    if (lotesData) {
+      const nuevosLotes = JSON.parse(lotesData as string);
+      const lotesExistentes = updatedProduct.lotes || [];
+      
+      const lotesActualizados = [...lotesExistentes];
+      nuevosLotes.forEach((lote: any) => {
+        if (lote.idlote) {
+          const idx = lotesActualizados.findIndex((l: any) => l.idlote === lote.idlote);
+          if (idx !== -1) {
+            lotesActualizados[idx].stock += lote.stock;
+          }
+        } else {
+          lotesActualizados.push({
+            idlote: nextLoteId++,
+            idproducto: id,
+            stock: lote.stock,
+            fecha_vencimiento: lote.fecha_vencimiento,
+            estado: 1,
+          });
+        }
+      });
+      
+      updatedProduct.lotes = lotesActualizados;
+      updatedProduct.stock_total = lotesActualizados.reduce((sum: number, l: any) => sum + l.stock, 0);
+    }
+    
+    MOCK_PRODUCTOS[index] = updatedProduct;
+    return mapBackendProducto(updatedProduct);
   } catch (error) {
     console.error("Error updating producto:", error);
     throw new Error("No se pudo actualizar el producto");
@@ -200,7 +561,11 @@ export const updateProducto = async (
 
 export const deleteProducto = async (id: number): Promise<void> => {
   try {
-    await api.delete(`/productos/${id}`);
+    await new Promise(resolve => setTimeout(resolve, 300));
+    const index = MOCK_PRODUCTOS.findIndex(p => p.idproducto === id);
+    if (index !== -1) {
+      MOCK_PRODUCTOS.splice(index, 1);
+    }
   } catch (error) {
     console.error("Error deleting producto:", error);
     throw new Error("No se pudo eliminar el producto");
@@ -209,39 +574,66 @@ export const deleteProducto = async (id: number): Promise<void> => {
 
 export const updateStockProducto = async (
   idproducto: number,
+  idlote: number,
   cantidad: number,
+  fechaVencimiento?: string
 ): Promise<Producto> => {
   try {
-    const response = await api.patch<BackendProducto>(
-      `/productos/${idproducto}/stock`,
-      {
-        cantidad,
-      },
-    );
-    return mapBackendProducto(response.data);
+    await new Promise(resolve => setTimeout(resolve, 400));
+    
+    const index = MOCK_PRODUCTOS.findIndex(p => p.idproducto === idproducto);
+    if (index === -1) throw new Error("Producto no encontrado");
+    
+    const product = MOCK_PRODUCTOS[index];
+    
+    if (idlote > 0) {
+      const loteIndex = product.lotes.findIndex((l: any) => l.idlote === idlote);
+      if (loteIndex === -1) throw new Error("Lote no encontrado");
+      product.lotes[loteIndex].stock += cantidad;
+    } else {
+      product.lotes.push({
+        idlote: nextLoteId++,
+        idproducto: idproducto,
+        stock: cantidad,
+        fecha_vencimiento: fechaVencimiento || new Date().toISOString().split('T')[0],
+        estado: 1,
+      });
+    }
+    
+    product.stock_total = product.lotes.reduce((sum: number, l: any) => sum + l.stock, 0);
+    MOCK_PRODUCTOS[index] = product;
+    
+    return mapBackendProducto(product);
   } catch (error) {
     console.error("Error updating stock:", error);
     throw new Error("No se pudo actualizar el stock");
   }
 };
 
-// Mapeadores
-function mapBackendProducto(producto: BackendProducto): Producto {
+function mapBackendProducto(producto: any): Producto {
   return {
     idproducto: producto.idproducto,
     nombre: producto.nombre,
-    descripcion: producto.descripcion,
+    descripcion: producto.descripcion || '',
     idubicacion: producto.idubicacion,
     ubicacion: producto.ubicacion_nombre || "Sin ubicación",
-    estado: producto.estado,
-    categorias: producto.categorias,
-    ubicacion_nombre: producto.ubicacion_nombre,
-    imagen: producto.imagen,
-    precio_venta: producto.precio_venta,
-    precio_compra: producto.precio_compra,
-    stock: producto.stock,
-    stock_minimo: producto.stock_minimo,
-    codigo_barras: producto.codigo_barras,
+    ubicacion_nombre: producto.ubicacion_nombre || "Sin ubicación",
+    idlaboratorio: producto.idlaboratorio || 0,
+    laboratorio: producto.laboratorio_nombre || "Sin laboratorio",
+    laboratorio_nombre: producto.laboratorio_nombre || "Sin laboratorio",
+    categorias: producto.categorias || [],
+    estado: producto.estado || 1,
+    imagen: producto.imagen || "https://static.vecteezy.com/system/resources/previews/011/781/801/non_2x/medicine-3d-render-icon-illustration-png.png",
+    precio_venta: producto.precio_venta || "0",
+    precio_compra: producto.precio_compra || "0",
+    stock_total: producto.stock_total || 0,
+    stock_minimo: producto.stock_minimo || 0,
+    codigo_barras: producto.codigo_barras || null,
+    lotes: (producto.lotes || []).map((lote: any) => ({
+      idlote: lote.idlote,
+      stock: lote.stock,
+      fechaVencimiento: lote.fecha_vencimiento || lote.fechaVencimiento || '',
+    })),
     productos_similares: producto.productos_similares || [],
   };
 }

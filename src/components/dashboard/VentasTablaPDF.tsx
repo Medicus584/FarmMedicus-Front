@@ -10,7 +10,6 @@ import {
   Font,
 } from '@react-pdf/renderer';
 
-// Registra fuentes
 Font.register({
   family: 'Roboto',
   fonts: [
@@ -25,7 +24,6 @@ Font.register({
   ],
 });
 
-// Define estilos
 const styles = StyleSheet.create({
   page: {
     padding: 30,
@@ -181,6 +179,7 @@ interface Venta {
   fecha: string | Date;
   usuario: string;
   descripcion: string;
+  medico?: string;
   subtotal: number;
   descuento: number;
   total: number;
@@ -199,7 +198,9 @@ interface VentasTablaPDFProps {
     fechaRango?: { from?: Date; to?: Date };
     filtroEmpleado: string;
     filtroMetodo: string;
+    filtroMedico: string;
     empleadosOptions: Array<{ value: string; label: string; username: string }>;
+    medicosOptions: string[];
     userRole: string;
     currentUserName?: string;
   };
@@ -239,7 +240,6 @@ export const VentasTablaPDF: React.FC<VentasTablaPDFProps> = ({
   const currentDate = new Date();
   const fechaGeneracion = `${currentDate.getDate()}/${currentDate.getMonth() + 1}/${currentDate.getFullYear()} ${currentDate.getHours()}:${currentDate.getMinutes()}`;
 
-  // Determinar título del reporte basado en filtros
   let filtroTexto = '';
   
   if (filtros.fechaBusqueda) {
@@ -263,10 +263,13 @@ export const VentasTablaPDF: React.FC<VentasTablaPDFProps> = ({
     filtroTexto += filtroTexto ? ` | Método: ${filtros.filtroMetodo}` : `Método: ${filtros.filtroMetodo}`;
   }
 
+  if (filtros.filtroMedico !== "Todos") {
+    filtroTexto += filtroTexto ? ` | Médico: ${filtros.filtroMedico}` : `Médico: ${filtros.filtroMedico}`;
+  }
+
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
         <View style={styles.header}>
           <View style={styles.logoContainer}>
             <Image
@@ -281,7 +284,6 @@ export const VentasTablaPDF: React.FC<VentasTablaPDFProps> = ({
           <View style={{ width: 120 }} />
         </View>
 
-        {/* Información del Reporte */}
         <View style={styles.infoSection}>
           <View style={styles.infoColumn}>
             <Text style={styles.infoTitle}>FECHA DE GENERACIÓN</Text>
@@ -305,7 +307,6 @@ export const VentasTablaPDF: React.FC<VentasTablaPDFProps> = ({
           </View>
         </View>
 
-        {/* Totales */}
         <View style={styles.totalsSection}>
           <View style={[styles.totalCard, { borderLeftColor: '#3b82f6', borderLeftWidth: 4 }]}>
             <Text style={styles.totalTitle}>TOTAL GENERAL</Text>
@@ -329,29 +330,30 @@ export const VentasTablaPDF: React.FC<VentasTablaPDFProps> = ({
           </View>
         </View>
 
-        {/* Tabla de Ventas */}
         <View style={{ marginTop: 15 }}>
           <Text style={styles.sectionTitle}>
             Detalle de Ventas ({ventas.length} registros)
           </Text>
           
           <View style={styles.table}>
-            {/* Encabezados de la tabla */}
             <View style={styles.tableHeader}>
-              <View style={{ width: '10%' }}>
+              <View style={{ width: '8%' }}>
                 <Text style={styles.tableCellHeader}>#</Text>
               </View>
-              <View style={{ width: '13%' }}>
+              <View style={{ width: '12%' }}>
                 <Text style={styles.tableCellHeader}>FECHA</Text>
               </View>
-              <View style={{ width: '12%' }}>
+              <View style={{ width: '10%' }}>
                 <Text style={styles.tableCellHeader}>HORA</Text>
               </View>
               <View style={{ width: '12%' }}>
                 <Text style={styles.tableCellHeader}>USUARIO</Text>
               </View>
-              <View style={{ width: '25%' }}>
+              <View style={{ width: '20%' }}>
                 <Text style={styles.tableCellHeader}>DESCRIPCIÓN</Text>
+              </View>
+              <View style={{ width: '12%' }}>
+                <Text style={styles.tableCellHeader}>MÉDICO</Text>
               </View>
               <View style={{ width: '8%' }}>
                 <Text style={styles.tableCellHeader}>SUBTOTAL</Text>
@@ -367,7 +369,6 @@ export const VentasTablaPDF: React.FC<VentasTablaPDFProps> = ({
               </View>
             </View>
 
-            {/* Filas de la tabla */}
             {ventas.map((venta, index) => {
               const fecha = new Date(venta.fecha);
               const horaStr = `${fecha.getHours().toString().padStart(2, '0')}:${fecha.getMinutes().toString().padStart(2, '0')}`;
@@ -375,53 +376,50 @@ export const VentasTablaPDF: React.FC<VentasTablaPDFProps> = ({
               
               return (
                 <View key={venta.id} style={styles.tableRow}>
-                  {/* Número */}
-                  <View style={{ width: '10%' }}>
+                  <View style={{ width: '8%' }}>
                     <Text style={styles.tableCell}>{index + 1}</Text>
                   </View>
                   
-                  {/* Fecha */}
-                  <View style={{ width: '13%' }}>
+                  <View style={{ width: '12%' }}>
                     <Text style={styles.tableCell}>{fechaStr}</Text>
                   </View>
                   
-                  {/* Hora */}
-                  <View style={{ width: '12%' }}>
+                  <View style={{ width: '10%' }}>
                     <Text style={styles.tableCell}>{horaStr}</Text>
                   </View>
                   
-                  {/* Usuario */}
                   <View style={{ width: '12%' }}>
                     <Text style={styles.tableCell}>{venta.usuario}</Text>
                   </View>
                   
-                  {/* Descripción */}
-                  <View style={{ width: '25%' }}>
+                  <View style={{ width: '20%' }}>
                     <Text style={styles.tableCell}>{venta.descripcion}</Text>
                   </View>
                   
-                  {/* Subtotal */}
+                  <View style={{ width: '12%' }}>
+                    <Text style={[styles.tableCell, { fontSize: 6 }]}>
+                      {venta.medico || 'No registrado'}
+                    </Text>
+                  </View>
+                  
                   <View style={{ width: '8%' }}>
                     <Text style={[styles.tableCell, { textAlign: 'right' }]}>
                       {formatCurrency(venta.subtotal)}
                     </Text>
                   </View>
                   
-                  {/* Descuento */}
                   <View style={{ width: '8%' }}>
                     <Text style={[styles.tableCell, { textAlign: 'right', color: '#dc2626' }]}>
                       {formatCurrency(venta.descuento)}
                     </Text>
                   </View>
                   
-                  {/* Total */}
                   <View style={{ width: '8%' }}>
                     <Text style={[styles.tableCell, { textAlign: 'right', fontWeight: 'bold', color: '#16a34a' }]}>
                       {formatCurrency(venta.total)}
                     </Text>
                   </View>
                   
-                  {/* Método */}
                   <View style={{ width: '7%' }}>
                     <View
                       style={[
@@ -441,14 +439,12 @@ export const VentasTablaPDF: React.FC<VentasTablaPDFProps> = ({
           </View>
         </View>
 
-        {/* Footer */}
         <View style={styles.footer}>
           <Text>
             Sistema de Gestión de Ventas | Reporte generado automáticamente
           </Text>
         </View>
 
-        {/* Número de página */}
         <Text
           style={styles.pageNumber}
           render={({ pageNumber, totalPages }) =>

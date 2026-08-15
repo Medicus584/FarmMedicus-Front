@@ -15,7 +15,7 @@ import { CalendarIcon, Download, Calendar as CalendarRangeIcon, Printer, Loader2
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { getVentas, getTotalesVentas, getUsuariosVentas, getVentasHoyAsistente, Venta, VentasFiltros, TotalesVentas, BackendUsuario } from "@/api/VentasApi";
+import { getVentas, getTotalesVentas, getUsuariosVentas, getVentasHoyAsistente, getMedicos, Venta, VentasFiltros, TotalesVentas, BackendUsuario } from "@/api/VentasApi";
 import { getUserRole, getCurrentUser } from "@/api/AuthApi";
 import { generateVentaPDF } from "./VentasPDF";
 import { VentasTablaPDF } from "./VentasTablaPDF";
@@ -30,29 +30,21 @@ interface UsuarioOption {
 // Función para obtener la fecha actual en Bolivia (GMT-4)
 const getFechaBolivia = () => {
   const now = new Date();
-  // Bolivia está en GMT-4, así que restamos 4 horas para obtener la hora boliviana
-  const boliviaOffset = -4 * 60; // -4 horas en minutos
-  const localOffset = now.getTimezoneOffset(); // offset local en minutos
-  const diff = boliviaOffset - localOffset; // diferencia en minutos
-  
-  // Ajustar la fecha a la zona horaria de Bolivia
+  const boliviaOffset = -4 * 60;
+  const localOffset = now.getTimezoneOffset();
+  const diff = boliviaOffset - localOffset;
   const fechaBolivia = new Date(now.getTime() + diff * 60000);
-  fechaBolivia.setHours(0, 0, 0, 0); // Inicio del día en Bolivia
-  
+  fechaBolivia.setHours(0, 0, 0, 0);
   return fechaBolivia;
 };
 
-// Función para formatear fecha para mostrar (sin conversiones UTC)
+// Función para formatear fecha para mostrar
 const formatDateForDisplay = (dateInput: string | Date) => {
   try {
-    // Si es string, convertir a Date
     const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-    
-    // Extraer partes de la fecha LOCAL (como se seleccionó)
-    const day = date.getDate(); // Día local
-    const month = date.getMonth() + 1; // Mes local
-    const year = date.getFullYear(); // Año local
-    
+    const day = date.getDate();
+    const month = date.getMonth() + 1;
+    const year = date.getFullYear();
     return `${day}/${month}/${year}`;
   } catch (error) {
     console.error("Error formatting date:", error);
@@ -60,12 +52,12 @@ const formatDateForDisplay = (dateInput: string | Date) => {
   }
 };
 
-// Función para formatear hora para mostrar (sin conversiones UTC)
+// Función para formatear hora para mostrar
 const formatTimeForDisplay = (dateInput: string | Date) => {
   try {
     const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-    const hours = date.getHours(); // Hora local
-    const minutes = date.getMinutes(); // Minutos local
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
     const formattedHours = hours < 10 ? `0${hours}` : hours.toString();
     const formattedMinutes = minutes < 10 ? `0${minutes}` : minutes.toString();
     return `${formattedHours}:${formattedMinutes}`;
@@ -81,10 +73,8 @@ const downloadPDF = (blob: Blob, filename: string) => {
   const link = document.createElement('a');
   link.href = url;
   link.download = filename;
-  
   document.body.appendChild(link);
   link.click();
-  
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 };
@@ -95,10 +85,10 @@ export function VentasView() {
   const username = currentUser?.usuario || "";
   const isAssistant = userRole === "Asistente";
   
-  // Configurar fecha actual de Bolivia por defecto
   const [fechaBoliviaHoy] = useState(() => getFechaBolivia());
   
   const [empleadosOptions, setEmpleadosOptions] = useState<UsuarioOption[]>([{ value: "Todos", label: "Todos", username: "" }]);
+  const [medicosOptions, setMedicosOptions] = useState<string[]>(["Todos"]);
   const [ventasFiltradas, setVentasFiltradas] = useState<Venta[]>([]);
   const [totales, setTotales] = useState<TotalesVentas>({ totalGeneral: 0, totalEfectivo: 0, totalQR: 0 });
   const [loading, setLoading] = useState(false);
@@ -110,6 +100,7 @@ export function VentasView() {
   // Estados para filtros
   const [filtroEmpleado, setFiltroEmpleado] = useState("Todos");
   const [filtroMetodo, setFiltroMetodo] = useState("Todos");
+  const [filtroMedico, setFiltroMedico] = useState("Todos");
   
   // Estados para fecha específica
   const [fechaBusqueda, setFechaBusqueda] = useState<Date | undefined>(fechaBoliviaHoy);
@@ -138,18 +129,22 @@ export function VentasView() {
     cargarDatosIniciales();
   }, []);
 
-  // Efecto para buscar datos cuando cambian los filtros O cuando se terminan de cargar los datos iniciales
+  // Efecto para buscar datos cuando cambian los filtros
   useEffect(() => {
     if (datosCargados) {
       buscarDatos();
     }
-  }, [filtroEmpleado, filtroMetodo, fechaBusqueda, fechaRangoAplicado, datosCargados]);
+  }, [filtroEmpleado, filtroMetodo, filtroMedico, fechaBusqueda, fechaRangoAplicado, datosCargados]);
 
   const cargarDatosIniciales = async () => {
     try {
       setInitialLoading(true);
       setDatosCargados(false);
       setError(null);
+
+      // Cargar médicos
+      const medicos = await getMedicos();
+      setMedicosOptions(["Todos", ...medicos]);
 
       if (!isAssistant) {
         // Cargar usuarios para el filtro de empleados
@@ -169,7 +164,6 @@ export function VentasView() {
         setFiltroEmpleado(currentUser.usuario);
       }
 
-      // Marcar que los datos iniciales están cargados
       setDatosCargados(true);
       
     } catch (err) {
@@ -179,7 +173,6 @@ export function VentasView() {
     }
   };
 
-  // Función principal para buscar datos con los filtros actuales
   const buscarDatos = async () => {
     try {
       setLoading(true);
@@ -189,31 +182,21 @@ export function VentasView() {
       let totalesData: TotalesVentas = { totalGeneral: 0, totalEfectivo: 0, totalQR: 0 };
 
       if (isAssistant) {
-        // Para asistentes: solo sus ventas de hoy
         ventas = await getVentasHoyAsistente(username);
         
-        // Calcular totales para asistentes
         const totalGeneral = ventas.reduce((sum, venta) => sum + venta.total, 0);
         const totalEfectivo = ventas.filter(v => v.metodo === "Efectivo").reduce((sum, venta) => sum + venta.total, 0);
         const totalQR = ventas.filter(v => v.metodo === "QR").reduce((sum, venta) => sum + venta.total, 0);
         totalesData = { totalGeneral, totalEfectivo, totalQR };
       } else {
-        // Para admin: aplicar filtros normales
         const filtros: VentasFiltros = {
           empleado: filtroEmpleado !== "Todos" ? filtroEmpleado : undefined,
           metodo: filtroMetodo !== "Todos" ? filtroMetodo : undefined,
+          medico: filtroMedico !== "Todos" ? filtroMedico : undefined,
           fechaEspecifica: fechaBusqueda,
           fechaInicio: fechaRangoAplicado.from,
           fechaFin: fechaRangoAplicado.to
         };
-        
-        console.log("Filtros enviados al backend:", {
-          empleado: filtros.empleado,
-          metodo: filtros.metodo,
-          fechaEspecifica: fechaBusqueda ? format(fechaBusqueda, "yyyy-MM-dd") : "null",
-          fechaInicio: fechaRangoAplicado.from ? format(fechaRangoAplicado.from, "yyyy-MM-dd") : "null",
-          fechaFin: fechaRangoAplicado.to ? format(fechaRangoAplicado.to, "yyyy-MM-dd") : "null"
-        });
         
         ventas = await getVentas(filtros);
         totalesData = await getTotalesVentas(filtros);
@@ -236,7 +219,6 @@ export function VentasView() {
     try {
       setGenerandoPDF(true);
       
-      // Calcular nombre del archivo basado en filtros
       let nombreArchivo = "reporte_ventas";
       
       if (fechaBusqueda) {
@@ -256,10 +238,13 @@ export function VentasView() {
       if (filtroMetodo !== "Todos") {
         nombreArchivo += `_${filtroMetodo}`;
       }
+
+      if (filtroMedico !== "Todos") {
+        nombreArchivo += `_medico_${filtroMedico.replace(/\s+/g, '_')}`;
+      }
       
       nombreArchivo += ".pdf";
       
-      // Crear el documento PDF
       const pdfDocument = (
         <VentasTablaPDF
           ventas={ventasFiltradas}
@@ -268,7 +253,9 @@ export function VentasView() {
             fechaRango: fechaRangoAplicado,
             filtroEmpleado,
             filtroMetodo,
+            filtroMedico,
             empleadosOptions,
+            medicosOptions,
             userRole,
             currentUserName: currentUser ? `${currentUser.nombres} ${currentUser.apellidos}` : "Usuario",
           }}
@@ -276,10 +263,7 @@ export function VentasView() {
         />
       );
       
-      // Generar el PDF como blob
       const pdfBlob = await pdf(pdfDocument).toBlob();
-      
-      // Descargar el archivo
       downloadPDF(pdfBlob, nombreArchivo);
       
     } catch (error) {
@@ -291,7 +275,6 @@ export function VentasView() {
   };
 
   const limpiarFiltros = () => {
-    // Usar la fecha de Bolivia actual
     const hoyBolivia = getFechaBolivia();
     setFechaBusqueda(hoyBolivia);
     setFechaRangoTemp({ from: undefined, to: undefined });
@@ -304,39 +287,33 @@ export function VentasView() {
     }
     
     setFiltroMetodo("Todos");
+    setFiltroMedico("Todos");
   };
 
-  // Manejar cambio en filtro de fecha específica
   const handleFechaBusquedaChange = async (date: Date | undefined) => {
     if (date) {
-      // Usar la fecha exacta como está (sin ajustes de zona horaria)
       setFechaBusqueda(date);
-      // Limpiar completamente el rango
       setFechaRangoAplicado({ from: undefined, to: undefined });
       setFechaRangoTemp({ from: undefined, to: undefined });
       setMostrarCalendario(false);
     }
   };
 
-  // Manejar cambio temporal en filtro de rango de fechas
   const handleRangoTempChange = (range: { from: Date | undefined; to: Date | undefined }) => {
     setFechaRangoTemp(range);
   };
 
-  // Aplicar rango seleccionado
   const aplicarRangoFechas = async () => {
     if (fechaRangoTemp.from && fechaRangoTemp.to) {
       setFechaRangoAplicado({
         from: fechaRangoTemp.from,
         to: fechaRangoTemp.to
       });
-      // Limpiar completamente la fecha específica
       setFechaBusqueda(undefined);
       setMostrarRango(false);
     }
   };
 
-  // Cancelar selección de rango
   const cancelarRangoFechas = () => {
     setFechaRangoTemp({
       from: fechaRangoAplicado.from,
@@ -345,7 +322,7 @@ export function VentasView() {
     setMostrarRango(false);
   };
 
-  const abrirDetalleVenta = (venta: Venta, imprimir : boolean = true) => {
+  const abrirDetalleVenta = (venta: Venta, imprimir: boolean = true) => {
     setMostrarDetallesImpresion(imprimir);
     setVentaSeleccionada(venta);
     setMostrarDetalle(true);
@@ -358,7 +335,6 @@ export function VentasView() {
       return;
     }
     
-    // Generar PDF en lugar de imprimir
     if (ventaSeleccionada) {
       generateVentaPDF({
         venta: ventaSeleccionada,
@@ -443,7 +419,7 @@ export function VentasView() {
             <CardTitle>Filtros</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
               <div>
                 <label className="text-sm font-medium">Empleado</label>
                 <Select value={filtroEmpleado} onValueChange={setFiltroEmpleado}>
@@ -470,6 +446,22 @@ export function VentasView() {
                     <SelectItem value="Todos">Todos</SelectItem>
                     <SelectItem value="Efectivo">Efectivo</SelectItem>
                     <SelectItem value="QR">QR</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Médico</label>
+                <Select value={filtroMedico} onValueChange={setFiltroMedico}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar médico" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {medicosOptions.map(medico => (
+                      <SelectItem key={medico} value={medico}>
+                        {medico}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -573,7 +565,12 @@ export function VentasView() {
                     Método: {filtroMetodo}
                   </span>
                 )}
-                {!fechaBusqueda && !fechaRangoAplicado.from && !fechaRangoAplicado.to && filtroEmpleado === "Todos" && filtroMetodo === "Todos" && (
+                {filtroMedico !== "Todos" && (
+                  <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
+                    Médico: {filtroMedico}
+                  </span>
+                )}
+                {!fechaBusqueda && !fechaRangoAplicado.from && !fechaRangoAplicado.to && filtroEmpleado === "Todos" && filtroMetodo === "Todos" && filtroMedico === "Todos" && (
                   <span className="ml-2 px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded">
                     Ventas de hoy
                   </span>
@@ -614,13 +611,14 @@ export function VentasView() {
               <span>Cargando ventas...</span>
             </div>
           ) : (
-            <div className="block md:overflow-x-auto">
+            <div className="overflow-x-auto">
               <Table>
-                <TableHeader className="hidden md:table-header-group">
+                <TableHeader>
                   <TableRow>
                     <TableHead className="w-[140px]">Fecha y Hora</TableHead>
                     <TableHead className="w-[150px]">Usuario</TableHead>
-                    <TableHead className="min-w-[300px]">Descripción</TableHead>
+                    <TableHead className="min-w-[200px]">Descripción</TableHead>
+                    <TableHead className="w-[150px]">Médico</TableHead>
                     <TableHead className="w-[100px] text-right">Subtotal</TableHead>
                     <TableHead className="w-[100px] text-right">Descuento</TableHead>
                     <TableHead className="w-[130px] text-right">Total</TableHead>
@@ -632,7 +630,7 @@ export function VentasView() {
                 <TableBody>
                   {ventasFiltradas.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8">
+                      <TableCell colSpan={10} className="text-center py-8">
                         <div className="flex flex-col items-center">
                           <p className="text-muted-foreground mb-2">No se encontraron ventas</p>
                           <p className="text-sm text-muted-foreground">
@@ -641,15 +639,16 @@ export function VentasView() {
                               `En el rango: ${format(fechaRangoAplicado.from, "dd/MM/yyyy", { locale: es })} - ${format(fechaRangoAplicado.to, "dd/MM/yyyy", { locale: es })}`}
                             {filtroEmpleado !== "Todos" && ` - Empleado: ${empleadosOptions.find(e => e.value === filtroEmpleado)?.label}`}
                             {filtroMetodo !== "Todos" && ` - Método: ${filtroMetodo}`}
+                            {filtroMedico !== "Todos" && ` - Médico: ${filtroMedico}`}
                           </p>
                         </div>
                       </TableCell>
                     </TableRow>
                   ) : (
                     ventasFiltradas.map((venta) => (
-                      <TableRow key={venta.id} className="md:table-row block border-b p-4 md:p-0">
+                      <TableRow key={venta.id}>
                         {/* Fecha y Hora */}
-                        <TableCell className="md:table-cell block md:border-0 border-0 p-0 mb-3 md:mb-0">
+                        <TableCell>
                           <div className="font-medium">
                             {formatDateForDisplay(venta.fecha)}
                           </div>
@@ -659,81 +658,77 @@ export function VentasView() {
                         </TableCell>
                         
                         {/* Usuario */}
-                        <TableCell className="md:table-cell block md:border-0 border-0 p-0 mb-3 md:mb-0">
-                          <div className="md:hidden text-xs font-medium text-muted-foreground mb-1">USUARIO</div>
+                        <TableCell>
                           <div className="font-medium">
                             {venta.usuario}
                           </div>
                         </TableCell>
                         
                         {/* Descripción */}
-                        <TableCell className="md:table-cell block md:border-0 border-0 p-0 mb-3 md:mb-0">
-                          <div className="md:hidden text-xs font-medium text-muted-foreground mb-1">DESCRIPCIÓN</div>
+                        <TableCell>
                           <div className="text-sm leading-relaxed">
                             {venta.descripcion}
                           </div>
                         </TableCell>
+
+                        {/* Médico */}
+                        <TableCell>
+                          {venta.medico ? (
+                            <Badge variant="outline" className="text-xs">
+                              {venta.medico}
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">No registrado</span>
+                          )}
+                        </TableCell>
                         
                         {/* Subtotal */}
-                        <TableCell className="md:table-cell block md:border-0 border-0 p-0 mb-3 md:mb-0">
-                          <div className="md:hidden text-xs font-medium text-muted-foreground mb-1">SUBTOTAL</div>
-                          <div className="text-right md:text-right">
-                            Bs {venta.subtotal.toFixed(2)}
-                          </div>
+                        <TableCell className="text-right">
+                          Bs {venta.subtotal.toFixed(2)}
                         </TableCell>
                         
                         {/* Descuento */}
-                        <TableCell className="md:table-cell block md:border-0 border-0 p-0 mb-3 md:mb-0">
-                          <div className="md:hidden text-xs font-medium text-muted-foreground mb-1">DESCUENTO</div>
-                          <div className="text-right md:text-right">
-                            Bs {venta.descuento.toFixed(2)}
-                          </div>
+                        <TableCell className="text-right">
+                          Bs {venta.descuento.toFixed(2)}
                         </TableCell>
                         
-                        {/* Total - Con más espacio */}
-                        <TableCell className="md:table-cell block md:border-0 border-0 p-0 mb-3 md:mb-0 font-medium">
-                          <div className="md:hidden text-xs font-medium text-muted-foreground mb-1">TOTAL</div>
-                          <div className="text-lg font-bold text-primary text-right md:text-right md:pr-4">
+                        {/* Total */}
+                        <TableCell className="text-right font-medium">
+                          <span className="text-lg font-bold text-primary">
                             Bs {venta.total.toFixed(2)}
-                          </div>
+                          </span>
                         </TableCell>
                         
-                        {/* Método de Pago - Con más espacio */}
-                        <TableCell className="md:table-cell block md:border-0 border-0 p-0 mb-3 md:mb-0">
-                          <div className="md:hidden text-xs font-medium text-muted-foreground mb-1">MÉTODO</div>
-                          <div className="flex justify-start md:justify-start md:pl-4">
-                            <Badge variant={venta.metodo === "Efectivo" ? "default" : "secondary"}>
-                              {venta.metodo}
-                            </Badge>
-                          </div>
+                        {/* Método de Pago */}
+                        <TableCell>
+                          <Badge variant={venta.metodo === "Efectivo" ? "default" : "secondary"}>
+                            {venta.metodo}
+                          </Badge>
                         </TableCell>
                         
                         {/* Impresión */}
-                        <TableCell className="md:table-cell block md:border-0 border-0 p-0">
-                          <div className="md:hidden text-xs font-medium text-muted-foreground mb-1">IMPRESIÓN</div>
-                          <div className="flex justify-start md:justify-start">
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              onClick={() => abrirDetalleVenta(venta)}
-                              className="flex items-center gap-2"
-                            >
-                              <Printer className="h-4 w-4" />
-                              <span className="hidden sm:inline">Imprimir</span>
-                            </Button>
-                          </div>
+                        <TableCell>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={() => abrirDetalleVenta(venta)}
+                            className="flex items-center gap-2"
+                          >
+                            <Printer className="h-4 w-4" />
+                            <span className="hidden sm:inline">Imprimir</span>
+                          </Button>
                         </TableCell>
-                        <TableCell className="md:table-cell block md:border-0 border-0 p-0">
-                          <div className="flex justify-start md:justify-start">
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              onClick={() => abrirDetalleVenta(venta, false)}
-                              className="flex items-center gap-2"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </div>
+
+                        {/* Detalle */}
+                        <TableCell>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={() => abrirDetalleVenta(venta, false)}
+                            className="flex items-center gap-2"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))
@@ -752,7 +747,6 @@ export function VentasView() {
             <DialogTitle>Detalle de Venta</DialogTitle>
           </DialogHeader>
 
-          {/* Formulario para datos del cliente */}
           {mostrarDetallesImpresion && (
             <div className="mb-6">
               <div>
@@ -767,7 +761,6 @@ export function VentasView() {
             </div>
           )}
 
-          {/* Contenido a imprimir */}
           <div id="detalle-venta-imprimir" className="space-y-6">
             {mostrarDetallesImpresion && (
               <div className="logo text-center mb-6">
@@ -779,7 +772,6 @@ export function VentasView() {
               </div>
             )}
 
-            {/* Información del cliente */}
             <div className="info-cliente space-y-2">
               {mostrarDetallesImpresion && (
                 <p><strong>Cliente:</strong> {nombreCliente || "No especificado"}</p>
@@ -787,9 +779,11 @@ export function VentasView() {
               <p><strong>Fecha:</strong> {ventaSeleccionada ? `${formatDateForDisplay(ventaSeleccionada.fecha)} ${formatTimeForDisplay(ventaSeleccionada.fecha)}` : ""}</p>
               <p><strong>Dirección:</strong> Av. Heroinas esq. Hamiraya #316</p>
               <p><strong>Números:</strong> 77950297 - 77918672</p>
+              {ventaSeleccionada?.medico && (
+                <p><strong>Médico:</strong> {ventaSeleccionada.medico}</p>
+              )}
             </div>
 
-            {/* Descripción completa de la venta */}
             <div className="descripcion-venta bg-muted/50 p-4 rounded-lg">
               <h3 className="font-semibold mb-2">Descripción de la Venta:</h3>
               <p className="text-sm">{ventaSeleccionada?.descripcion}</p>
@@ -801,10 +795,8 @@ export function VentasView() {
               </div>
             )}
 
-            {/* Tabla de productos y totales - Solo si hay productos */}
             {ventaSeleccionada?.detalle && ventaSeleccionada.detalle.length > 0 && (
               <div className="flex flex-col lg:flex-row gap-6">
-                {/* Tabla de productos */}
                 <div className="flex-1">
                   <h3 className="font-semibold mb-2">Productos:</h3>
                   <Table>
@@ -829,7 +821,6 @@ export function VentasView() {
                   </Table>
                 </div>
 
-                {/* Mini tabla de totales */}
                 <div className="totales w-full lg:w-48">
                   <Table>
                     <TableBody>
@@ -852,7 +843,6 @@ export function VentasView() {
             )}
           </div>
 
-          {/* Botón de imprimir */}
           {mostrarDetallesImpresion && (
             <div className="flex justify-end mt-6">
               <Button onClick={imprimirDetalle} className="flex items-center gap-2">
@@ -864,7 +854,6 @@ export function VentasView() {
         </DialogContent>
       </Dialog>
 
-      {/* Alert Dialog */}
       <AlertDialog open={mostrarAlerta} onOpenChange={setMostrarAlerta}>
         <AlertDialogContent>
           <AlertDialogHeader>

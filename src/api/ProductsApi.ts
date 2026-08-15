@@ -214,7 +214,7 @@ const api = axios.create({
   },
 });
 
-// Funciones para tablas maestras
+// ============ FUNCIONES PARA UBICACIONES ============
 export const getUbicaciones = async (): Promise<BackendUbicacion[]> => {
   try {
     await new Promise(resolve => setTimeout(resolve, 300));
@@ -241,6 +241,33 @@ export const createUbicacion = async (data: { nombre: string }): Promise<Backend
   }
 };
 
+export const updateUbicacion = async (id: number, data: { nombre: string }): Promise<BackendUbicacion> => {
+  try {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    const index = MOCK_UBICACIONES.findIndex(u => u.idubicacion === id);
+    if (index === -1) throw new Error("Ubicación no encontrada");
+    MOCK_UBICACIONES[index].nombre = data.nombre;
+    return MOCK_UBICACIONES[index];
+  } catch (error) {
+    console.error("Error updating ubicacion:", error);
+    throw new Error("No se pudo actualizar la ubicación");
+  }
+};
+
+export const deleteUbicacion = async (id: number): Promise<void> => {
+  try {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    const index = MOCK_UBICACIONES.findIndex(u => u.idubicacion === id);
+    if (index !== -1) {
+      MOCK_UBICACIONES.splice(index, 1);
+    }
+  } catch (error) {
+    console.error("Error deleting ubicacion:", error);
+    throw new Error("No se pudo eliminar la ubicación");
+  }
+};
+
+// ============ FUNCIONES PARA CATEGORÍAS ============
 export const getCategorias = async (): Promise<BackendCategoria[]> => {
   try {
     await new Promise(resolve => setTimeout(resolve, 300));
@@ -267,6 +294,33 @@ export const createCategoria = async (data: { nombre: string }): Promise<Backend
   }
 };
 
+export const updateCategoria = async (id: number, data: { nombre: string }): Promise<BackendCategoria> => {
+  try {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    const index = MOCK_CATEGORIAS.findIndex(c => c.idcategoria === id);
+    if (index === -1) throw new Error("Categoría no encontrada");
+    MOCK_CATEGORIAS[index].nombre = data.nombre;
+    return MOCK_CATEGORIAS[index];
+  } catch (error) {
+    console.error("Error updating categoria:", error);
+    throw new Error("No se pudo actualizar la categoría");
+  }
+};
+
+export const deleteCategoria = async (id: number): Promise<void> => {
+  try {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    const index = MOCK_CATEGORIAS.findIndex(c => c.idcategoria === id);
+    if (index !== -1) {
+      MOCK_CATEGORIAS.splice(index, 1);
+    }
+  } catch (error) {
+    console.error("Error deleting categoria:", error);
+    throw new Error("No se pudo eliminar la categoría");
+  }
+};
+
+// ============ FUNCIONES PARA LABORATORIOS ============
 export const getLaboratorios = async (): Promise<BackendLaboratorio[]> => {
   try {
     await new Promise(resolve => setTimeout(resolve, 300));
@@ -293,7 +347,33 @@ export const createLaboratorio = async (data: { nombre: string }): Promise<Backe
   }
 };
 
-// Funciones para productos
+export const updateLaboratorio = async (id: number, data: { nombre: string }): Promise<BackendLaboratorio> => {
+  try {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    const index = MOCK_LABORATORIOS.findIndex(l => l.idlaboratorio === id);
+    if (index === -1) throw new Error("Laboratorio no encontrado");
+    MOCK_LABORATORIOS[index].nombre = data.nombre;
+    return MOCK_LABORATORIOS[index];
+  } catch (error) {
+    console.error("Error updating laboratorio:", error);
+    throw new Error("No se pudo actualizar el laboratorio");
+  }
+};
+
+export const deleteLaboratorio = async (id: number): Promise<void> => {
+  try {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    const index = MOCK_LABORATORIOS.findIndex(l => l.idlaboratorio === id);
+    if (index !== -1) {
+      MOCK_LABORATORIOS.splice(index, 1);
+    }
+  } catch (error) {
+    console.error("Error deleting laboratorio:", error);
+    throw new Error("No se pudo eliminar el laboratorio");
+  }
+};
+
+// ============ FUNCIONES PARA PRODUCTOS ============
 export const getTodosProductosParaSelect = async (): Promise<
   { idproducto: number; nombre: string }[]
 > => {

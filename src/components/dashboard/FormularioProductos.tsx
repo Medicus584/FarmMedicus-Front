@@ -16,7 +16,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, X, Search, Camera } from "lucide-react";
+import { Plus, X, Search, Camera, Pencil, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AddItemDialog } from "./AddItemDialog";
@@ -28,6 +28,12 @@ import {
   getUbicaciones,
   getCategorias,
   getLaboratorios,
+  updateUbicacion,
+  updateCategoria,
+  updateLaboratorio,
+  deleteUbicacion,
+  deleteCategoria,
+  deleteLaboratorio,
 } from "@/api/ProductsApi";
 import {
   createProducto,
@@ -83,13 +89,18 @@ interface ManagementItem {
   estado: number;
 }
 
-const SearchSelect = ({
+// Componente de búsqueda con edición y eliminación en el dropdown
+const SearchSelectWithManagement = ({
   options,
   selectedValues,
   onSelectionChange,
   placeholder,
   label,
   required,
+  onAddNew,
+  items,
+  type,
+  onRefreshList,
 }: {
   options: string[];
   selectedValues: string[];
@@ -97,18 +108,27 @@ const SearchSelect = ({
   placeholder: string;
   label: string;
   required?: boolean;
+  onAddNew?: () => void;
+  items?: ManagementItem[];
+  type?: "ubicacion" | "categoria" | "laboratorio";
+  onRefreshList?: () => void;
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<ManagementItem | null>(null);
+  const [editName, setEditName] = useState("");
+  const { toast } = useToast();
 
-  const filteredOptions = options.filter(
-    (option) =>
-      option.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      !selectedValues.includes(option),
+  // Filtrar elementos que coinciden con la búsqueda
+  const searchResults = (items || []).filter(
+    (item) =>
+      item.nombre.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   const addSelection = (option: string) => {
-    onSelectionChange([...selectedValues, option]);
+    if (!selectedValues.includes(option)) {
+      onSelectionChange([...selectedValues, option]);
+    }
     setSearchTerm("");
     setIsOpen(false);
   };
@@ -117,11 +137,127 @@ const SearchSelect = ({
     onSelectionChange(selectedValues.filter((v) => v !== option));
   };
 
+  const handleEdit = (item: ManagementItem) => {
+    setEditingItem(item);
+    setEditName(item.nombre);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingItem || !editName.trim() || !type) return;
+
+    const id = (editingItem as any).idubicacion || 
+               (editingItem as any).idcategoria || 
+               (editingItem as any).idlaboratorio || 
+               editingItem.id || 0;
+
+    try {
+      switch (type) {
+        case "ubicacion":
+          await updateUbicacion(id, { nombre: editName.trim() });
+          break;
+        case "categoria":
+          await updateCategoria(id, { nombre: editName.trim() });
+          break;
+        case "laboratorio":
+          await updateLaboratorio(id, { nombre: editName.trim() });
+          break;
+      }
+
+      // Si el elemento editado estaba seleccionado, actualizar la selección
+      if (selectedValues.includes(editingItem.nombre)) {
+        const newValues = selectedValues.map(v => 
+          v === editingItem.nombre ? editName.trim() : v
+        );
+        onSelectionChange(newValues);
+      }
+
+      toast({
+        title: `${label} actualizado`,
+        description: `"${editingItem.nombre}" → "${editName.trim()}"`,
+      });
+
+      if (onRefreshList) onRefreshList();
+      setEditingItem(null);
+      setEditName("");
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: `No se pudo actualizar el ${label.toLowerCase()}`,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDelete = async (item: ManagementItem) => {
+    if (!type) return;
+
+    const id = (item as any).idubicacion || 
+               (item as any).idcategoria || 
+               (item as any).idlaboratorio || 
+               item.id || 0;
+
+    try {
+      switch (type) {
+        case "ubicacion":
+          await deleteUbicacion(id);
+          break;
+        case "categoria":
+          await deleteCategoria(id);
+          break;
+        case "laboratorio":
+          await deleteLaboratorio(id);
+          break;
+      }
+
+      // Si el elemento eliminado estaba seleccionado, removerlo
+      if (selectedValues.includes(item.nombre)) {
+        onSelectionChange(selectedValues.filter(v => v !== item.nombre));
+      }
+
+      toast({
+        title: `${label} eliminado`,
+        description: `"${item.nombre}" ha sido eliminado`,
+        variant: "destructive",
+      });
+
+      if (onRefreshList) onRefreshList();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: `No se pudo eliminar el ${label.toLowerCase()}`,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditingItem(null);
+    setEditName("");
+  };
+
+  const isSelected = (name: string) => selectedValues.includes(name);
+
   return (
-    <div className="space-y-1">
-      <Label className="text-xs">
-        {label} {required && <span className="text-red-500">*</span>}
-      </Label>
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <Label className="text-sm font-medium">
+          {label} {required && <span className="text-red-500">*</span>}
+        </Label>
+        {onAddNew && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-6 w-6 p-0"
+            onClick={onAddNew}
+            title={`Agregar ${label.toLowerCase()}`}
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </Button>
+        )}
+      </div>
+
+      {/* Buscador con dropdown */}
       <div className="relative">
         <Input
           value={searchTerm}
@@ -132,41 +268,168 @@ const SearchSelect = ({
           onFocus={() => setIsOpen(true)}
           onBlur={() => setTimeout(() => setIsOpen(false), 200)}
           placeholder={placeholder}
-          className="h-8 text-xs"
+          className="h-9 text-sm"
         />
-        {isOpen && filteredOptions.length > 0 && (
-          <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-28 overflow-y-auto">
-            {filteredOptions.map((option) => (
-              <button
-                key={option}
-                type="button"
-                className="w-full text-left px-2 py-1 text-xs hover:bg-accent hover:text-accent-foreground"
-                onMouseDown={() => addSelection(option)}
-              >
-                {option}
-              </button>
-            ))}
+        
+        {/* Dropdown de resultados */}
+        {isOpen && searchTerm.length > 0 && (
+          <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-52 overflow-y-auto">
+            {searchResults.length > 0 ? (
+              searchResults.map((item) => {
+                const selected = isSelected(item.nombre);
+                return (
+                  <div
+                    key={item.id}
+                    className={`flex items-center justify-between px-3 py-1.5 hover:bg-accent group ${
+                      selected ? "bg-primary/5" : ""
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      className={`flex-1 text-left text-sm ${
+                        selected ? "text-primary font-medium" : ""
+                      }`}
+                      onMouseDown={() => addSelection(item.nombre)}
+                    >
+                      {item.nombre}
+                      {selected && (
+                        <span className="text-xs text-muted-foreground ml-2">
+                          ✓ seleccionado
+                        </span>
+                      )}
+                    </button>
+                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          handleEdit(item);
+                        }}
+                        title="Editar"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>¿Eliminar {label.toLowerCase()}?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              ¿Estás seguro de eliminar "{item.nombre}"?
+                              {selected && (
+                                <span className="block mt-2 text-destructive font-medium">
+                                  ⚠️ Este elemento está seleccionado y será removido.
+                                </span>
+                              )}
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDelete(item)}
+                              className="bg-destructive hover:bg-destructive/90"
+                            >
+                              Eliminar
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="px-3 py-2 text-sm text-muted-foreground">
+                No hay resultados para "{searchTerm}"
+                <Button
+                  type="button"
+                  variant="link"
+                  size="sm"
+                  className="ml-2 h-auto p-0 text-primary"
+                  onMouseDown={() => {
+                    if (onAddNew) onAddNew();
+                    setIsOpen(false);
+                  }}
+                >
+                  Agregar nuevo
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>
+
+      {/* Elementos seleccionados */}
       {selectedValues.length > 0 && (
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1.5">
           {selectedValues.map((value) => (
             <Badge
               key={value}
               variant="secondary"
-              className="text-xs px-1.5 py-0 h-5"
+              className="text-sm px-2 py-1 h-6"
             >
               {value}
               <button
                 type="button"
                 onClick={() => removeSelection(value)}
-                className="ml-1 hover:text-destructive"
+                className="ml-1.5 hover:text-destructive"
               >
-                <X className="h-2.5 w-2.5" />
+                <X className="h-3 w-3" />
               </button>
             </Badge>
           ))}
+        </div>
+      )}
+
+      {/* Modal de edición */}
+      {editingItem && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
+          <div className="bg-background rounded-lg p-4 max-w-sm w-full mx-4 shadow-lg">
+            <h4 className="text-sm font-medium mb-3">Editar {label.toLowerCase()}</h4>
+            <Input
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              className="h-9 text-sm mb-3"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSaveEdit();
+                if (e.key === "Escape") cancelEdit();
+              }}
+            />
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={cancelEdit}
+                className="h-8"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleSaveEdit}
+                className="h-8 bg-primary hover:bg-primary/90"
+                disabled={!editName.trim()}
+              >
+                Guardar
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -215,8 +478,8 @@ const ProductoSimilarSelect = ({
   };
 
   return (
-    <div className="space-y-1">
-      <Label className="text-xs">Productos Similares</Label>
+    <div className="space-y-1.5">
+      <Label className="text-sm font-medium">Productos Similares</Label>
       <div className="relative">
         <Input
           value={searchTerm}
@@ -227,16 +490,16 @@ const ProductoSimilarSelect = ({
           onFocus={() => setIsOpen(true)}
           onBlur={() => setTimeout(() => setIsOpen(false), 200)}
           placeholder="Buscar productos similares..."
-          className="h-8 text-xs pl-7"
+          className="h-9 text-sm pl-9"
         />
-        <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" />
+        <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
         {isOpen && filteredOptions.length > 0 && (
-          <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-28 overflow-y-auto">
+          <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-32 overflow-y-auto">
             {filteredOptions.map((producto) => (
               <button
                 key={producto.idproducto}
                 type="button"
-                className="w-full text-left px-2 py-1 text-xs hover:bg-accent hover:text-accent-foreground"
+                className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
                 onMouseDown={() => addSelection(producto)}
               >
                 {producto.nombre}
@@ -246,20 +509,20 @@ const ProductoSimilarSelect = ({
         )}
       </div>
       {selectedValues.length > 0 && (
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1.5">
           {selectedValues.map((id) => (
             <Badge
               key={id}
               variant="secondary"
-              className="text-xs px-1.5 py-0 h-5"
+              className="text-sm px-2 py-1 h-6"
             >
               {getProductoNombre(id)}
               <button
                 type="button"
                 onClick={() => removeSelection(id)}
-                className="ml-1 hover:text-destructive"
+                className="ml-1.5 hover:text-destructive"
               >
-                <X className="h-2.5 w-2.5" />
+                <X className="h-3 w-3" />
               </button>
             </Badge>
           ))}
@@ -272,13 +535,10 @@ const ProductoSimilarSelect = ({
 // Función mejorada para convertir base64 a File
 const base64ToFile = (base64String: string, fileName = "imagen.jpg"): File | null => {
   try {
-    // Si es una URL, intentamos convertirla
     if (base64String.startsWith('http') || base64String.startsWith('https')) {
-      // No podemos convertir URLs a File directamente, devolvemos null
       return null;
     }
 
-    // Si no tiene el formato base64 esperado, devolvemos null
     if (!base64String.includes(',')) {
       return null;
     }
@@ -291,7 +551,6 @@ const base64ToFile = (base64String: string, fileName = "imagen.jpg"): File | nul
     const mimeMatch = metadata.match(/:(.*?);/);
     const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
 
-    // Decodificar base64
     const byteCharacters = atob(data);
     const byteArrays = [];
 
@@ -315,17 +574,14 @@ const getImageUrl = (imagen: string | undefined): string => {
     return "https://static.vecteezy.com/system/resources/previews/011/781/801/non_2x/medicine-3d-render-icon-illustration-png.png";
   }
   
-  // Si es una URL HTTP, la devolvemos tal cual
   if (imagen.startsWith('http://') || imagen.startsWith('https://')) {
     return imagen;
   }
   
-  // Si es base64, la devolvemos tal cual
   if (imagen.includes('data:image')) {
     return imagen;
   }
   
-  // Si es una ruta relativa, la devolvemos tal cual
   return imagen;
 };
 
@@ -340,7 +596,6 @@ export function FormularioProductos({
 }: FormularioProductosProps) {
   const [formData, setFormData] = useState<ProductFormData>(() => {
     if (product) {
-      // Intentar convertir la imagen a File si es base64
       let imagenFile = null;
       if (product.imagen) {
         imagenFile = base64ToFile(product.imagen, "producto.jpg");
@@ -388,6 +643,7 @@ export function FormularioProductos({
     open: false,
     type: null,
   });
+
   const [todosProductos, setTodosProductos] = useState<ProductoSelect[]>([]);
   const [loadingProductos, setLoadingProductos] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
@@ -448,6 +704,45 @@ export function FormularioProductos({
     });
   };
 
+  const loadManagementItems = async () => {
+    try {
+      const [ubicacionesData, categoriasData, laboratoriosData] = await Promise.all([
+        getUbicaciones(),
+        getCategorias(),
+        getLaboratorios(),
+      ]);
+
+      const ubicacionesMapped = ubicacionesData.map(item => ({
+        ...item,
+        id: item.idubicacion
+      }));
+      
+      const categoriasMapped = categoriasData.map(item => ({
+        ...item,
+        id: item.idcategoria
+      }));
+      
+      const laboratoriosMapped = laboratoriosData.map(item => ({
+        ...item,
+        id: item.idlaboratorio
+      }));
+
+      setManagementItems({
+        ubicaciones: ubicacionesMapped,
+        categorias: categoriasMapped,
+        laboratorios: laboratoriosMapped,
+      });
+
+      setLocalLists({
+        ubicaciones: ubicacionesData.map((item) => item.nombre),
+        categorias: categoriasData.map((item) => item.nombre),
+        laboratorios: laboratoriosData.map((item) => item.nombre),
+      });
+    } catch (error) {
+      console.error("Error cargando elementos de gestión:", error);
+    }
+  };
+
   useEffect(() => {
     const loadTodosProductos = async () => {
       setLoadingProductos(true);
@@ -461,48 +756,6 @@ export function FormularioProductos({
       }
     };
     loadTodosProductos();
-  }, []);
-
-  useEffect(() => {
-    const loadManagementItems = async () => {
-      try {
-        const [ubicacionesData, categoriasData, laboratoriosData] = await Promise.all([
-          getUbicaciones(),
-          getCategorias(),
-          getLaboratorios(),
-        ]);
-
-        const ubicacionesMapped = ubicacionesData.map(item => ({
-          ...item,
-          id: item.idubicacion
-        }));
-        
-        const categoriasMapped = categoriasData.map(item => ({
-          ...item,
-          id: item.idcategoria
-        }));
-        
-        const laboratoriosMapped = laboratoriosData.map(item => ({
-          ...item,
-          id: item.idlaboratorio
-        }));
-
-        setManagementItems({
-          ubicaciones: ubicacionesMapped,
-          categorias: categoriasMapped,
-          laboratorios: laboratoriosMapped,
-        });
-
-        setLocalLists({
-          ubicaciones: ubicacionesData.map((item) => item.nombre),
-          categorias: categoriasData.map((item) => item.nombre),
-          laboratorios: laboratoriosData.map((item) => item.nombre),
-        });
-      } catch (error) {
-        console.error("Error cargando elementos de gestión:", error);
-      }
-    };
-
     loadManagementItems();
   }, []);
 
@@ -749,55 +1002,6 @@ export function FormularioProductos({
     setAddDialogState({ open: true, type });
   };
 
-  const updateLocalList = async (type: string) => {
-    try {
-      let newData: ManagementItem[] = [];
-
-      switch (type) {
-        case "ubicacion":
-          const ubicacionesData = await getUbicaciones();
-          newData = ubicacionesData.map(item => ({
-            ...item,
-            id: item.idubicacion
-          }));
-          setManagementItems((prev) => ({ ...prev, ubicaciones: newData }));
-          setLocalLists((prev) => ({
-            ...prev,
-            ubicaciones: ubicacionesData.map((item) => item.nombre),
-          }));
-          break;
-        case "categoria":
-          const categoriasData = await getCategorias();
-          newData = categoriasData.map(item => ({
-            ...item,
-            id: item.idcategoria
-          }));
-          setManagementItems((prev) => ({ ...prev, categorias: newData }));
-          setLocalLists((prev) => ({
-            ...prev,
-            categorias: categoriasData.map((item) => item.nombre),
-          }));
-          break;
-        case "laboratorio":
-          const laboratoriosData = await getLaboratorios();
-          newData = laboratoriosData.map(item => ({
-            ...item,
-            id: item.idlaboratorio
-          }));
-          setManagementItems((prev) => ({ ...prev, laboratorios: newData }));
-          setLocalLists((prev) => ({
-            ...prev,
-            laboratorios: laboratoriosData.map((item) => item.nombre),
-          }));
-          break;
-        default:
-          return;
-      }
-    } catch (error) {
-      console.error(`Error actualizando lista ${type}:`, error);
-    }
-  };
-
   const handleAddNewElement = async (name: string) => {
     if (isAddingElement) return;
 
@@ -819,11 +1023,11 @@ export function FormularioProductos({
           break;
       }
 
-      await updateLocalList(type);
+      await loadManagementItems();
 
       toast({
         title: `${type.charAt(0).toUpperCase() + type.slice(1)} agregado`,
-        description: `El ${type} "${name}" ha sido agregado exitosamente.`,
+        description: `"${name}" ha sido agregado exitosamente.`,
       });
 
       if (onRefreshData) {
@@ -906,10 +1110,10 @@ export function FormularioProductos({
         />
       )}
 
-      <form onSubmit={handleSubmit} className="w-full space-y-2">
+      <form onSubmit={handleSubmit} className="w-full space-y-3">
         {/* Nombre del producto */}
-        <div className="space-y-1">
-          <Label htmlFor="nombre" className="text-xs font-medium">
+        <div className="space-y-1.5">
+          <Label htmlFor="nombre" className="text-sm font-medium">
             Nombre <span className="text-red-500">*</span>
           </Label>
           <Input
@@ -917,16 +1121,16 @@ export function FormularioProductos({
             value={formData.nombre}
             onChange={(e) => handleInputChange("nombre", e.target.value)}
             placeholder="Ej: Paracetamol 500mg"
-            className="h-8 text-xs"
+            className="h-9 text-sm"
             required
           />
         </div>
 
         {/* Imagen circular centrada */}
-        <div className="flex justify-center py-1">
+        <div className="flex justify-center py-2">
           <div className="relative">
             <div
-              className="w-20 h-20 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-800 border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              className="w-24 h-24 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-800 border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
               onClick={() =>
                 document.getElementById("image-upload-input")?.click()
               }
@@ -941,11 +1145,11 @@ export function FormularioProductos({
                   }}
                 />
               ) : (
-                <Camera className="w-7 h-7 text-gray-400" />
+                <Camera className="w-8 h-8 text-gray-400" />
               )}
             </div>
-            <label className="absolute bottom-0 right-0 p-1 bg-primary rounded-full cursor-pointer hover:bg-primary/90 transition-colors">
-              <Camera className="w-3 h-3 text-white" />
+            <label className="absolute bottom-0 right-0 p-1.5 bg-primary rounded-full cursor-pointer hover:bg-primary/90 transition-colors">
+              <Camera className="w-3.5 h-3.5 text-white" />
               <input
                 id="image-upload-input"
                 type="file"
@@ -960,15 +1164,15 @@ export function FormularioProductos({
                 onClick={removeImage}
                 className="absolute -top-2 -right-2 p-0.5 bg-destructive rounded-full hover:bg-destructive/90 transition-colors"
               >
-                <X className="w-2.5 h-2.5 text-white" />
+                <X className="w-3 h-3 text-white" />
               </button>
             )}
           </div>
         </div>
 
         {/* Descripción */}
-        <div className="space-y-1">
-          <Label htmlFor="descripcion" className="text-xs font-medium">
+        <div className="space-y-1.5">
+          <Label htmlFor="descripcion" className="text-sm font-medium">
             Descripción <span className="text-red-500">*</span>
           </Label>
           <Textarea
@@ -977,107 +1181,61 @@ export function FormularioProductos({
             onChange={(e) => handleInputChange("descripcion", e.target.value)}
             rows={2}
             placeholder="Describe tu producto..."
-            className="text-xs resize-none h-12"
+            className="text-sm resize-none h-14"
             required
           />
         </div>
 
         {/* Ubicación y Categorías lado a lado */}
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-1">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="ubicacion" className="text-xs font-medium">
-                Ubicación <span className="text-red-500">*</span>
-              </Label>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-6 w-6 p-0"
-                onClick={() => openAddDialog("ubicacion")}
-                disabled={isAddingElement}
-              >
-                <Plus className="h-3 w-3" />
-              </Button>
-            </div>
-            <select
-              value={formData.ubicacion}
-              onChange={(e) => handleInputChange("ubicacion", e.target.value)}
-              className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-xs"
-              required
-            >
-              <option value="">Seleccionar</option>
-              {localLists.ubicaciones.map((ubicacion) => (
-                <option key={ubicacion} value={ubicacion}>
-                  {ubicacion}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className="grid grid-cols-2 gap-3">
+          <SearchSelectWithManagement
+            options={localLists.ubicaciones}
+            selectedValues={formData.ubicacion ? [formData.ubicacion] : []}
+            onSelectionChange={(values) => {
+              handleInputChange("ubicacion", values.length > 0 ? values[0] : "");
+            }}
+            placeholder="Buscar ubicación..."
+            label="Ubicación"
+            required
+            onAddNew={() => openAddDialog("ubicacion")}
+            items={managementItems.ubicaciones}
+            type="ubicacion"
+            onRefreshList={loadManagementItems}
+          />
 
-          <div className="space-y-1">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs font-medium">
-                Categorías <span className="text-red-500">*</span>
-              </Label>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => openAddDialog("categoria")}
-                className="h-6 w-6 p-0"
-                disabled={isAddingElement}
-              >
-                <Plus className="h-3 w-3" />
-              </Button>
-            </div>
-            <SearchSelect
-              options={localLists.categorias}
-              selectedValues={formData.categorias}
-              onSelectionChange={(values) =>
-                handleInputChange("categorias", values)
-              }
-              placeholder="Buscar categorías..."
-              label=""
-            />
-          </div>
+          <SearchSelectWithManagement
+            options={localLists.categorias}
+            selectedValues={formData.categorias}
+            onSelectionChange={(values) => handleInputChange("categorias", values)}
+            placeholder="Buscar categorías..."
+            label="Categorías"
+            required
+            onAddNew={() => openAddDialog("categoria")}
+            items={managementItems.categorias}
+            type="categoria"
+            onRefreshList={loadManagementItems}
+          />
         </div>
 
         {/* Laboratorio y Stock Mínimo lado a lado */}
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-1">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="laboratorio" className="text-xs font-medium">
-                Laboratorio <span className="text-red-500">*</span>
-              </Label>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-6 w-6 p-0"
-                onClick={() => openAddDialog("laboratorio")}
-                disabled={isAddingElement}
-              >
-                <Plus className="h-3 w-3" />
-              </Button>
-            </div>
-            <select
-              value={formData.laboratorio}
-              onChange={(e) => handleInputChange("laboratorio", e.target.value)}
-              className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-xs"
-              required
-            >
-              <option value="">Seleccionar</option>
-              {localLists.laboratorios.map((laboratorio) => (
-                <option key={laboratorio} value={laboratorio}>
-                  {laboratorio}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className="grid grid-cols-2 gap-3">
+          <SearchSelectWithManagement
+            options={localLists.laboratorios}
+            selectedValues={formData.laboratorio ? [formData.laboratorio] : []}
+            onSelectionChange={(values) => {
+              handleInputChange("laboratorio", values.length > 0 ? values[0] : "");
+            }}
+            placeholder="Buscar laboratorio..."
+            label="Laboratorio"
+            required
+            onAddNew={() => openAddDialog("laboratorio")}
+            items={managementItems.laboratorios}
+            type="laboratorio"
+            onRefreshList={loadManagementItems}
+          />
 
-          <div className="space-y-1">
-            <Label className="text-xs font-medium">Stock Mínimo</Label>
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">Stock Mínimo</Label>
             <Input
               type="number"
               value={formData.stockMinimo}
@@ -1087,16 +1245,16 @@ export function FormularioProductos({
               }}
               placeholder="0"
               min="0"
-              className="h-8 text-xs number-input-no-scroll"
+              className="h-9 text-sm number-input-no-scroll"
               onWheel={(e) => e.currentTarget.blur()}
             />
           </div>
         </div>
 
         {/* Precio Venta y Precio Compra lado a lado */}
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-1">
-            <Label htmlFor="precioVenta" className="text-xs font-medium">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="precioVenta" className="text-sm font-medium">
               Precio Venta (Bs) <span className="text-red-500">*</span>
             </Label>
             <Input
@@ -1109,13 +1267,13 @@ export function FormularioProductos({
                 handleInputChange("precioVenta", value === "" ? "" : Number(value));
               }}
               placeholder="0"
-              className="h-8 text-xs number-input-no-scroll"
+              className="h-9 text-sm number-input-no-scroll"
               onWheel={(e) => e.currentTarget.blur()}
             />
           </div>
 
-          <div className="space-y-1">
-            <Label htmlFor="precioCompra" className="text-xs font-medium">
+          <div className="space-y-1.5">
+            <Label htmlFor="precioCompra" className="text-sm font-medium">
               Precio Compra (Bs)
             </Label>
             <Input
@@ -1128,15 +1286,15 @@ export function FormularioProductos({
                 handleInputChange("precioCompra", value === "" ? "" : Number(value));
               }}
               placeholder="0"
-              className="h-8 text-xs number-input-no-scroll"
+              className="h-9 text-sm number-input-no-scroll"
               onWheel={(e) => e.currentTarget.blur()}
             />
           </div>
         </div>
 
         {/* Código de Barras con escáner integrado */}
-        <div className="space-y-1">
-          <Label htmlFor="codigoBarras" className="text-xs font-medium">
+        <div className="space-y-1.5">
+          <Label htmlFor="codigoBarras" className="text-sm font-medium">
             Código de Barras
           </Label>
           <div className="relative">
@@ -1145,7 +1303,7 @@ export function FormularioProductos({
               value={formData.codigoBarras || ""}
               onChange={(e) => handleInputChange("codigoBarras", e.target.value)}
               placeholder="Escanea o escribe el código"
-              className="h-8 text-xs"
+              className="h-9 text-sm pr-10"
             />
             {isMobile && (
               <Button
@@ -1153,9 +1311,9 @@ export function FormularioProductos({
                 variant="outline"
                 size="sm"
                 onClick={openScanner}
-                className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+                className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0"
               >
-                <Camera className="h-3 w-3" />
+                <Camera className="h-3.5 w-3.5" />
               </Button>
             )}
           </div>
@@ -1164,7 +1322,7 @@ export function FormularioProductos({
         {/* Lotes - Gestión de stock con fechas de vencimiento */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <Label className="text-xs font-medium">
+            <Label className="text-sm font-medium">
               Lotes y Stock <span className="text-red-500">*</span>
             </Label>
             <Button
@@ -1172,31 +1330,33 @@ export function FormularioProductos({
               size="sm"
               variant="outline"
               onClick={addLoteRow}
-              className="h-6 px-2 text-xs"
+              className="h-7 px-3 text-sm"
             >
-              <Plus className="h-3 w-3 mr-1" />
+              <Plus className="h-3.5 w-3.5 mr-1" />
               Agregar Lote
             </Button>
           </div>
 
           {lotesForm.map((lote, index) => (
-            <div key={index} className="flex items-center gap-2 p-2 border rounded-md">
+            <div key={index} className="flex items-center gap-2 p-2.5 border rounded-md">
               <div className="flex-1">
+                <Label className="text-xs text-muted-foreground">Stock</Label>
                 <Input
                   type="number"
-                  placeholder="Stock"
+                  placeholder="Cantidad"
                   value={lote.stock || ''}
                   onChange={(e) => handleLoteChange(index, 'stock', Number(e.target.value))}
-                  className="h-8 text-xs"
+                  className="h-9 text-sm"
                   min="0"
                 />
               </div>
               <div className="flex-1">
+                <Label className="text-xs text-muted-foreground">Fecha de Vencimiento</Label>
                 <Input
                   type="date"
                   value={lote.fechaVencimiento}
                   onChange={(e) => handleLoteChange(index, 'fechaVencimiento', e.target.value)}
-                  className="h-8 text-xs"
+                  className="h-9 text-sm"
                 />
               </div>
               {lotesForm.length > 1 && (
@@ -1205,7 +1365,7 @@ export function FormularioProductos({
                   variant="ghost"
                   size="sm"
                   onClick={() => removeLoteRow(index)}
-                  className="h-8 w-8 p-0 text-destructive"
+                  className="h-9 w-9 p-0 text-destructive hover:text-destructive self-end"
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -1214,14 +1374,14 @@ export function FormularioProductos({
           ))}
 
           {lotesForm.length > 0 && (
-            <div className="text-xs text-muted-foreground">
+            <div className="text-sm text-muted-foreground">
               Stock total: {lotesForm.reduce((sum, l) => sum + (l.stock || 0), 0)} unidades
             </div>
           )}
         </div>
 
         {/* Productos Similares */}
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           <ProductoSimilarSelect
             productosDisponibles={todosProductos}
             selectedValues={formData.productosSimilares || []}
@@ -1231,19 +1391,19 @@ export function FormularioProductos({
             currentProductId={formData.id ? parseInt(formData.id) : undefined}
           />
           {loadingProductos && (
-            <div className="text-xs text-muted-foreground">
+            <div className="text-sm text-muted-foreground">
               Cargando productos...
             </div>
           )}
         </div>
 
         {/* Botones */}
-        <div className="flex justify-end space-x-2 pt-2">
+        <div className="flex justify-end space-x-2 pt-3">
           <Button
             type="button"
             variant="outline"
             onClick={onCancel}
-            className="h-8 text-xs"
+            className="h-9 text-sm px-4"
             disabled={isSubmittingProduct || isAddingElement}
           >
             Cancelar
@@ -1252,12 +1412,12 @@ export function FormularioProductos({
             <AlertDialogTrigger asChild>
               <Button
                 type="button"
-                className="bg-primary hover:bg-primary/90 h-8 text-xs"
+                className="bg-primary hover:bg-primary/90 h-9 text-sm px-4"
                 disabled={isSubmittingProduct || isAddingElement}
               >
                 {isSubmittingProduct ? (
                   <>
-                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1.5"></div>
+                    <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white mr-2"></div>
                     {product ? "Actualizando..." : "Agregando..."}
                   </>
                 ) : product ? (
@@ -1292,6 +1452,7 @@ export function FormularioProductos({
         </div>
       </form>
 
+      {/* Dialog para agregar nuevo elemento */}
       <AddItemDialog
         open={addDialogState.open}
         onOpenChange={(open) => setAddDialogState({ open, type: null })}
@@ -1318,3 +1479,5 @@ export function FormularioProductos({
     </>
   );
 }
+
+export default FormularioProductos;

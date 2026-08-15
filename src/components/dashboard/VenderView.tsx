@@ -8,6 +8,9 @@ import {
   ChevronUp,
   Camera,
   Package,
+  User,
+  Pencil,
+  X,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -23,15 +27,31 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   searchProducts,
   getCashStatus,
   processSale,
+  getDoctors,
+  createDoctor,
+  updateDoctor,
+  deleteDoctor,
   type Product,
   type SaleRequest,
   type Lote,
+  type Doctor,
 } from "@/api/SalesApi";
 import { getUserId, getCurrentUser } from "@/api/AuthApi";
 import BarcodeScanner from "./BarcodeScanner";
@@ -115,6 +135,442 @@ export const getImageUrl = (imagen: any): string | null => {
   return 'https://static.vecteezy.com/system/resources/previews/011/781/801/non_2x/medicine-3d-render-icon-illustration-png.png';
 };
 
+// Componente DoctorSelect - igual que SearchSelectWithManagement
+const DoctorSelect = ({
+  selectedDoctor,
+  onDoctorChange,
+  onRefreshList,
+}: {
+  selectedDoctor: Doctor | null;
+  onDoctorChange: (doctor: Doctor | null) => void;
+  onRefreshList: () => Promise<void>;
+}) => {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null);
+  const [editForm, setEditForm] = useState({ nombre: "", especialidad: "", cedula: "", telefono: "" });
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [newDoctorForm, setNewDoctorForm] = useState({ nombre: "", especialidad: "", cedula: "", telefono: "" });
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+
+  const loadDoctors = async () => {
+    try {
+      const data = await getDoctors();
+      setDoctors(data);
+    } catch (error) {
+      console.error("Error loading doctors:", error);
+    }
+  };
+
+  useEffect(() => {
+    loadDoctors();
+  }, []);
+
+  const searchResults = doctors.filter(
+    (doctor) =>
+      doctor.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      doctor.especialidad.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const selectDoctor = (doctor: Doctor) => {
+    onDoctorChange(doctor);
+    setSearchTerm("");
+    setIsOpen(false);
+  };
+
+  const handleAddDoctor = async () => {
+    if (!newDoctorForm.nombre.trim() || !newDoctorForm.especialidad.trim() || 
+        !newDoctorForm.cedula.trim() || !newDoctorForm.telefono.trim()) {
+      toast({
+        title: "Error",
+        description: "Todos los campos son obligatorios",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const newDoctor = await createDoctor(newDoctorForm);
+      setDoctors(prev => [...prev, newDoctor]);
+      onDoctorChange(newDoctor);
+      setShowAddDialog(false);
+      setNewDoctorForm({ nombre: "", especialidad: "", cedula: "", telefono: "" });
+      if (onRefreshList) onRefreshList();
+      toast({
+        title: "Doctor agregado",
+        description: `${newDoctor.nombre} ha sido agregado exitosamente`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo agregar el doctor",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditDoctor = async () => {
+    if (!editingDoctor) return;
+    if (!editForm.nombre.trim() || !editForm.especialidad.trim() || 
+        !editForm.cedula.trim() || !editForm.telefono.trim()) {
+      toast({
+        title: "Error",
+        description: "Todos los campos son obligatorios",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const updated = await updateDoctor(editingDoctor.id, editForm);
+      setDoctors(prev => prev.map(d => d.id === updated.id ? updated : d));
+      if (selectedDoctor?.id === updated.id) {
+        onDoctorChange(updated);
+      }
+      setEditingDoctor(null);
+      setEditForm({ nombre: "", especialidad: "", cedula: "", telefono: "" });
+      if (onRefreshList) onRefreshList();
+      toast({
+        title: "Doctor actualizado",
+        description: `${updated.nombre} ha sido actualizado exitosamente`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el doctor",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteDoctor = async (doctor: Doctor) => {
+    try {
+      await deleteDoctor(doctor.id);
+      setDoctors(prev => prev.filter(d => d.id !== doctor.id));
+      if (selectedDoctor?.id === doctor.id) {
+        onDoctorChange(null);
+      }
+      if (onRefreshList) onRefreshList();
+      toast({
+        title: "Doctor eliminado",
+        description: `${doctor.nombre} ha sido eliminado`,
+        variant: "destructive",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar el doctor",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const startEdit = (doctor: Doctor) => {
+    setEditingDoctor(doctor);
+    setEditForm({
+      nombre: doctor.nombre,
+      especialidad: doctor.especialidad,
+      cedula: doctor.cedula,
+      telefono: doctor.telefono,
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingDoctor(null);
+    setEditForm({ nombre: "", especialidad: "", cedula: "", telefono: "" });
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <Label className="text-sm font-medium">Doctor</Label>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-6 w-6 p-0"
+          onClick={() => setShowAddDialog(true)}
+          title="Agregar doctor"
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+
+      {/* Buscador con dropdown */}
+      <div className="relative">
+        <Input
+          value={searchTerm}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            setIsOpen(true);
+          }}
+          onFocus={() => setIsOpen(true)}
+          onBlur={() => setTimeout(() => setIsOpen(false), 200)}
+          placeholder="Buscar doctor..."
+          className="h-9 text-sm"
+        />
+        
+        {/* Dropdown de resultados */}
+        {isOpen && searchTerm.length > 0 && (
+          <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-52 overflow-y-auto">
+            {searchResults.length > 0 ? (
+              searchResults.map((doctor) => {
+                const isSelected = selectedDoctor?.id === doctor.id;
+                return (
+                  <div
+                    key={doctor.id}
+                    className={`flex items-center justify-between px-3 py-1.5 hover:bg-accent group ${
+                      isSelected ? "bg-primary/5" : ""
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      className={`flex-1 text-left text-sm ${
+                        isSelected ? "text-primary font-medium" : ""
+                      }`}
+                      onMouseDown={() => selectDoctor(doctor)}
+                    >
+                      <div>
+                        <span>{doctor.nombre}</span>
+                        <span className="text-xs text-muted-foreground ml-2">
+                          {doctor.especialidad}
+                        </span>
+                      </div>
+                      {isSelected && (
+                        <span className="text-xs text-muted-foreground ml-2">
+                          ✓ seleccionado
+                        </span>
+                      )}
+                    </button>
+                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          startEdit(doctor);
+                        }}
+                        title="Editar"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                            title="Eliminar"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>¿Eliminar doctor?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              ¿Estás seguro de eliminar "{doctor.nombre}"?
+                              {isSelected && (
+                                <span className="block mt-2 text-destructive font-medium">
+                                  ⚠️ Este doctor está seleccionado y será removido.
+                                </span>
+                              )}
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDeleteDoctor(doctor)}
+                              className="bg-destructive hover:bg-destructive/90"
+                            >
+                              Eliminar
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="px-3 py-2 text-sm text-muted-foreground">
+                No hay resultados para "{searchTerm}"
+                <Button
+                  type="button"
+                  variant="link"
+                  size="sm"
+                  className="ml-2 h-auto p-0 text-primary"
+                  onMouseDown={() => {
+                    setShowAddDialog(true);
+                    setIsOpen(false);
+                  }}
+                >
+                  Agregar nuevo
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Doctor seleccionado */}
+      {selectedDoctor && (
+        <div className="flex items-center gap-2 bg-muted/50 p-2 rounded-lg">
+          <User className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm flex-1">
+            <span className="font-medium">{selectedDoctor.nombre}</span>
+            <span className="text-muted-foreground"> - {selectedDoctor.especialidad}</span>
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-6 w-6 p-0"
+            onClick={() => startEdit(selectedDoctor)}
+          >
+            <Pencil className="h-3 w-3" />
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+            onClick={() => onDoctorChange(null)}
+          >
+            <X className="h-3 w-3" />
+          </Button>
+        </div>
+      )}
+
+      {/* Modal de edición */}
+      {editingDoctor && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
+          <div className="bg-background rounded-lg p-4 max-w-sm w-full mx-4 shadow-lg">
+            <h4 className="text-sm font-medium mb-3">Editar doctor</h4>
+            <div className="space-y-2">
+              <Input
+                placeholder="Nombre completo"
+                value={editForm.nombre}
+                onChange={(e) => setEditForm(prev => ({ ...prev, nombre: e.target.value }))}
+                className="h-9 text-sm"
+              />
+              <Input
+                placeholder="Especialidad"
+                value={editForm.especialidad}
+                onChange={(e) => setEditForm(prev => ({ ...prev, especialidad: e.target.value }))}
+                className="h-9 text-sm"
+              />
+              <Input
+                placeholder="Cédula"
+                value={editForm.cedula}
+                onChange={(e) => setEditForm(prev => ({ ...prev, cedula: e.target.value }))}
+                className="h-9 text-sm"
+              />
+              <Input
+                placeholder="Teléfono"
+                value={editForm.telefono}
+                onChange={(e) => setEditForm(prev => ({ ...prev, telefono: e.target.value }))}
+                className="h-9 text-sm"
+              />
+            </div>
+            <div className="flex justify-end gap-2 mt-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={cancelEdit}
+                className="h-8"
+                disabled={loading}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleEditDoctor}
+                className="h-8 bg-primary hover:bg-primary/90"
+                disabled={loading}
+              >
+                {loading ? "Guardando..." : "Guardar"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de agregar */}
+      {showAddDialog && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
+          <div className="bg-background rounded-lg p-4 max-w-sm w-full mx-4 shadow-lg">
+            <h4 className="text-sm font-medium mb-3">Agregar doctor</h4>
+            <div className="space-y-2">
+              <Input
+                placeholder="Nombre completo *"
+                value={newDoctorForm.nombre}
+                onChange={(e) => setNewDoctorForm(prev => ({ ...prev, nombre: e.target.value }))}
+                className="h-9 text-sm"
+              />
+              <Input
+                placeholder="Especialidad *"
+                value={newDoctorForm.especialidad}
+                onChange={(e) => setNewDoctorForm(prev => ({ ...prev, especialidad: e.target.value }))}
+                className="h-9 text-sm"
+              />
+              <Input
+                placeholder="Cédula *"
+                value={newDoctorForm.cedula}
+                onChange={(e) => setNewDoctorForm(prev => ({ ...prev, cedula: e.target.value }))}
+                className="h-9 text-sm"
+              />
+              <Input
+                placeholder="Teléfono *"
+                value={newDoctorForm.telefono}
+                onChange={(e) => setNewDoctorForm(prev => ({ ...prev, telefono: e.target.value }))}
+                className="h-9 text-sm"
+              />
+            </div>
+            <div className="flex justify-end gap-2 mt-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setShowAddDialog(false);
+                  setNewDoctorForm({ nombre: "", especialidad: "", cedula: "", telefono: "" });
+                }}
+                className="h-8"
+                disabled={loading}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleAddDoctor}
+                className="h-8 bg-primary hover:bg-primary/90"
+                disabled={loading}
+              >
+                {loading ? "Agregando..." : "Agregar"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Componente para seleccionar cantidad y lotes
 function SeleccionarLoteDialog({
   open,
@@ -143,7 +599,6 @@ function SeleccionarLoteDialog({
   const [paso, setPaso] = useState<'cantidad' | 'distribucion'>('cantidad');
   const [inputTouched, setInputTouched] = useState(false);
 
-  // Cuando se confirma la cantidad, pasar a distribución
   const handleConfirmarCantidad = () => {
     if (!cantidadSolicitada || cantidadSolicitada <= 0) {
       setError("La cantidad debe ser mayor a 0");
@@ -154,7 +609,6 @@ function SeleccionarLoteDialog({
       return;
     }
 
-    // Inicializar distribución FIFO
     const sorted = [...lotes].sort((a, b) => 
       new Date(a.fechaVencimiento).getTime() - new Date(b.fechaVencimiento).getTime()
     );
@@ -474,6 +928,10 @@ export function VenderView() {
   const [discountReason, setDiscountReason] = useState('');
   const [showScanner, setShowScanner] = useState(false);
   
+  // Estados para Doctor
+  const [isDoctorMode, setIsDoctorMode] = useState(false);
+  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
+  
   // Estados para selección de lotes
   const [showLoteDialog, setShowLoteDialog] = useState(false);
   const [productoParaLote, setProductoParaLote] = useState<Product | null>(null);
@@ -587,7 +1045,6 @@ export function VenderView() {
     return product.lotes.some(l => l.stock > 0);
   };
 
-  // Función para abrir el diálogo de selección de lotes
   const abrirDialogoLotes = (product: Product, cantidad: number, esEdicion: boolean = false, index: number = -1) => {
     const stockDisponible = getStockDisponible(product.idproducto);
     
@@ -600,13 +1057,10 @@ export function VenderView() {
       return;
     }
 
-    // Para edición, el stock disponible incluye lo que ya tiene en el carrito
     const stockDisponibleParaEdicion = stockDisponible + (index >= 0 ? ventaItems[index]?.cantidad || 0 : 0);
-    const stockMaximo = esEdicion ? stockDisponibleParaEdicion : stockDisponible;
 
     const lotes = getLotesProducto(product.idproducto);
     
-    // Si solo hay un lote, no preguntar, asignar directamente
     if (lotes.length === 1) {
       const lote = lotes[0];
       const selecciones = [{ idlote: lote.idlote, cantidad }];
@@ -616,7 +1070,6 @@ export function VenderView() {
       }));
 
       if (esEdicion && index >= 0) {
-        // Reemplazar el item existente
         const updatedItems = [...ventaItems];
         updatedItems[index] = {
           ...product,
@@ -625,7 +1078,6 @@ export function VenderView() {
         };
         setVentaItems(updatedItems);
       } else {
-        // Crear nuevo item
         const nuevoItem: SaleItemWithLotes = {
           ...product,
           cantidad,
@@ -641,7 +1093,6 @@ export function VenderView() {
       return;
     }
 
-    // Múltiples lotes - mostrar diálogo
     setProductoParaLote(product);
     setCantidadInicialParaLote(cantidad);
     setEsEdicion(esEdicion);
@@ -649,11 +1100,9 @@ export function VenderView() {
     setShowLoteDialog(true);
   };
 
-  // Función para confirmar la selección de lotes
   const confirmarSeleccionLotes = (cantidadTotal: number, selecciones: { idlote: number; cantidad: number }[]) => {
     if (!productoParaLote) return;
 
-    // Obtener información de los lotes
     const lotesInfo = selecciones.map(sel => {
       const lote = productoParaLote.lotes?.find(l => l.idlote === sel.idlote);
       return {
@@ -663,7 +1112,6 @@ export function VenderView() {
     });
 
     if (esEdicion && itemIndexParaLote >= 0) {
-      // Reemplazar el item existente completamente
       const updatedItems = [...ventaItems];
       updatedItems[itemIndexParaLote] = {
         ...productoParaLote,
@@ -677,7 +1125,6 @@ export function VenderView() {
         description: `${productoParaLote.nombre} actualizado a ${cantidadTotal} unidades`,
       });
     } else {
-      // Crear nuevo item
       const nuevoItem: SaleItemWithLotes = {
         ...productoParaLote,
         cantidad: cantidadTotal,
@@ -697,7 +1144,6 @@ export function VenderView() {
     setEsEdicion(false);
   };
 
-  // Función para agregar producto
   const agregarProducto = (product: Product) => {
     const stockDisponible = getStockDisponible(product.idproducto);
     
@@ -710,21 +1156,17 @@ export function VenderView() {
       return;
     }
 
-    // Verificar si ya existe en el carrito
     const existingIndex = ventaItems.findIndex(
       (item) => item.idproducto === product.idproducto,
     );
 
     if (existingIndex !== -1) {
-      // Si ya existe, preguntar cuánto agregar (como nuevo, no edición)
       abrirDialogoLotes(product, 1, false, -1);
     } else {
-      // Nuevo producto, preguntar cantidad
       abrirDialogoLotes(product, 1, false, -1);
     }
   };
 
-  // Función para actualizar cantidad (reemplazar completamente)
   const actualizarCantidad = (index: number, nuevaCantidad: number) => {
     if (nuevaCantidad < 1) {
       eliminarItem(index);
@@ -732,7 +1174,6 @@ export function VenderView() {
     }
 
     const item = ventaItems[index];
-    // Para edición, el stock disponible incluye lo que ya tiene
     const stockDisponible = getStockDisponible(item.idproducto) + item.cantidad;
     
     if (nuevaCantidad > stockDisponible) {
@@ -744,20 +1185,16 @@ export function VenderView() {
       return;
     }
 
-    // Si la cantidad es diferente, abrir diálogo para seleccionar lotes (como edición)
     if (nuevaCantidad !== item.cantidad) {
       const product = searchResults.find(p => p.idproducto === item.idproducto);
       if (product) {
-        // Abrir diálogo para reemplazar la cantidad completa (edición)
         abrirDialogoLotes(product, nuevaCantidad, true, index);
       }
     }
   };
 
-  // Función para manejar input de cantidad manual
   const handleCantidadInputChange = (index: number, value: string) => {
     if (value === "") {
-      // Mostrar vacío mientras el usuario escribe
       const newItems = [...ventaItems];
       newItems[index].cantidad = 0;
       setVentaItems(newItems);
@@ -781,13 +1218,11 @@ export function VenderView() {
       return;
     }
 
-    // Actualizar el valor mostrado inmediatamente
     const newItems = [...ventaItems];
     newItems[index].cantidad = numericValue;
     setVentaItems(newItems);
   };
 
-  // Función para manejar el blur del input - aquí es donde se confirma la edición
   const handleCantidadInputBlur = (index: number, value: string) => {
     if (value === "" || parseInt(value) === 0) {
       const item = ventaItems[index];
@@ -1121,6 +1556,7 @@ export function VenderView() {
         total: total,
         metodo_pago: metodoPago,
         items: items,
+        doctorId: selectedDoctor?.id,
       };
 
       await processSale(saleRequest, userId);
@@ -1131,6 +1567,8 @@ export function VenderView() {
       setShowConfirm(false);
       setDiscountReason('');
       setShowDiscountField(false);
+      setIsDoctorMode(false);
+      setSelectedDoctor(null);
 
       toast({
         title: "¡Venta procesada!",
@@ -1494,6 +1932,31 @@ export function VenderView() {
             <CardTitle>Detalle de Venta</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Doctor Switch y Selector */}
+            <div className="border rounded-lg p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-primary" />
+                  <Label htmlFor="doctor-switch" className="font-medium">
+                    Doctor
+                  </Label>
+                </div>
+                <Switch
+                  id="doctor-switch"
+                  checked={isDoctorMode}
+                  onCheckedChange={setIsDoctorMode}
+                />
+              </div>
+
+              {isDoctorMode && (
+                <DoctorSelect
+                  selectedDoctor={selectedDoctor}
+                  onDoctorChange={setSelectedDoctor}
+                  onRefreshList={async () => {}}
+                />
+              )}
+            </div>
+
             {ventaItems.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">
                 No hay productos agregados
@@ -1560,7 +2023,6 @@ export function VenderView() {
                                 p => p.idproducto === item.idproducto
                               );
                               if (product) {
-                                // Edición: reemplazar la cantidad completa
                                 abrirDialogoLotes(product, nuevaCantidad, true, index);
                               }
                             } else {
@@ -1585,7 +2047,6 @@ export function VenderView() {
                             }
                             const numericValue = parseInt(val);
                             if (!isNaN(numericValue) && numericValue > 0) {
-                              // Actualizar el valor mostrado inmediatamente
                               const newItems = [...ventaItems];
                               newItems[index].cantidad = numericValue;
                               setVentaItems(newItems);
@@ -1679,6 +2140,11 @@ export function VenderView() {
                   <span className="text-sm whitespace-nowrap">
                     -Bs {formatBs(descuento)}
                   </span>
+                  {isDoctorMode && selectedDoctor && (
+                    <Badge variant="secondary" className="text-xs">
+                      Doctor: {selectedDoctor.nombre}
+                    </Badge>
+                  )}
                 </div>
 
                 {showDiscountField && (
@@ -1691,6 +2157,11 @@ export function VenderView() {
                       placeholder="Explique el motivo del descuento..."
                       rows={3}
                     />
+                    {isDoctorMode && selectedDoctor && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Descuento aplicado por: {selectedDoctor.nombre} - {selectedDoctor.especialidad}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
@@ -1770,14 +2241,17 @@ export function VenderView() {
                   disabled={
                     ventaItems.length === 0 ||
                     !cajaAbierta ||
-                    tieneItemsInvalidos
+                    tieneItemsInvalidos ||
+                    (isDoctorMode && !selectedDoctor)
                   }
                 >
                   {!cajaAbierta
                     ? "Caja Cerrada"
                     : tieneItemsInvalidos
                       ? "Cantidades inválidas"
-                      : "Procesar Venta"}
+                      : isDoctorMode && !selectedDoctor
+                        ? "Seleccionar doctor"
+                        : "Procesar Venta"}
                 </Button>
               </DialogTrigger>
               <DialogContent>
@@ -1786,6 +2260,11 @@ export function VenderView() {
                   <DialogDescription>
                     ¿Está seguro de procesar esta venta por Bs {formatBs(total)}
                     ?
+                    {isDoctorMode && selectedDoctor && (
+                      <span className="block mt-2 text-sm">
+                        Doctor asignado: <strong>{selectedDoctor.nombre}</strong>
+                      </span>
+                    )}
                   </DialogDescription>
                 </DialogHeader>
                 <div className="flex gap-3 justify-end">

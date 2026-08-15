@@ -11,6 +11,15 @@ export interface Lote {
   fechaCreacion: string;
 }
 
+// Interface para Doctor
+export interface Doctor {
+  id: number;
+  nombre: string;
+  especialidad: string;
+  cedula: string;
+  telefono: string;
+}
+
 export interface BackendProduct {
   idproducto: number;
   nombre: string;
@@ -72,6 +81,7 @@ export interface SaleRequest {
   descripcion_descuento: string;
   items: SaleItem[];
   userId?: number;
+  doctorId?: number;
 }
 
 export interface CashStatus {
@@ -84,7 +94,64 @@ export interface CashStatus {
   fecha_cierre: string | null;
 }
 
-// Datos mock para pruebas
+// Datos mock para doctores
+let MOCK_DOCTORS: Doctor[] = [
+  { id: 1, nombre: "Dr. Juan Pérez", especialidad: "Cardiología", cedula: "12345678", telefono: "0412-1234567" },
+  { id: 2, nombre: "Dra. María Gómez", especialidad: "Pediatría", cedula: "87654321", telefono: "0416-7654321" },
+  { id: 3, nombre: "Dr. Carlos Rodríguez", especialidad: "Dermatología", cedula: "45678912", telefono: "0414-9876543" },
+];
+
+let DOCTOR_ID_COUNTER = 4;
+
+// Funciones para doctores
+export const getDoctors = async (): Promise<Doctor[]> => {
+  try {
+    return [...MOCK_DOCTORS];
+  } catch (error) {
+    console.error("Error fetching doctors:", error);
+    throw new Error("No se pudieron obtener los doctores");
+  }
+};
+
+export const createDoctor = async (data: { nombre: string; especialidad: string; cedula: string; telefono: string }): Promise<Doctor> => {
+  try {
+    const newDoctor = {
+      ...data,
+      id: DOCTOR_ID_COUNTER++
+    };
+    MOCK_DOCTORS.push(newDoctor);
+    return newDoctor;
+  } catch (error) {
+    console.error("Error creating doctor:", error);
+    throw new Error("No se pudo crear el doctor");
+  }
+};
+
+export const updateDoctor = async (id: number, data: { nombre: string; especialidad: string; cedula: string; telefono: string }): Promise<Doctor> => {
+  try {
+    const index = MOCK_DOCTORS.findIndex(d => d.id === id);
+    if (index === -1) {
+      throw new Error("Doctor no encontrado");
+    }
+    const updatedDoctor = { ...data, id };
+    MOCK_DOCTORS[index] = updatedDoctor;
+    return updatedDoctor;
+  } catch (error) {
+    console.error("Error updating doctor:", error);
+    throw new Error("No se pudo actualizar el doctor");
+  }
+};
+
+export const deleteDoctor = async (id: number): Promise<void> => {
+  try {
+    MOCK_DOCTORS = MOCK_DOCTORS.filter(d => d.id !== id);
+  } catch (error) {
+    console.error("Error deleting doctor:", error);
+    throw new Error("No se pudo eliminar el doctor");
+  }
+};
+
+// Datos mock para productos
 const MOCK_LOTES: Record<number, Lote[]> = {
   1: [
     { idlote: 101, idproducto: 1, stock: 10, fechaVencimiento: "2026-12-31", fechaCreacion: "2026-01-15" },

@@ -1,4 +1,4 @@
-// api/FormularioProductoApi.ts
+// api/ProductsApi.ts
 import axios from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
@@ -21,6 +21,36 @@ export interface ProductoRequest {
     stock: number;
     fecha_vencimiento: string;
   }>;
+}
+
+export interface Producto {
+  idproducto: number;
+  nombre: string;
+  descripcion: string;
+  idubicacion: number;
+  ubicacion: string;
+  idlaboratorio: number;
+  laboratorio: string;
+  estado: number;
+  categorias: string[];
+  imagen: string;
+  precio_venta: number;
+  precio_compra: number;
+  stock_total: number;
+  stock_minimo: number;
+  codigo_barras?: string;
+  productos_similares?: Array<{
+    idproducto: number;
+    nombre: string;
+  }>;
+  lotes?: ProductoLote[];
+}
+
+export interface ProductoLote {
+  idlote: number;
+  stock: number;
+  fechaVencimiento: string;
+  fecha_vencimiento?: string;
 }
 
 export interface ProductoResponse {
@@ -84,7 +114,127 @@ const debugFormData = (formData: FormData) => {
   console.log("=== FIN DEBUG FORM DATA ===");
 };
 
-// API para productos
+// ============ API PARA UBICACIONES ============
+export const getUbicaciones = async (): Promise<Array<{ idubicacion: number; nombre: string; estado: number }>> => {
+  try {
+    const response = await api.get("/ubicaciones");
+    return response.data;
+  } catch (error: any) {
+    console.error("Error fetching ubicaciones:", error);
+    throw new Error(error.response?.data?.message || "No se pudieron cargar las ubicaciones");
+  }
+};
+
+export const createUbicacion = async (data: { nombre: string }): Promise<{ idubicacion: number; nombre: string; estado: number }> => {
+  try {
+    const response = await api.post("/ubicaciones", data);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error creating ubicacion:", error);
+    throw new Error(error.response?.data?.message || "No se pudo crear la ubicación");
+  }
+};
+
+export const updateUbicacion = async (id: number, data: { nombre: string }): Promise<{ idubicacion: number; nombre: string; estado: number }> => {
+  try {
+    const response = await api.put(`/ubicaciones/${id}`, data);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error updating ubicacion:", error);
+    throw new Error(error.response?.data?.message || "No se pudo actualizar la ubicación");
+  }
+};
+
+export const deleteUbicacion = async (id: number): Promise<void> => {
+  try {
+    await api.delete(`/ubicaciones/${id}`);
+  } catch (error: any) {
+    console.error("Error deleting ubicacion:", error);
+    throw new Error(error.response?.data?.message || "No se pudo eliminar la ubicación");
+  }
+};
+
+// ============ API PARA CATEGORÍAS ============
+export const getCategorias = async (): Promise<Array<{ idcategoria: number; nombre: string; estado: number }>> => {
+  try {
+    const response = await api.get("/categorias");
+    return response.data;
+  } catch (error: any) {
+    console.error("Error fetching categorias:", error);
+    throw new Error(error.response?.data?.message || "No se pudieron cargar las categorías");
+  }
+};
+
+export const createCategoria = async (data: { nombre: string }): Promise<{ idcategoria: number; nombre: string; estado: number }> => {
+  try {
+    const response = await api.post("/categorias", data);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error creating categoria:", error);
+    throw new Error(error.response?.data?.message || "No se pudo crear la categoría");
+  }
+};
+
+export const updateCategoria = async (id: number, data: { nombre: string }): Promise<{ idcategoria: number; nombre: string; estado: number }> => {
+  try {
+    const response = await api.put(`/categorias/${id}`, data);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error updating categoria:", error);
+    throw new Error(error.response?.data?.message || "No se pudo actualizar la categoría");
+  }
+};
+
+export const deleteCategoria = async (id: number): Promise<void> => {
+  try {
+    await api.delete(`/categorias/${id}`);
+  } catch (error: any) {
+    console.error("Error deleting categoria:", error);
+    throw new Error(error.response?.data?.message || "No se pudo eliminar la categoría");
+  }
+};
+
+// ============ API PARA LABORATORIOS ============
+export const getLaboratorios = async (): Promise<Array<{ idlaboratorio: number; nombre: string; estado: number }>> => {
+  try {
+    const response = await api.get("/laboratorios");
+    return response.data;
+  } catch (error: any) {
+    console.error("Error fetching laboratorios:", error);
+    throw new Error(error.response?.data?.message || "No se pudieron cargar los laboratorios");
+  }
+};
+
+export const createLaboratorio = async (data: { nombre: string }): Promise<{ idlaboratorio: number; nombre: string; estado: number }> => {
+  try {
+    const response = await api.post("/laboratorios", data);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error creating laboratorio:", error);
+    throw new Error(error.response?.data?.message || "No se pudo crear el laboratorio");
+  }
+};
+
+export const updateLaboratorio = async (id: number, data: { nombre: string }): Promise<{ idlaboratorio: number; nombre: string; estado: number }> => {
+  try {
+    const response = await api.put(`/laboratorios/${id}`, data);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error updating laboratorio:", error);
+    throw new Error(error.response?.data?.message || "No se pudo actualizar el laboratorio");
+  }
+};
+
+export const deleteLaboratorio = async (id: number): Promise<void> => {
+  try {
+    await api.delete(`/laboratorios/${id}`);
+  } catch (error: any) {
+    console.error("Error deleting laboratorio:", error);
+    throw new Error(error.response?.data?.message || "No se pudo eliminar el laboratorio");
+  }
+};
+
+// ============ API PARA PRODUCTOS ============
 export const createProducto = async (formData: FormData): Promise<ProductoResponse> => {
   try {
     console.log("Enviando datos al servidor...");
@@ -162,7 +312,17 @@ export const deleteProducto = async (id: number): Promise<void> => {
   }
 };
 
-// API para lotes
+export const getTodosProductosParaSelect = async (): Promise<Array<{ idproducto: number; nombre: string }>> => {
+  try {
+    const response = await api.get("/formulario-productos/productos/todos");
+    return response.data;
+  } catch (error: any) {
+    console.error("Error fetching productos para select:", error);
+    throw new Error(error.response?.data?.message || "No se pudieron cargar los productos");
+  }
+};
+
+// ============ API PARA LOTES ============
 export const getLotesByProducto = async (idproducto: number): Promise<LoteResponse[]> => {
   try {
     const response = await api.get<LoteResponse[]>(`/formulario-productos/productos/${idproducto}/lotes`);
@@ -202,23 +362,105 @@ export const deleteLote = async (idlote: number): Promise<void> => {
   }
 };
 
-// API para laboratorios (ya que los incluimos en ManagementSectionApi, pero por si acaso)
-export const getLaboratorios = async (): Promise<Array<{ idlaboratorio: number; nombre: string; estado: number }>> => {
+// ============ API PARA STOCK ============
+export const updateStockProducto = async (
+  idproducto: number,
+  idlote: number,
+  cantidad: number,
+  fechaVencimiento?: string
+): Promise<void> => {
   try {
-    const response = await api.get("/laboratorios");
-    return response.data;
+    const data: any = { cantidad };
+    if (idlote === 0 && fechaVencimiento) {
+      data.fecha_vencimiento = fechaVencimiento;
+    }
+    const url = idlote === 0 
+      ? `/formulario-productos/productos/${idproducto}/stock/nuevo-lote`
+      : `/formulario-productos/productos/${idproducto}/stock/${idlote}`;
+    
+    await api.patch(url, data);
   } catch (error: any) {
-    console.error("Error fetching laboratorios:", error);
-    throw new Error(error.response?.data?.message || "No se pudieron cargar los laboratorios");
+    console.error("Error updating stock:", error);
+    throw new Error(error.response?.data?.message || "No se pudo actualizar el stock");
   }
 };
 
-export const createLaboratorio = async (data: { nombre: string }): Promise<{ idlaboratorio: number; nombre: string; estado: number }> => {
+// ============ API PARA BÚSQUEDA ============
+export const buscarProductos = async (
+  query: string,
+  categoria?: string,
+  laboratorio?: string,
+  page: number = 1,
+  limit: number = 15
+): Promise<{
+  productos: ProductoResponse[];
+  total: number;
+  page: number;
+  totalPages: number;
+}> => {
   try {
-    const response = await api.post("/laboratorios", data);
+    const params: any = { query, page, limit };
+    if (categoria) params.categoria = categoria;
+    if (laboratorio) params.laboratorio = laboratorio;
+    
+    const response = await api.get("/formulario-productos/productos/buscar", { params });
     return response.data;
   } catch (error: any) {
-    console.error("Error creating laboratorio:", error);
-    throw new Error(error.response?.data?.message || "No se pudo crear el laboratorio");
+    console.error("Error searching productos:", error);
+    throw new Error(error.response?.data?.message || "No se pudieron buscar los productos");
   }
+};
+
+export const getAllProductos = async (
+  page: number = 1,
+  limit: number = 15
+): Promise<{
+  productos: ProductoResponse[];
+  total: number;
+  page: number;
+  totalPages: number;
+}> => {
+  try {
+    const response = await api.get("/formulario-productos/productos", {
+      params: { page, limit },
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error("Error fetching productos:", error);
+    throw new Error(error.response?.data?.message || "No se pudieron cargar los productos");
+  }
+};
+
+// ============ EXPORTACIÓN POR DEFECTO ============
+export default {
+  // Ubicaciones
+  getUbicaciones,
+  createUbicacion,
+  updateUbicacion,
+  deleteUbicacion,
+  // Categorías
+  getCategorias,
+  createCategoria,
+  updateCategoria,
+  deleteCategoria,
+  // Laboratorios
+  getLaboratorios,
+  createLaboratorio,
+  updateLaboratorio,
+  deleteLaboratorio,
+  // Productos
+  createProducto,
+  updateProducto,
+  getProductoById,
+  deleteProducto,
+  getTodosProductosParaSelect,
+  getAllProductos,
+  buscarProductos,
+  // Lotes
+  getLotesByProducto,
+  createLote,
+  updateLote,
+  deleteLote,
+  // Stock
+  updateStockProducto,
 };

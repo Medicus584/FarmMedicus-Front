@@ -1103,14 +1103,14 @@ export function ProductosView() {
                         <Table className="min-w-full">
                           <TableHeader>
                             <TableRow>
-                              <TableHead className="w-[70px]">Img</TableHead>
-                              <TableHead>Producto</TableHead>
-                              <TableHead className="w-[100px]">Ubic.</TableHead>
-                              <TableHead className="w-[100px]">Lab.</TableHead>
-                              <TableHead className="w-[120px]">Código</TableHead>
-                              <TableHead className="min-w-[150px]">Stock / Lotes</TableHead>
-                              <TableHead className="w-[80px] text-center">Similares</TableHead>
-                              <TableHead className="w-[100px]">Precio</TableHead>
+                              <TableHead className="w-[60px]">Imagen</TableHead>
+                              <TableHead className="min-w-[200px]">Producto</TableHead>
+                              <TableHead className="w-[120px]">Ubicación</TableHead>
+                              <TableHead className="w-[130px]">Laboratorio</TableHead>
+                              <TableHead className="w-[140px]">Código</TableHead>
+                              <TableHead className="min-w-[180px]">Stock / Lotes</TableHead>
+                              <TableHead className="w-[100px] text-center">Similares</TableHead>
+                              <TableHead className="w-[110px]">Precio</TableHead>
                               <TableHead className="w-[100px] text-right">Acciones</TableHead>
                             </TableRow>
                           </TableHeader>
@@ -1141,8 +1141,8 @@ export function ProductosView() {
                                               variant="secondary"
                                               className="text-xs"
                                             >
-                                              {categoria.length > 10
-                                                ? categoria.substring(0, 8) + "..."
+                                              {categoria.length > 15
+                                                ? categoria.substring(0, 12) + "..."
                                                 : categoria}
                                             </Badge>
                                           ))}
@@ -1191,7 +1191,7 @@ export function ProductosView() {
                                       <Button
                                         variant="ghost"
                                         size="sm"
-                                        className="h-7 w-7 p-0 relative"
+                                        className="h-7 w-7 p-0 relative mx-auto"
                                       >
                                         <Eye className="h-4 w-4" />
                                         {product.productos_similares && product.productos_similares.length > 0 && (

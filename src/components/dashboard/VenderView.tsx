@@ -7,6 +7,7 @@ import {
   ChevronDown,
   ChevronUp,
   Camera,
+  Package,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -30,14 +31,16 @@ import {
   processSale,
   type Product,
   type SaleRequest,
+  type Lote,
 } from "@/api/SalesApi";
 import { getUserId, getCurrentUser } from "@/api/AuthApi";
 import BarcodeScanner from "./BarcodeScanner";
 import { Textarea } from "../ui/textarea";
 
-interface SaleItem extends Product {
+interface SaleItemWithLotes extends Product {
   cantidad: number;
   ubicacion?: string;
+  lotesSeleccionados: { idlote: number; cantidad: number; fechaVencimiento: string }[];
 }
 
 const formatBs = (value: number) => {
@@ -45,7 +48,6 @@ const formatBs = (value: number) => {
   return v.toFixed(2);
 };
 
-// Hook personalizado para debounce
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
 
@@ -113,10 +115,348 @@ export const getImageUrl = (imagen: any): string | null => {
   return 'https://static.vecteezy.com/system/resources/previews/011/781/801/non_2x/medicine-3d-render-icon-illustration-png.png';
 };
 
+// Componente para seleccionar cantidad y lotes
+function SeleccionarLoteDialog({
+  open,
+  onOpenChange,
+  lotes,
+  productName,
+  stockDisponible,
+  cantidadInicial,
+  esEdicion,
+  onConfirm,
+  onCancel,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  lotes: Lote[];
+  productName: string;
+  stockDisponible: number;
+  cantidadInicial?: number;
+  esEdicion?: boolean;
+  onConfirm: (cantidad: number, selecciones: { idlote: number; cantidad: number }[]) => void;
+  onCancel: () => void;
+}) {
+  const [cantidadSolicitada, setCantidadSolicitada] = useState<number | undefined>(cantidadInicial);
+  const [cantidades, setCantidades] = useState<Record<number, number>>({});
+  const [error, setError] = useState<string>("");
+  const [paso, setPaso] = useState<'cantidad' | 'distribucion'>('cantidad');
+  const [inputTouched, setInputTouched] = useState(false);
+
+  // Cuando se confirma la cantidad, pasar a distribución
+  const handleConfirmarCantidad = () => {
+    if (!cantidadSolicitada || cantidadSolicitada <= 0) {
+      setError("La cantidad debe ser mayor a 0");
+      return;
+    }
+    if (cantidadSolicitada > stockDisponible) {
+      setError(`Stock insuficiente. Solo hay ${stockDisponible} unidades disponibles.`);
+      return;
+    }
+
+    // Inicializar distribución FIFO
+    const sorted = [...lotes].sort((a, b) => 
+      new Date(a.fechaVencimiento).getTime() - new Date(b.fechaVencimiento).getTime()
+    );
+    
+    const initial: Record<number, number> = {};
+    let restante = cantidadSolicitada;
+    
+    for (const lote of sorted) {
+      if (restante <= 0) break;
+      const tomar = Math.min(lote.stock, restante);
+      initial[lote.idlote] = tomar;
+      restante -= tomar;
+    }
+    
+    setCantidades(initial);
+    setError("");
+    setPaso('distribucion');
+  };
+
+  const totalSeleccionado = Object.values(cantidades).reduce((sum, c) => sum + c, 0);
+  const esValido = totalSeleccionado === cantidadSolicitada && cantidadSolicitada && cantidadSolicitada > 0;
+
+  const handleCantidadChange = (idlote: number, value: string) => {
+    const num = parseInt(value) || 0;
+    const lote = lotes.find(l => l.idlote === idlote);
+    
+    if (num < 0) return;
+    if (lote && num > lote.stock) {
+      setError(`Stock insuficiente. Solo hay ${lote.stock} unidades en este lote.`);
+      return;
+    }
+    
+    setError("");
+    setCantidades(prev => {
+      const newCantidades = { ...prev, [idlote]: num };
+      const total = Object.values(newCantidades).reduce((sum, c) => sum + c, 0);
+      if (cantidadSolicitada && total > cantidadSolicitada) {
+        setError(`La suma total (${total}) no puede exceder la cantidad solicitada (${cantidadSolicitada})`);
+        return prev;
+      }
+      return newCantidades;
+    });
+  };
+
+  const handleConfirm = () => {
+    if (!esValido || !cantidadSolicitada) {
+      setError(`Debe seleccionar exactamente ${cantidadSolicitada || 0} unidades en total. Actual: ${totalSeleccionado}`);
+      return;
+    }
+    
+    const selecciones = Object.entries(cantidades)
+      .filter(([_, cantidad]) => cantidad > 0)
+      .map(([idlote, cantidad]) => ({
+        idlote: parseInt(idlote),
+        cantidad
+      }));
+    
+    onConfirm(cantidadSolicitada, selecciones);
+  };
+
+  const handleVolver = () => {
+    setPaso('cantidad');
+    setError("");
+  };
+
+  const lotesOrdenados = [...lotes].sort((a, b) => 
+    new Date(a.fechaVencimiento).getTime() - new Date(b.fechaVencimiento).getTime()
+  );
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{esEdicion ? `Editar cantidad de ${productName}` : `Agregar ${productName}`}</DialogTitle>
+        </DialogHeader>
+        
+        <div className="space-y-4 py-4">
+          {paso === 'cantidad' ? (
+            <div className="space-y-4">
+              <div className="bg-muted p-3 rounded-lg">
+                <p className="font-medium">{productName}</p>
+                <p className="text-sm text-muted-foreground">
+                  Stock disponible: <strong>{stockDisponible}</strong> unidades
+                </p>
+                {esEdicion && (
+                  <p className="text-sm text-muted-foreground">
+                    Cantidad actual en carrito: <strong>{cantidadInicial || 0}</strong> unidades
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="cantidad">
+                  {esEdicion ? `Nueva cantidad total (${cantidadInicial || 0} actual)` : '¿Cuántas unidades deseas agregar?'}
+                </Label>
+                <Input
+                  id="cantidad"
+                  type="number"
+                  min="1"
+                  max={stockDisponible}
+                  value={cantidadSolicitada === undefined ? "" : cantidadSolicitada}
+                  placeholder="Ingrese la cantidad"
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "") {
+                      setCantidadSolicitada(undefined);
+                    } else {
+                      const num = parseInt(val);
+                      if (!isNaN(num) && num > 0) {
+                        setCantidadSolicitada(num);
+                      }
+                    }
+                    setError("");
+                    setInputTouched(true);
+                  }}
+                  className="text-lg font-semibold"
+                  onWheel={(e) => e.currentTarget.blur()}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Mínimo: 1, Máximo: {stockDisponible}
+                </p>
+              </div>
+
+              {error && (
+                <div className="bg-destructive/10 text-destructive text-sm p-2 rounded">
+                  {error}
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={onCancel} className="flex-1">
+                  Cancelar
+                </Button>
+                <Button 
+                  onClick={handleConfirmarCantidad} 
+                  className="flex-1"
+                  disabled={!cantidadSolicitada || cantidadSolicitada <= 0 || cantidadSolicitada > stockDisponible}
+                >
+                  Continuar
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="bg-muted p-3 rounded-lg">
+                <p className="font-medium">{productName}</p>
+                <p className="text-sm text-muted-foreground">
+                  Cantidad solicitada: <strong>{cantidadSolicitada}</strong> unidades
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Total seleccionado: <strong className={totalSeleccionado === cantidadSolicitada ? "text-green-600" : "text-red-600"}>
+                    {totalSeleccionado}
+                  </strong> unidades
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-sm font-medium">Distribuir entre lotes:</p>
+                
+                {lotesOrdenados.map((lote) => (
+                  <div key={lote.idlote} className="border rounded-lg p-3 space-y-2">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <Badge variant="outline" className="mb-1">
+                          Lote #{lote.idlote}
+                        </Badge>
+                        <p className="text-sm">
+                          Stock: <strong>{lote.stock}</strong> unidades
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Vence: {new Date(lote.fechaVencimiento).toLocaleDateString('es-ES')}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 w-7 p-0"
+                          onClick={() => {
+                            const current = cantidades[lote.idlote] || 0;
+                            if (current > 0) {
+                              handleCantidadChange(lote.idlote, String(current - 1));
+                            }
+                          }}
+                          disabled={(cantidades[lote.idlote] || 0) <= 0}
+                        >
+                          -
+                        </Button>
+                        <Input
+                          type="number"
+                          min="0"
+                          max={Math.min(lote.stock, cantidadSolicitada || 999)}
+                          value={cantidades[lote.idlote] || 0}
+                          onChange={(e) => handleCantidadChange(lote.idlote, e.target.value)}
+                          className="w-16 h-7 text-center text-sm number-input-no-scroll"
+                          onWheel={(e) => e.currentTarget.blur()}
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 w-7 p-0"
+                          onClick={() => {
+                            const current = cantidades[lote.idlote] || 0;
+                            const maxPosible = Math.min(
+                              lote.stock,
+                              (cantidadSolicitada || 0) - totalSeleccionado + current
+                            );
+                            if (current < maxPosible) {
+                              handleCantidadChange(lote.idlote, String(current + 1));
+                            }
+                          }}
+                          disabled={
+                            (cantidades[lote.idlote] || 0) >= lote.stock ||
+                            totalSeleccionado >= (cantidadSolicitada || 0)
+                          }
+                        >
+                          +
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {error && (
+                <div className="bg-destructive/10 text-destructive text-sm p-2 rounded">
+                  {error}
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={handleVolver} className="flex-1">
+                  Volver
+                </Button>
+                <Button variant="outline" onClick={onCancel} className="flex-1">
+                  Cancelar
+                </Button>
+                <Button onClick={handleConfirm} disabled={!esValido} className="flex-1">
+                  {esEdicion ? "Actualizar" : "Confirmar"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Componente para ver lotes en carrito
+function LotesCarritoDialog({
+  open,
+  onOpenChange,
+  productName,
+  lotes,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  productName: string;
+  lotes: { idlote: number; cantidad: number; fechaVencimiento: string }[];
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Lotes en el carrito</DialogTitle>
+        </DialogHeader>
+        
+        <div className="space-y-4 py-4">
+          <p className="font-medium">{productName}</p>
+          
+          <div className="space-y-2">
+            {lotes.map((lote, index) => (
+              <div key={index} className="flex justify-between items-center border-b pb-2">
+                <div>
+                  <Badge variant="outline" className="mb-1">
+                    Lote #{lote.idlote}
+                  </Badge>
+                  <p className="text-xs text-muted-foreground">
+                    Vence: {new Date(lote.fechaVencimiento).toLocaleDateString('es-ES')}
+                  </p>
+                </div>
+                <span className="font-semibold">{lote.cantidad} unidades</span>
+              </div>
+            ))}
+          </div>
+          
+          <div className="bg-muted p-3 rounded-lg text-center">
+            <p className="text-sm">
+              Total: <strong>{lotes.reduce((sum, l) => sum + l.cantidad, 0)}</strong> unidades
+            </p>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function VenderView() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Product[]>([]);
-  const [ventaItems, setVentaItems] = useState<SaleItem[]>([]);
+  const [ventaItems, setVentaItems] = useState<SaleItemWithLotes[]>([]);
   const [descuento, setDescuento] = useState(0);
   const [metodoPago, setMetodoPago] = useState<"Efectivo" | "QR">("Efectivo");
   const [montoPagado, setMontoPagado] = useState(0);
@@ -133,6 +473,18 @@ export function VenderView() {
   const [showDiscountField, setShowDiscountField] = useState(false);
   const [discountReason, setDiscountReason] = useState('');
   const [showScanner, setShowScanner] = useState(false);
+  
+  // Estados para selección de lotes
+  const [showLoteDialog, setShowLoteDialog] = useState(false);
+  const [productoParaLote, setProductoParaLote] = useState<Product | null>(null);
+  const [cantidadInicialParaLote, setCantidadInicialParaLote] = useState<number | undefined>(undefined);
+  const [esEdicion, setEsEdicion] = useState(false);
+  const [itemIndexParaLote, setItemIndexParaLote] = useState<number>(-1);
+  
+  // Estado para ver lotes en carrito
+  const [showLotesCarrito, setShowLotesCarrito] = useState(false);
+  const [productoParaVerLotes, setProductoParaVerLotes] = useState<SaleItemWithLotes | null>(null);
+
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const cartRef = useRef<HTMLDivElement>(null);
@@ -141,7 +493,7 @@ export function VenderView() {
   const isSearchingRef = useRef<boolean>(false);
   const barcodeBufferRef = useRef<string>("");
   const barcodeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isScanningRef = useRef<boolean>(false); // Para controlar si estamos en medio de un escaneo
+  const isScanningRef = useRef<boolean>(false);
 
   const currentUser = getCurrentUser();
   const username = currentUser?.nombres || "Usuario";
@@ -168,7 +520,6 @@ export function VenderView() {
     }
   }, [debouncedSearchQuery]);
 
-  // Cargar productos similares cuando se expande un producto
   useEffect(() => {
     if (expandedProduct !== null) {
       const product = searchResults.find(
@@ -184,7 +535,6 @@ export function VenderView() {
     }
   }, [expandedProduct, searchResults]);
 
-  // Manejar historial del navegador para el escáner
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
       if (showScanner) {
@@ -205,10 +555,261 @@ export function VenderView() {
     window.history.pushState({ scanner: true }, '');
   };
 
-  // Función para verificar si un producto ya está en el carrito y su cantidad
+  const getStockTotal = (product: Product): number => {
+    if (!product.lotes || product.lotes.length === 0) return 0;
+    return product.lotes.reduce((sum, lote) => sum + lote.stock, 0);
+  };
+
+  const getStockDisponible = (productId: number): number => {
+    const product = searchResults.find(p => p.idproducto === productId);
+    if (!product) return 0;
+    
+    const totalStock = getStockTotal(product);
+    const enCarrito = ventaItems
+      .filter(item => item.idproducto === productId)
+      .reduce((sum, item) => sum + item.cantidad, 0);
+    
+    return totalStock - enCarrito;
+  };
+
+  const getLotesProducto = (productId: number): Lote[] => {
+    const product = searchResults.find(p => p.idproducto === productId);
+    return product?.lotes || [];
+  };
+
   const getCantidadEnCarrito = (productId: number): number => {
     const item = ventaItems.find(item => item.idproducto === productId);
     return item ? item.cantidad : 0;
+  };
+
+  const tieneLotesDisponibles = (product: Product): boolean => {
+    if (!product.lotes || product.lotes.length === 0) return false;
+    return product.lotes.some(l => l.stock > 0);
+  };
+
+  // Función para abrir el diálogo de selección de lotes
+  const abrirDialogoLotes = (product: Product, cantidad: number, esEdicion: boolean = false, index: number = -1) => {
+    const stockDisponible = getStockDisponible(product.idproducto);
+    
+    if (stockDisponible <= 0 && !esEdicion) {
+      toast({
+        title: "Sin stock",
+        description: `${product.nombre} no tiene stock disponible`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Para edición, el stock disponible incluye lo que ya tiene en el carrito
+    const stockDisponibleParaEdicion = stockDisponible + (index >= 0 ? ventaItems[index]?.cantidad || 0 : 0);
+    const stockMaximo = esEdicion ? stockDisponibleParaEdicion : stockDisponible;
+
+    const lotes = getLotesProducto(product.idproducto);
+    
+    // Si solo hay un lote, no preguntar, asignar directamente
+    if (lotes.length === 1) {
+      const lote = lotes[0];
+      const selecciones = [{ idlote: lote.idlote, cantidad }];
+      const lotesInfo = selecciones.map(sel => ({
+        ...sel,
+        fechaVencimiento: lote.fechaVencimiento,
+      }));
+
+      if (esEdicion && index >= 0) {
+        // Reemplazar el item existente
+        const updatedItems = [...ventaItems];
+        updatedItems[index] = {
+          ...product,
+          cantidad,
+          lotesSeleccionados: lotesInfo,
+        };
+        setVentaItems(updatedItems);
+      } else {
+        // Crear nuevo item
+        const nuevoItem: SaleItemWithLotes = {
+          ...product,
+          cantidad,
+          lotesSeleccionados: lotesInfo,
+        };
+        setVentaItems([...ventaItems, nuevoItem]);
+      }
+      
+      toast({
+        title: esEdicion ? "Cantidad actualizada" : "Producto agregado",
+        description: `${product.nombre} (${cantidad} unidades del lote #${lote.idlote})`,
+      });
+      return;
+    }
+
+    // Múltiples lotes - mostrar diálogo
+    setProductoParaLote(product);
+    setCantidadInicialParaLote(cantidad);
+    setEsEdicion(esEdicion);
+    setItemIndexParaLote(index);
+    setShowLoteDialog(true);
+  };
+
+  // Función para confirmar la selección de lotes
+  const confirmarSeleccionLotes = (cantidadTotal: number, selecciones: { idlote: number; cantidad: number }[]) => {
+    if (!productoParaLote) return;
+
+    // Obtener información de los lotes
+    const lotesInfo = selecciones.map(sel => {
+      const lote = productoParaLote.lotes?.find(l => l.idlote === sel.idlote);
+      return {
+        ...sel,
+        fechaVencimiento: lote?.fechaVencimiento || new Date().toISOString(),
+      };
+    });
+
+    if (esEdicion && itemIndexParaLote >= 0) {
+      // Reemplazar el item existente completamente
+      const updatedItems = [...ventaItems];
+      updatedItems[itemIndexParaLote] = {
+        ...productoParaLote,
+        cantidad: cantidadTotal,
+        lotesSeleccionados: lotesInfo,
+      };
+      setVentaItems(updatedItems);
+      
+      toast({
+        title: "Cantidad actualizada",
+        description: `${productoParaLote.nombre} actualizado a ${cantidadTotal} unidades`,
+      });
+    } else {
+      // Crear nuevo item
+      const nuevoItem: SaleItemWithLotes = {
+        ...productoParaLote,
+        cantidad: cantidadTotal,
+        lotesSeleccionados: lotesInfo,
+      };
+      setVentaItems([...ventaItems, nuevoItem]);
+      
+      toast({
+        title: "Producto agregado",
+        description: `${productoParaLote.nombre} agregado al carrito con ${cantidadTotal} unidades`,
+      });
+    }
+
+    setShowLoteDialog(false);
+    setProductoParaLote(null);
+    setCantidadInicialParaLote(undefined);
+    setEsEdicion(false);
+  };
+
+  // Función para agregar producto
+  const agregarProducto = (product: Product) => {
+    const stockDisponible = getStockDisponible(product.idproducto);
+    
+    if (stockDisponible <= 0) {
+      toast({
+        title: "Sin stock",
+        description: `${product.nombre} no tiene stock disponible`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Verificar si ya existe en el carrito
+    const existingIndex = ventaItems.findIndex(
+      (item) => item.idproducto === product.idproducto,
+    );
+
+    if (existingIndex !== -1) {
+      // Si ya existe, preguntar cuánto agregar (como nuevo, no edición)
+      abrirDialogoLotes(product, 1, false, -1);
+    } else {
+      // Nuevo producto, preguntar cantidad
+      abrirDialogoLotes(product, 1, false, -1);
+    }
+  };
+
+  // Función para actualizar cantidad (reemplazar completamente)
+  const actualizarCantidad = (index: number, nuevaCantidad: number) => {
+    if (nuevaCantidad < 1) {
+      eliminarItem(index);
+      return;
+    }
+
+    const item = ventaItems[index];
+    // Para edición, el stock disponible incluye lo que ya tiene
+    const stockDisponible = getStockDisponible(item.idproducto) + item.cantidad;
+    
+    if (nuevaCantidad > stockDisponible) {
+      toast({
+        title: "Stock insuficiente",
+        description: `Solo hay ${stockDisponible} unidades disponibles en total`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Si la cantidad es diferente, abrir diálogo para seleccionar lotes (como edición)
+    if (nuevaCantidad !== item.cantidad) {
+      const product = searchResults.find(p => p.idproducto === item.idproducto);
+      if (product) {
+        // Abrir diálogo para reemplazar la cantidad completa (edición)
+        abrirDialogoLotes(product, nuevaCantidad, true, index);
+      }
+    }
+  };
+
+  // Función para manejar input de cantidad manual
+  const handleCantidadInputChange = (index: number, value: string) => {
+    if (value === "") {
+      // Mostrar vacío mientras el usuario escribe
+      const newItems = [...ventaItems];
+      newItems[index].cantidad = 0;
+      setVentaItems(newItems);
+      return;
+    }
+
+    const numericValue = parseInt(value);
+    if (isNaN(numericValue) || numericValue < 1) {
+      return;
+    }
+
+    const item = ventaItems[index];
+    const stockDisponible = getStockDisponible(item.idproducto) + item.cantidad;
+    
+    if (numericValue > stockDisponible) {
+      toast({
+        title: "Stock insuficiente",
+        description: `Solo hay ${stockDisponible} unidades disponibles en total`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Actualizar el valor mostrado inmediatamente
+    const newItems = [...ventaItems];
+    newItems[index].cantidad = numericValue;
+    setVentaItems(newItems);
+  };
+
+  // Función para manejar el blur del input - aquí es donde se confirma la edición
+  const handleCantidadInputBlur = (index: number, value: string) => {
+    if (value === "" || parseInt(value) === 0) {
+      const item = ventaItems[index];
+      const product = searchResults.find(p => p.idproducto === item.idproducto);
+      if (product) {
+        abrirDialogoLotes(product, 1, true, index);
+      }
+      return;
+    }
+
+    const numericValue = parseInt(value);
+    if (isNaN(numericValue) || numericValue < 1) {
+      return;
+    }
+
+    const item = ventaItems[index];
+    if (numericValue !== item.cantidad) {
+      const product = searchResults.find(p => p.idproducto === item.idproducto);
+      if (product) {
+        abrirDialogoLotes(product, numericValue, true, index);
+      }
+    }
   };
 
   const handleBarcodeScanned = async (barcode: string) => {
@@ -218,7 +819,6 @@ export function VenderView() {
       setLoading(true);
       isScanningRef.current = true;
       
-      // Limpiar el buscador y mostrar el nuevo código escaneado
       setSearchQuery(barcode);
       setSearchResults([]);
       setExpandedProduct(null);
@@ -229,23 +829,13 @@ export function VenderView() {
       
       if (results.length > 0) {
         const product = results[0];
-        const cantidadEnCarrito = getCantidadEnCarrito(product.idproducto);
-        const stockDisponible = product.stock - cantidadEnCarrito;
+        const stockDisponible = getStockDisponible(product.idproducto);
         
-        // Mostrar resultados en el buscador
         setSearchResults(results);
         
-        // Si hay stock disponible, agregar automáticamente al carrito
         if (stockDisponible > 0) {
-          // Agregar solo 1 unidad por escaneo
-          agregarProductoUnidad(product);
-          toast({
-            title: "Producto agregado",
-            description: `${product.nombre} agregado al carrito. Stock restante: ${stockDisponible - 1}`,
-            duration: 2000,
-          });
+          agregarProducto(product);
         } else {
-          // Si no hay stock disponible, mostrar mensaje y expandir similares
           toast({
             title: "Stock agotado",
             description: `${product.nombre} no tiene más stock disponible. Mostrando productos similares...`,
@@ -253,10 +843,8 @@ export function VenderView() {
             duration: 3000,
           });
           
-          // Expandir automáticamente para mostrar similares
           setExpandedProduct(product.idproducto);
           
-          // Cargar productos similares
           if (product.productos_similares && product.productos_similares.length > 0) {
             await loadSimilarProducts(product.idproducto, product.productos_similares);
           }
@@ -280,48 +868,9 @@ export function VenderView() {
       setSearchResults([]);
     } finally {
       setLoading(false);
-      // Resetear el flag después de un breve momento
       setTimeout(() => {
         isScanningRef.current = false;
       }, 100);
-    }
-  };
-
-  // Nueva función para agregar SOLO UNA unidad por escaneo
-  const agregarProductoUnidad = (product: Product) => {
-    const existingIndex = ventaItems.findIndex(
-      (item) => item.idproducto === product.idproducto,
-    );
-
-    if (existingIndex !== -1) {
-      // Producto ya existe, verificar stock
-      const item = ventaItems[existingIndex];
-      if (item.cantidad < product.stock) {
-        const newItems = [...ventaItems];
-        newItems[existingIndex].cantidad += 1;
-        setVentaItems(newItems);
-      } else {
-        toast({
-          title: "Stock insuficiente",
-          description: `No hay más stock disponible para ${product.nombre}`,
-          variant: "destructive",
-        });
-      }
-    } else {
-      // Producto nuevo
-      if (product.stock > 0) {
-        const nuevoItem: SaleItem = {
-          ...product,
-          cantidad: 1,
-        };
-        setVentaItems([...ventaItems, nuevoItem]);
-      } else {
-        toast({
-          title: "Sin stock",
-          description: `${product.nombre} no tiene stock disponible`,
-          variant: "destructive",
-        });
-      }
     }
   };
 
@@ -388,13 +937,11 @@ export function VenderView() {
           barcodeTimeoutRef.current = null;
         }
 
-        // Buscar y agregar automáticamente el producto escaneado
         handleBarcodeScanned(barcode);
       }
       return;
     }
 
-    // Detectar caracteres (para código de barras)
     if (event.key.length === 1 && !isScanningRef.current) {
       if (barcodeTimeoutRef.current) {
         clearTimeout(barcodeTimeoutRef.current);
@@ -457,106 +1004,10 @@ export function VenderView() {
     setSearchQuery(value);
   };
 
-  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    // No hacer nada especial, permitir que el evento normal fluya
-  };
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {};
 
   const toggleProductExpansion = (productId: number) => {
     setExpandedProduct(expandedProduct === productId ? null : productId);
-  };
-
-  // Función original para agregar producto (para los botones)
-  const agregarProducto = (product: Product) => {
-    const existingIndex = ventaItems.findIndex(
-      (item) => item.idproducto === product.idproducto,
-    );
-
-    if (existingIndex !== -1) {
-      const newItems = [...ventaItems];
-      if (newItems[existingIndex].cantidad < product.stock) {
-        newItems[existingIndex].cantidad += 1;
-        setVentaItems(newItems);
-      } else {
-        toast({
-          title: "Stock insuficiente",
-          description: `No hay suficiente stock para ${product.nombre}`,
-          variant: "destructive",
-        });
-        return;
-      }
-    } else {
-      if (product.stock > 0) {
-        const nuevoItem: SaleItem = {
-          ...product,
-          cantidad: 1,
-        };
-        setVentaItems([...ventaItems, nuevoItem]);
-      } else {
-        toast({
-          title: "Sin stock",
-          description: `${product.nombre} no tiene stock disponible`,
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-  };
-
-  const actualizarCantidad = (index: number, nuevaCantidad: number) => {
-    if (nuevaCantidad < 1) {
-      eliminarItem(index);
-      return;
-    }
-
-    const item = ventaItems[index];
-    if (nuevaCantidad > item.stock) {
-      toast({
-        title: "Stock insuficiente",
-        description: `Solo hay ${item.stock} unidades disponibles`,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const newItems = [...ventaItems];
-    newItems[index].cantidad = nuevaCantidad;
-    setVentaItems(newItems);
-  };
-
-  const handleCantidadInputChange = (index: number, value: string) => {
-    if (value === "") {
-      const newItems = [...ventaItems];
-      newItems[index].cantidad = 0;
-      setVentaItems(newItems);
-      return;
-    }
-
-    const numericValue = parseInt(value);
-    if (isNaN(numericValue) || numericValue < 1) {
-      return;
-    }
-
-    const item = ventaItems[index];
-    if (numericValue > item.stock) {
-      toast({
-        title: "Stock insuficiente",
-        description: `Solo hay ${item.stock} unidades disponibles`,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const newItems = [...ventaItems];
-    newItems[index].cantidad = numericValue;
-    setVentaItems(newItems);
-  };
-
-  const handleCantidadInputBlur = (index: number, value: string) => {
-    if (value === "" || parseInt(value) === 0) {
-      const newItems = [...ventaItems];
-      newItems[index].cantidad = 1;
-      setVentaItems(newItems);
-    }
   };
 
   const eliminarItem = (index: number) => {
@@ -602,6 +1053,17 @@ export function VenderView() {
       return;
     }
 
+    for (const item of ventaItems) {
+      if (!item.lotesSeleccionados || item.lotesSeleccionados.length === 0) {
+        toast({
+          title: "Error",
+          description: `El producto "${item.nombre}" no tiene lotes asignados`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     if (metodoPago === "Efectivo" && montoPagado > 0 && montoPagado < total) {
       toast({
         title: "Error",
@@ -614,7 +1076,7 @@ export function VenderView() {
     if (descuento > 0 && !discountReason.trim()) {
       toast({
         title: "Error",
-        description: "Proporcione una razon para el descuento",
+        description: "Proporcione una razón para el descuento",
         variant: "destructive",
       });
       return;
@@ -645,6 +1107,7 @@ export function VenderView() {
         cantidad: item.cantidad,
         precio_unitario: item.precio_venta,
         subtotal_linea: item.precio_venta * item.cantidad,
+        idlote: item.lotesSeleccionados[0]?.idlote || 0,
       }));
 
       const saleRequest: SaleRequest = {
@@ -695,7 +1158,6 @@ export function VenderView() {
 
   return (
     <div className="space-y-6">
-      {/* Escáner de código de barras - solo visible en móvil */}
       {showScanner && (
         <BarcodeScanner
           onScanSuccess={handleBarcodeScanned}
@@ -703,6 +1165,38 @@ export function VenderView() {
             setShowScanner(false);
             window.history.back();
           }}
+        />
+      )}
+
+      {productoParaLote && (
+        <SeleccionarLoteDialog
+          open={showLoteDialog}
+          onOpenChange={setShowLoteDialog}
+          lotes={getLotesProducto(productoParaLote.idproducto)}
+          productName={productoParaLote.nombre}
+          stockDisponible={
+            esEdicion && itemIndexParaLote >= 0
+              ? getStockDisponible(productoParaLote.idproducto) + ventaItems[itemIndexParaLote]?.cantidad || 0
+              : getStockDisponible(productoParaLote.idproducto)
+          }
+          cantidadInicial={cantidadInicialParaLote}
+          esEdicion={esEdicion}
+          onConfirm={confirmarSeleccionLotes}
+          onCancel={() => {
+            setShowLoteDialog(false);
+            setProductoParaLote(null);
+            setCantidadInicialParaLote(undefined);
+            setEsEdicion(false);
+          }}
+        />
+      )}
+
+      {productoParaVerLotes && (
+        <LotesCarritoDialog
+          open={showLotesCarrito}
+          onOpenChange={setShowLotesCarrito}
+          productName={productoParaVerLotes.nombre}
+          lotes={productoParaVerLotes.lotesSeleccionados}
         />
       )}
 
@@ -751,7 +1245,6 @@ export function VenderView() {
                 disabled={loading}
                 autoFocus={true}
               />
-              {/* Botón de escáner - SOLO para móvil */}
               {isMobile && (
                 <Button
                   type="button"
@@ -783,7 +1276,8 @@ export function VenderView() {
                   const isLoadingSimilars =
                     loadingSimilars.get(product.idproducto) || false;
                   const cantidadEnCarrito = getCantidadEnCarrito(product.idproducto);
-                  const stockRestante = product.stock - cantidadEnCarrito;
+                  const stockDisponible = getStockDisponible(product.idproducto);
+                  const tieneLotes = tieneLotesDisponibles(product);
 
                   return (
                     <div
@@ -826,13 +1320,18 @@ export function VenderView() {
                               </Badge>
                               {cantidadEnCarrito > 0 && (
                                 <Badge variant="secondary" className="text-xs">
-                                  En carrito: {cantidadEnCarrito} | Stock disponible: {stockRestante}
+                                  En carrito: {cantidadEnCarrito} | Stock disponible: {stockDisponible}
+                                </Badge>
+                              )}
+                              {product.lotes && product.lotes.length > 0 && (
+                                <Badge variant="outline" className="text-xs">
+                                  {product.lotes.length} lotes
                                 </Badge>
                               )}
                             </div>
                             <p className="text-xs font-medium">
                               Bs {formatBs(product.precio_venta)} | Stock total:{" "}
-                              {product.stock}
+                              {getStockTotal(product)}
                             </p>
                           </div>
                         </div>
@@ -842,14 +1341,13 @@ export function VenderView() {
                             e.stopPropagation();
                             agregarProducto(product);
                           }}
-                          disabled={stockRestante === 0}
+                          disabled={stockDisponible === 0 || !tieneLotes}
                           className="ml-2 flex-shrink-0"
                         >
-                          {stockRestante === 0 ? "Sin Stock" : "Agregar"}
+                          {stockDisponible === 0 || !tieneLotes ? "Sin Stock" : "Agregar"}
                         </Button>
                       </div>
 
-                      {/* Botón de "v" en la parte inferior derecha */}
                       {hasSimilares && (
                         <div className="flex justify-end">
                           <Button
@@ -875,7 +1373,6 @@ export function VenderView() {
                         </div>
                       )}
 
-                      {/* Productos similares */}
                       {hasSimilares && isExpanded && (
                         <div className="pl-4 border-l-2 border-primary/30 space-y-2 mt-2">
                           <p className="text-xs font-medium text-muted-foreground">
@@ -889,8 +1386,8 @@ export function VenderView() {
                             </div>
                           ) : similarProducts.length > 0 ? (
                             similarProducts.map((similar) => {
-                              const cantSimilarEnCarrito = getCantidadEnCarrito(similar.idproducto);
-                              const stockRestanteSimilar = similar.stock - cantSimilarEnCarrito;
+                              const stockDisponibleSimilar = getStockDisponible(similar.idproducto);
+                              const tieneLotesSimilar = tieneLotesDisponibles(similar);
                               return (
                                 <div
                                   key={similar.idproducto}
@@ -935,10 +1432,15 @@ export function VenderView() {
                                           >
                                             {similar.nombre_ubicacion}
                                           </Badge>
+                                          {similar.lotes && similar.lotes.length > 0 && (
+                                            <Badge variant="outline" className="text-xs">
+                                              {similar.lotes.length} lotes
+                                            </Badge>
+                                          )}
                                         </div>
                                         <p className="text-xs font-medium mt-1">
                                           Bs {formatBs(similar.precio_venta)} |
-                                          Stock: {similar.stock}
+                                          Stock: {getStockTotal(similar)}
                                         </p>
                                       </div>
                                     </div>
@@ -949,10 +1451,10 @@ export function VenderView() {
                                         e.stopPropagation();
                                         agregarProducto(similar);
                                       }}
-                                      disabled={stockRestanteSimilar === 0}
+                                      disabled={stockDisponibleSimilar === 0 || !tieneLotesSimilar}
                                       className="ml-2 flex-shrink-0 h-8"
                                     >
-                                      {stockRestanteSimilar === 0
+                                      {stockDisponibleSimilar === 0 || !tieneLotesSimilar
                                         ? "Sin Stock"
                                         : "Agregar"}
                                     </Button>
@@ -1030,6 +1532,18 @@ export function VenderView() {
                         <p className="text-sm font-medium text-green-600 mt-1">
                           Bs {formatBs(item.precio_venta)} c/u
                         </p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setProductoParaVerLotes(item);
+                            setShowLotesCarrito(true);
+                          }}
+                          className="h-6 px-2 text-xs mt-1"
+                        >
+                          <Package className="h-3 w-3 mr-1" />
+                          Ver lotes ({item.lotesSeleccionados.length})
+                        </Button>
                       </div>
                     </div>
 
@@ -1039,23 +1553,66 @@ export function VenderView() {
                           size="sm"
                           variant="outline"
                           className="h-8 w-8 p-0"
-                          onClick={() =>
-                            actualizarCantidad(index, item.cantidad - 1)
-                          }
+                          onClick={() => {
+                            const nuevaCantidad = item.cantidad - 1;
+                            if (nuevaCantidad >= 1) {
+                              const product = searchResults.find(
+                                p => p.idproducto === item.idproducto
+                              );
+                              if (product) {
+                                // Edición: reemplazar la cantidad completa
+                                abrirDialogoLotes(product, nuevaCantidad, true, index);
+                              }
+                            } else {
+                              eliminarItem(index);
+                            }
+                          }}
                         >
                           <Minus className="h-3 w-3" />
                         </Button>
                         <Input
                           type="number"
                           min="1"
-                          max={item.stock}
+                          max={getStockDisponible(item.idproducto) + item.cantidad}
                           value={item.cantidad === 0 ? "" : item.cantidad}
-                          onChange={(e) =>
-                            handleCantidadInputChange(index, e.target.value)
-                          }
-                          onBlur={(e) =>
-                            handleCantidadInputBlur(index, e.target.value)
-                          }
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === "") {
+                              const newItems = [...ventaItems];
+                              newItems[index].cantidad = 0;
+                              setVentaItems(newItems);
+                              return;
+                            }
+                            const numericValue = parseInt(val);
+                            if (!isNaN(numericValue) && numericValue > 0) {
+                              // Actualizar el valor mostrado inmediatamente
+                              const newItems = [...ventaItems];
+                              newItems[index].cantidad = numericValue;
+                              setVentaItems(newItems);
+                            }
+                          }}
+                          onBlur={(e) => {
+                            const val = e.target.value;
+                            if (val === "" || parseInt(val) === 0) {
+                              const product = searchResults.find(
+                                p => p.idproducto === item.idproducto
+                              );
+                              if (product) {
+                                abrirDialogoLotes(product, 1, true, index);
+                              }
+                            } else {
+                              const numericValue = parseInt(val);
+                              const stockDisponible = getStockDisponible(item.idproducto) + item.cantidad;
+                              if (numericValue <= stockDisponible && numericValue !== item.cantidad) {
+                                const product = searchResults.find(
+                                  p => p.idproducto === item.idproducto
+                                );
+                                if (product) {
+                                  abrirDialogoLotes(product, numericValue, true, index);
+                                }
+                              }
+                            }
+                          }}
                           className="w-12 h-8 text-center text-sm font-medium number-input-no-scroll"
                           onWheel={(e) => e.currentTarget.blur()}
                         />
@@ -1063,10 +1620,16 @@ export function VenderView() {
                           size="sm"
                           variant="outline"
                           className="h-8 w-8 p-0"
-                          onClick={() =>
-                            actualizarCantidad(index, item.cantidad + 1)
-                          }
-                          disabled={item.cantidad >= item.stock}
+                          onClick={() => {
+                            const nuevaCantidad = item.cantidad + 1;
+                            const product = searchResults.find(
+                              p => p.idproducto === item.idproducto
+                            );
+                            if (product) {
+                              abrirDialogoLotes(product, nuevaCantidad, true, index);
+                            }
+                          }}
+                          disabled={getStockDisponible(item.idproducto) === 0}
                         >
                           <Plus className="h-3 w-3" />
                         </Button>

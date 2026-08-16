@@ -1,4 +1,3 @@
-
 CREATE TABLE ubicaciones (
     idubicacion SERIAL PRIMARY KEY,
     nombre VARCHAR(100) NOT NULL UNIQUE,
@@ -29,7 +28,21 @@ CREATE TABLE usuarios (
     estado SMALLINT DEFAULT 0 CHECK (estado IN (0, 1, 2))
 );
 
--- Tablas de productos
+-- Tabla Doctor
+CREATE TABLE doctores (
+    iddoctor SERIAL PRIMARY KEY,
+    nombre_doctor VARCHAR(200) NOT NULL,
+    estado SMALLINT DEFAULT 0 CHECK (estado IN (0, 1)) -- 0 activo, 1 eliminado
+);
+
+-- Tabla Laboratorio
+CREATE TABLE laboratorios (
+    idlaboratorio SERIAL PRIMARY KEY,
+    nombre_laboratorio VARCHAR(200) NOT NULL,
+    estado SMALLINT DEFAULT 0 CHECK (estado IN (0, 1)) -- 0 activo, 1 eliminado
+);
+
+-- Tabla de productos (sin stock)
 CREATE TABLE productos (
     idproducto SERIAL PRIMARY KEY,
     nombre VARCHAR(200) NOT NULL,
@@ -39,9 +52,17 @@ CREATE TABLE productos (
     imagen bytea,
     precio_venta DOUBLE PRECISION NOT NULL DEFAULT 0.0,
     precio_compra DOUBLE PRECISION NOT NULL DEFAULT 0.0,
-    stock integer NOT NULL DEFAULT 0,
     stock_minimo INTEGER NOT NULL DEFAULT 0,
     codigo_barras VARCHAR(100) UNIQUE
+);
+
+-- Tabla Lote
+CREATE TABLE lotes (
+    idlote SERIAL PRIMARY KEY,
+    idproducto INTEGER REFERENCES productos(idproducto) NOT NULL,
+    stock INTEGER NOT NULL DEFAULT 0,
+    fecha_vencimiento DATE,
+    estado SMALLINT DEFAULT 0 CHECK (estado IN (0, 1)) -- 0 activo, 1 eliminado
 );
 
 -- Relación muchos a muchos: Productos - Categorías
@@ -77,7 +98,8 @@ CREATE TABLE detalle_ventas (
     idproducto INTEGER REFERENCES productos(idproducto) NOT NULL,
     cantidad INTEGER NOT NULL CHECK (cantidad > 0),
     precio_unitario DECIMAL(10,2) NOT NULL CHECK (precio_unitario >= 0),
-    subtotal_linea DECIMAL(10,2) NOT NULL CHECK (subtotal_linea >= 0)
+    subtotal_linea DECIMAL(10,2) NOT NULL CHECK (subtotal_linea >= 0),
+    iddoctor INTEGER REFERENCES doctores(iddoctor) NULL -- Opcional
 );
 
 -- Tablas de caja
@@ -163,12 +185,14 @@ CREATE TABLE notas (
     contenido TEXT NOT NULL,
     fecha DATE NOT NULL DEFAULT CURRENT_DATE
 );
+
 CREATE TABLE productos_similares (
     idproducto INTEGER REFERENCES productos(idproducto) ON DELETE CASCADE,
     idproducto_similar INTEGER REFERENCES productos(idproducto) ON DELETE CASCADE,
     PRIMARY KEY (idproducto, idproducto_similar),
     CHECK (idproducto != idproducto_similar)
 );
+
 -- Índices para mejorar rendimiento
 CREATE INDEX idx_ventas_fecha ON ventas(fecha_hora);
 CREATE INDEX idx_ventas_usuario ON ventas(idusuario);
@@ -179,8 +203,5 @@ CREATE INDEX idx_detalle_cotizaciones_cotizacion ON detalle_cotizaciones(idcotiz
 CREATE INDEX idx_productos_codigo_barras ON productos(codigo_barras);
 CREATE INDEX idx_productos_similares_producto ON productos_similares(idproducto);
 CREATE INDEX idx_productos_similares_similar ON productos_similares(idproducto_similar);
-
-
-
-
-
+CREATE INDEX idx_lotes_producto ON lotes(idproducto);
+CREATE INDEX idx_detalle_ventas_doctor ON detalle_ventas(iddoctor);

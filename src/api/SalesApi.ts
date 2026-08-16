@@ -11,13 +11,10 @@ export interface Lote {
   fechaCreacion: string;
 }
 
-// Interface para Doctor
+// Interface para Doctor - solo nombre
 export interface Doctor {
   id: number;
   nombre: string;
-  especialidad: string;
-  cedula: string;
-  telefono: string;
 }
 
 export interface BackendProduct {
@@ -94,11 +91,11 @@ export interface CashStatus {
   fecha_cierre: string | null;
 }
 
-// Datos mock para doctores
+// Datos mock para doctores - solo nombre
 let MOCK_DOCTORS: Doctor[] = [
-  { id: 1, nombre: "Dr. Juan Pérez", especialidad: "Cardiología", cedula: "12345678", telefono: "0412-1234567" },
-  { id: 2, nombre: "Dra. María Gómez", especialidad: "Pediatría", cedula: "87654321", telefono: "0416-7654321" },
-  { id: 3, nombre: "Dr. Carlos Rodríguez", especialidad: "Dermatología", cedula: "45678912", telefono: "0414-9876543" },
+  { id: 1, nombre: "Dr. Juan Pérez" },
+  { id: 2, nombre: "Dra. María Gómez" },
+  { id: 3, nombre: "Dr. Carlos Rodríguez" },
 ];
 
 let DOCTOR_ID_COUNTER = 4;
@@ -113,7 +110,7 @@ export const getDoctors = async (): Promise<Doctor[]> => {
   }
 };
 
-export const createDoctor = async (data: { nombre: string; especialidad: string; cedula: string; telefono: string }): Promise<Doctor> => {
+export const createDoctor = async (data: { nombre: string }): Promise<Doctor> => {
   try {
     const newDoctor = {
       ...data,
@@ -127,7 +124,7 @@ export const createDoctor = async (data: { nombre: string; especialidad: string;
   }
 };
 
-export const updateDoctor = async (id: number, data: { nombre: string; especialidad: string; cedula: string; telefono: string }): Promise<Doctor> => {
+export const updateDoctor = async (id: number, data: { nombre: string }): Promise<Doctor> => {
   try {
     const index = MOCK_DOCTORS.findIndex(d => d.id === id);
     if (index === -1) {

@@ -28,19 +28,13 @@ export async function generateVentaPDF(params: GenerateVentaPDFParams): Promise<
   wrapper.style.position = "fixed";
   wrapper.style.left = "-9999px";
   wrapper.style.top = "0";
-
   wrapper.style.width = "720px";
-  wrapper.style.height = "1110px";
-
   wrapper.style.padding = "20px";
   wrapper.style.boxSizing = "border-box";
-
   wrapper.style.background = "#ffffff";
   wrapper.style.fontFamily = "Arial, sans-serif";
-
   wrapper.style.display = "flex";
   wrapper.style.flexDirection = "column";
-
   wrapper.id = "venta-pdf-wrapper";
 
   // 2) Construir HTML idéntico al diálogo de impresión con marca de agua
@@ -75,9 +69,59 @@ export async function generateVentaPDF(params: GenerateVentaPDFParams): Promise<
     display: flex;
     flex-direction: column;
   }
+  .venta-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    background: white;
+  }
+  .venta-table th {
+    padding: 8px 10px;
+    text-align: left;
+    background: #f8fafc;
+    border-bottom: 2px solid #e5e7eb;
+  }
+  .venta-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  .venta-table .text-right {
+    text-align: right;
+  }
+  .venta-table .text-center {
+    text-align: center;
+  }
+  .venta-totales {
+    width: 280px;
+    margin-left: auto;
+    margin-top: 20px;
+    border-collapse: collapse;
+    font-size: 12px;
+    background: white;
+  }
+  .venta-totales td {
+    padding: 6px 8px;
+  }
+  .venta-totales .total-row {
+    border-top: 2px solid #000;
+  }
+  .venta-totales .total-label {
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .venta-totales .total-value {
+    font-weight: 700;
+    font-size: 14px;
+    text-align: right;
+  }
+  @media print {
+    .venta-watermark-container {
+      display: flex !important;
+    }
+  }
 </style>
 
-<div style="position: relative; height: 100%;">
+<div style="position: relative; height: 100%; min-height: 800px;">
   <div class="venta-watermark-container">
     <img
       src="/lovable-uploads/84af3e7f-9171-4c73-900f-9499a9673234.png"
@@ -87,180 +131,82 @@ export async function generateVentaPDF(params: GenerateVentaPDFParams): Promise<
   </div>
 
   <div class="venta-content-container">
-    <div style="text-align:center;margin-bottom:12px;">
+    <div style="text-align:center;margin-bottom:16px;">
       <img
         src="/lovable-uploads/84af3e7f-9171-4c73-900f-9499a9673234.png"
         alt="NEOLED Logo"
         style="height:70px;display:block;margin:0 auto;"
-        onerror="this.src='https://via.placeholder.com/120x50/f3f4f6/000000?text=NEOLED+Logo'"
       />
     </div>
 
-    <div
-      style="
-        margin-bottom:14px;
-        line-height:1.6;
-        font-size:13px;
-      "
-    >
-      <p style="margin:0 0 6px 0;">
+    <div style="margin-bottom:16px;line-height:1.8;font-size:13px;">
+      <p style="margin:0 0 4px 0;">
         <strong>Cliente:</strong> ${escapeHtml(nombreCliente)}
       </p>
-
-      <p style="margin:0 0 6px 0;">
+      <p style="margin:0 0 4px 0;">
         <strong>Fecha:</strong> ${escapeHtml(fechaFormateada)}
       </p>
-
-      <p style="margin:0 0 6px 0;">
+      <p style="margin:0 0 4px 0;">
         <strong>Dirección:</strong> Av. Heroinas esq. Hamiraya #316
       </p>
-
       <p style="margin:0;">
         <strong>Números:</strong> 77950297 - 77918672
       </p>
+      ${venta.medico ? `<p style="margin:4px 0 0 0;"><strong>Médico:</strong> ${escapeHtml(venta.medico)}</p>` : ''}
     </div>
 
-    <div
-      style="
-        flex:1;
-        display:flex;
-        flex-direction:column;
-        justify-content:space-between;
-      "
-    >
-      <div style="flex:1;">
-        <table
-          style="
-            width:100%;
-            border-collapse:collapse;
-            font-size:12px;
-            background: white;
-          "
-        >
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:space-between;">
+      <div style="flex:1;overflow-x:auto;">
+        <table class="venta-table">
           <thead>
-            <tr style="border-bottom:2px solid #e5e7eb;">
-              <th style="padding:10px;text-align:left;background:#f8fafc;">
-                Producto
-              </th>
-
-              <th style="padding:10px;text-align:right;background:#f8fafc;">
-                Precio
-              </th>
-
-              <th style="padding:10px;text-align:center;background:#f8fafc;">
-                Cantidad
-              </th>
-
-              <th style="padding:10px;text-align:right;background:#f8fafc;">
-                Total
-              </th>
+            <tr>
+              <th style="width:45%;">Producto</th>
+              <th style="width:18%;text-align:right;">Precio</th>
+              <th style="width:12%;text-align:center;">Cantidad</th>
+              <th style="width:25%;text-align:right;">Total</th>
             </tr>
           </thead>
-
           <tbody>
             ${venta.detalle.map(item => `
-              <tr style="border-bottom:1px solid #e5e7eb;">
-                <td style="padding:10px;">
-                  ${escapeHtml(item.producto)}
-                </td>
-
-                <td style="padding:10px;text-align:right;">
-                  Bs ${item.precio_unitario.toFixed(2)}
-                </td>
-
-                <td style="padding:10px;text-align:center;">
-                  ${item.cantidad}
-                </td>
-
-                <td style="padding:10px;text-align:right;">
-                  Bs ${(item.precio_unitario * item.cantidad).toFixed(2)}
-                </td>
+              <tr>
+                <td style="padding:8px 10px;">${escapeHtml(item.producto)}</td>
+                <td style="padding:8px 10px;text-align:right;">Bs ${item.precio_unitario.toFixed(2)}</td>
+                <td style="padding:8px 10px;text-align:center;">${item.cantidad}</td>
+                <td style="padding:8px 10px;text-align:right;">Bs ${(item.precio_unitario * item.cantidad).toFixed(2)}</td>
               </tr>
             `).join("")}
           </tbody>
         </table>
       </div>
 
-      <div
-        style="
-          width:280px;
-          margin-left:auto;
-          margin-top:20px;
-        "
-      >
-        <table
-          style="
-            width:100%;
-            border-collapse:collapse;
-            font-size:12px;
-            background: white;
-          "
-        >
+      <div style="margin-top:20px;">
+        <table class="venta-totales">
           <tbody>
             <tr>
-              <td style="padding:8px;font-weight:600;">
-                Subtotal:
-              </td>
-
-              <td style="padding:8px;text-align:right;">
-                Bs ${venta.subtotal.toFixed(2)}
-              </td>
+              <td style="font-weight:600;padding:6px 8px;">Subtotal:</td>
+              <td style="padding:6px 8px;text-align:right;">Bs ${venta.subtotal.toFixed(2)}</td>
             </tr>
-
             <tr>
-              <td style="padding:8px;font-weight:600;">
-                Descuento:
-              </td>
-
-              <td style="padding:8px;text-align:right;">
-                Bs ${venta.descuento.toFixed(2)}
-              </td>
+              <td style="font-weight:600;padding:6px 8px;">Descuento:</td>
+              <td style="padding:6px 8px;text-align:right;">Bs ${venta.descuento.toFixed(2)}</td>
             </tr>
-
-            <tr style="border-top:2px solid #000;">
-              <td
-                style="
-                  padding:10px;
-                  font-weight:700;
-                  font-size:14px;
-                "
-              >
-                Total:
-              </td>
-
-              <td
-                style="
-                  padding:10px;
-                  text-align:right;
-                  font-weight:700;
-                  font-size:14px;
-                "
-              >
-                Bs ${venta.total.toFixed(2)}
-              </td>
+            ${venta.descripcion_descuento ? `
+              <tr>
+                <td style="font-weight:600;padding:6px 8px;">Concepto descuento:</td>
+                <td style="padding:6px 8px;text-align:right;font-size:11px;">${escapeHtml(venta.descripcion_descuento)}</td>
+              </tr>
+            ` : ''}
+            <tr class="total-row">
+              <td class="total-label" style="padding:10px 8px;">Total:</td>
+              <td class="total-value" style="padding:10px 8px;">Bs ${venta.total.toFixed(2)}</td>
             </tr>
           </tbody>
         </table>
       </div>
     </div>
 
-    <div
-      style="
-        margin-top:16px;
-        padding-top:12px;
-        border-top:1px solid #e5e7eb;
-        text-align:center;
-      "
-    >
-      <p
-        style="
-          color:#6b7280;
-          font-size:11px;
-          margin:0;
-        "
-      >
-        Gracias por su preferencia
-      </p>
+    <div style="margin-top:16px;padding-top:12px;border-top:1px solid #e5e7eb;text-align:center;">
+      <p style="color:#6b7280;font-size:11px;margin:0;">Gracias por su preferencia</p>
     </div>
   </div>
 </div>
@@ -269,9 +215,8 @@ export async function generateVentaPDF(params: GenerateVentaPDFParams): Promise<
   document.body.appendChild(wrapper);
 
   try {
-    // Renderizar a canvas con html2canvas
     const node = wrapper;
-    const scale = 2; // mejora calidad en pdf
+    const scale = 2;
 
     const canvas = await html2canvas(node, {
       scale: scale,
@@ -283,44 +228,36 @@ export async function generateVentaPDF(params: GenerateVentaPDFParams): Promise<
       backgroundColor: "#ffffff"
     });
 
-    // Convertir a PDF
     const imgData = canvas.toDataURL("image/png");
 
     // Tamaño MEDIA CARTA (Half Letter)
-    // En orientación portrait: 139.7mm x 216mm
     const pdf = new jsPDF({
       orientation: "portrait",
       unit: "mm",
-      format: [139.7, 216] // Media Carta: ancho 139.7mm, alto 216mm
+      format: [139.7, 216]
     });
 
-    const pdfWidth = pdf.internal.pageSize.getWidth();  // 139.7mm
-    const pdfHeight = pdf.internal.pageSize.getHeight(); // 216mm
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
 
-    // Calcular dimensiones manteniendo ratio
     const imgWidth = canvas.width;
     const imgHeight = canvas.height;
 
-    // Calcular la relación de aspecto para que quepa en la página Media Carta
     const ratio = Math.min(
-      (pdfWidth - 4) / imgWidth,
-      (pdfHeight - 4) / imgHeight
+      (pdfWidth - 8) / imgWidth,
+      (pdfHeight - 8) / imgHeight
     );
 
     const imgX = (pdfWidth - imgWidth * ratio) / 2;
-    const imgY = 2;
+    const imgY = 4;
 
-    // Agregar la imagen al PDF
     pdf.addImage(imgData, "PNG", imgX, imgY, imgWidth * ratio, imgHeight * ratio);
-
-    // Guardar el PDF
     pdf.save(fileName);
 
   } catch (err) {
     console.error("Error generando PDF de venta:", err);
     throw err;
   } finally {
-    // Limpiar el wrapper del DOM
     if (wrapper && wrapper.parentNode) {
       wrapper.parentNode.removeChild(wrapper);
     }

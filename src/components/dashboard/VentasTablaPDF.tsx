@@ -26,7 +26,7 @@ Font.register({
 
 const styles = StyleSheet.create({
   page: {
-    padding: 30,
+    padding: 25,
     fontFamily: 'Roboto',
     backgroundColor: '#ffffff',
   },
@@ -34,13 +34,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 25,
-    paddingBottom: 20,
+    marginBottom: 20,
+    paddingBottom: 15,
     borderBottom: '2px solid #2563eb',
   },
   logoContainer: {
-    width: 120,
-    height: 50,
+    width: 100,
+    height: 40,
   },
   logo: {
     width: '100%',
@@ -52,70 +52,70 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#1e3a8a',
-    marginBottom: 5,
+    marginBottom: 4,
   },
   subtitle: {
-    fontSize: 10,
+    fontSize: 9,
     color: '#6b7280',
   },
   infoSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 16,
     backgroundColor: '#f8fafc',
-    padding: 15,
-    borderRadius: 5,
+    padding: 12,
+    borderRadius: 4,
     border: '1px solid #e2e8f0',
   },
   infoColumn: {
     width: '48%',
   },
   infoTitle: {
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: 'bold',
     color: '#475569',
     marginBottom: 2,
   },
   infoText: {
-    fontSize: 9,
+    fontSize: 8,
     color: '#1e293b',
-    marginBottom: 4,
+    marginBottom: 3,
   },
   totalsSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   totalCard: {
     width: '32%',
-    padding: 12,
-    borderRadius: 5,
+    padding: 10,
+    borderRadius: 4,
     border: '1px solid #e2e8f0',
     backgroundColor: '#f8fafc',
   },
   totalTitle: {
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: 'bold',
     color: '#64748b',
-    marginBottom: 4,
+    marginBottom: 3,
   },
   totalAmount: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: 'bold',
     marginBottom: 2,
   },
   table: {
     width: '100%',
-    marginTop: 10,
+    marginTop: 8,
   },
   tableHeader: {
     flexDirection: 'row',
     backgroundColor: '#1e40af',
-    paddingVertical: 6,
-    paddingHorizontal: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 2,
     borderBottomWidth: 1,
     borderBottomColor: '#1e3a8a',
   },
@@ -123,54 +123,54 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
-    paddingVertical: 6,
-    paddingHorizontal: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 2,
   },
   tableCell: {
-    fontSize: 7,
-    paddingHorizontal: 2,
+    fontSize: 6.5,
+    paddingHorizontal: 1.5,
   },
   tableCellHeader: {
-    fontSize: 8,
+    fontSize: 7,
     fontWeight: 'bold',
     color: '#ffffff',
-    paddingHorizontal: 2,
+    paddingHorizontal: 1.5,
   },
   metodoBadge: {
-    fontSize: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 10,
+    fontSize: 5.5,
+    paddingHorizontal: 4,
+    paddingVertical: 1.5,
+    borderRadius: 8,
     textAlign: 'center',
   },
   footer: {
     position: 'absolute',
-    bottom: 20,
-    left: 30,
-    right: 30,
+    bottom: 15,
+    left: 25,
+    right: 25,
     textAlign: 'center',
-    fontSize: 7,
+    fontSize: 6.5,
     color: '#94a3b8',
     borderTop: '1px solid #e2e8f0',
-    paddingTop: 8,
+    paddingTop: 6,
   },
   pageNumber: {
     position: 'absolute',
-    bottom: 10,
+    bottom: 8,
     left: 0,
     right: 0,
     textAlign: 'center',
-    fontSize: 7,
+    fontSize: 6.5,
     color: '#94a3b8',
   },
   sectionTitle: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: 'bold',
-    marginBottom: 8,
+    marginBottom: 6,
     color: '#1e293b',
     backgroundColor: '#f1f5f9',
-    padding: 6,
-    borderRadius: 4,
+    padding: 4,
+    borderRadius: 3,
   },
 });
 
@@ -238,7 +238,7 @@ export const VentasTablaPDF: React.FC<VentasTablaPDFProps> = ({
   };
 
   const currentDate = new Date();
-  const fechaGeneracion = `${currentDate.getDate()}/${currentDate.getMonth() + 1}/${currentDate.getFullYear()} ${currentDate.getHours()}:${currentDate.getMinutes()}`;
+  const fechaGeneracion = `${currentDate.getDate()}/${currentDate.getMonth() + 1}/${currentDate.getFullYear()} ${currentDate.getHours().toString().padStart(2, '0')}:${currentDate.getMinutes().toString().padStart(2, '0')}`;
 
   let filtroTexto = '';
   
@@ -281,7 +281,7 @@ export const VentasTablaPDF: React.FC<VentasTablaPDFProps> = ({
             <Text style={styles.title}>Reporte de Ventas</Text>
             <Text style={styles.subtitle}>Sistema de Gestión Comercial</Text>
           </View>
-          <View style={{ width: 120 }} />
+          <View style={{ width: 100 }} />
         </View>
 
         <View style={styles.infoSection}>
@@ -330,26 +330,26 @@ export const VentasTablaPDF: React.FC<VentasTablaPDFProps> = ({
           </View>
         </View>
 
-        <View style={{ marginTop: 15 }}>
+        <View style={{ marginTop: 12 }}>
           <Text style={styles.sectionTitle}>
             Detalle de Ventas ({ventas.length} registros)
           </Text>
           
           <View style={styles.table}>
             <View style={styles.tableHeader}>
-              <View style={{ width: '8%' }}>
+              <View style={{ width: '6%' }}>
                 <Text style={styles.tableCellHeader}>#</Text>
               </View>
-              <View style={{ width: '12%' }}>
+              <View style={{ width: '13%' }}>
                 <Text style={styles.tableCellHeader}>FECHA</Text>
               </View>
-              <View style={{ width: '10%' }}>
+              <View style={{ width: '9%' }}>
                 <Text style={styles.tableCellHeader}>HORA</Text>
               </View>
               <View style={{ width: '12%' }}>
                 <Text style={styles.tableCellHeader}>USUARIO</Text>
               </View>
-              <View style={{ width: '20%' }}>
+              <View style={{ width: '18%' }}>
                 <Text style={styles.tableCellHeader}>DESCRIPCIÓN</Text>
               </View>
               <View style={{ width: '12%' }}>
@@ -364,7 +364,7 @@ export const VentasTablaPDF: React.FC<VentasTablaPDFProps> = ({
               <View style={{ width: '8%' }}>
                 <Text style={styles.tableCellHeader}>TOTAL</Text>
               </View>
-              <View style={{ width: '7%' }}>
+              <View style={{ width: '6%' }}>
                 <Text style={styles.tableCellHeader}>MÉTODO</Text>
               </View>
             </View>
@@ -376,15 +376,15 @@ export const VentasTablaPDF: React.FC<VentasTablaPDFProps> = ({
               
               return (
                 <View key={venta.id} style={styles.tableRow}>
-                  <View style={{ width: '8%' }}>
+                  <View style={{ width: '6%' }}>
                     <Text style={styles.tableCell}>{index + 1}</Text>
                   </View>
                   
-                  <View style={{ width: '12%' }}>
+                  <View style={{ width: '13%' }}>
                     <Text style={styles.tableCell}>{fechaStr}</Text>
                   </View>
                   
-                  <View style={{ width: '10%' }}>
+                  <View style={{ width: '9%' }}>
                     <Text style={styles.tableCell}>{horaStr}</Text>
                   </View>
                   
@@ -392,8 +392,8 @@ export const VentasTablaPDF: React.FC<VentasTablaPDFProps> = ({
                     <Text style={styles.tableCell}>{venta.usuario}</Text>
                   </View>
                   
-                  <View style={{ width: '20%' }}>
-                    <Text style={styles.tableCell}>{venta.descripcion}</Text>
+                  <View style={{ width: '18%' }}>
+                    <Text style={[styles.tableCell, { fontSize: 6 }]}>{venta.descripcion}</Text>
                   </View>
                   
                   <View style={{ width: '12%' }}>
@@ -420,7 +420,7 @@ export const VentasTablaPDF: React.FC<VentasTablaPDFProps> = ({
                     </Text>
                   </View>
                   
-                  <View style={{ width: '7%' }}>
+                  <View style={{ width: '6%' }}>
                     <View
                       style={[
                         styles.metodoBadge,

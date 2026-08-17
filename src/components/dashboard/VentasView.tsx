@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
-import { CalendarIcon, Download, Calendar as CalendarRangeIcon, Printer, Loader2, Check, X, Eye } from "lucide-react";
+import { CalendarIcon, Download, Calendar as CalendarRangeIcon, Printer, Loader2, Check, X, Eye, ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -84,9 +84,9 @@ export function VentasView() {
   const userRole = getUserRole() || "admin";
   const username = currentUser?.usuario || "";
   const isAssistant = userRole === "Asistente";
-  
+
   const [fechaBoliviaHoy] = useState(() => getFechaBolivia());
-  
+
   const [empleadosOptions, setEmpleadosOptions] = useState<UsuarioOption[]>([{ value: "Todos", label: "Todos", username: "" }]);
   const [medicosOptions, setMedicosOptions] = useState<string[]>(["Todos"]);
   const [ventasFiltradas, setVentasFiltradas] = useState<Venta[]>([]);
@@ -96,16 +96,16 @@ export function VentasView() {
   const [error, setError] = useState<string | null>(null);
   const [datosCargados, setDatosCargados] = useState(false);
   const [generandoPDF, setGenerandoPDF] = useState(false);
-  
+
   // Estados para filtros
   const [filtroEmpleado, setFiltroEmpleado] = useState("Todos");
   const [filtroMetodo, setFiltroMetodo] = useState("Todos");
   const [filtroMedico, setFiltroMedico] = useState("Todos");
-  
+
   // Estados para fecha específica
   const [fechaBusqueda, setFechaBusqueda] = useState<Date | undefined>(fechaBoliviaHoy);
   const [mostrarCalendario, setMostrarCalendario] = useState(false);
-  
+
   // Estados para rango de fechas
   const [fechaRangoTemp, setFechaRangoTemp] = useState<{ from: Date | undefined; to: Date | undefined }>({
     from: undefined,
@@ -116,13 +116,42 @@ export function VentasView() {
     to: undefined,
   });
   const [mostrarRango, setMostrarRango] = useState(false);
-  
+
   // Estados para detalle de venta
   const [ventaSeleccionada, setVentaSeleccionada] = useState<Venta | null>(null);
   const [mostrarDetallesImpresion, setMostrarDetallesImpresion] = useState<boolean>(true);
   const [mostrarDetalle, setMostrarDetalle] = useState(false);
   const [mostrarAlerta, setMostrarAlerta] = useState(false);
   const [nombreCliente, setNombreCliente] = useState("");
+
+  // Estado para paginación móvil
+  const [paginaActual, setPaginaActual] = useState(1);
+  const [itemsPorPagina, setItemsPorPagina] = useState(10);
+  const [esMovil, setEsMovil] = useState(false);
+
+  // Detectar si es dispositivo móvil
+  useEffect(() => {
+    const detectarMovil = () => {
+      setEsMovil(window.innerWidth < 768);
+      // En móvil mostrar menos items por página
+      if (window.innerWidth < 640) {
+        setItemsPorPagina(5);
+      } else if (window.innerWidth < 768) {
+        setItemsPorPagina(8);
+      } else {
+        setItemsPorPagina(10);
+      }
+    };
+
+    detectarMovil();
+    window.addEventListener('resize', detectarMovil);
+    return () => window.removeEventListener('resize', detectarMovil);
+  }, []);
+
+  // Resetear página cuando cambian los filtros
+  useEffect(() => {
+    setPaginaActual(1);
+  }, [filtroEmpleado, filtroMetodo, filtroMedico, fechaBusqueda, fechaRangoAplicado]);
 
   // Cargar datos iniciales
   useEffect(() => {
@@ -156,16 +185,16 @@ export function VentasView() {
         }));
         setEmpleadosOptions([{ value: "Todos", label: "Todos", username: "" }, ...opcionesUsuarios]);
       } else {
-        setEmpleadosOptions([{ 
-          value: currentUser.usuario, 
-          label: `${currentUser.nombres} ${currentUser.apellidos}`, 
-          username: currentUser.usuario 
+        setEmpleadosOptions([{
+          value: currentUser.usuario,
+          label: `${currentUser.nombres} ${currentUser.apellidos}`,
+          username: currentUser.usuario
         }]);
         setFiltroEmpleado(currentUser.usuario);
       }
 
       setDatosCargados(true);
-      
+
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar los datos");
       console.error("Error cargando datos:", err);
@@ -177,13 +206,13 @@ export function VentasView() {
     try {
       setLoading(true);
       setError(null);
-      
+
       let ventas: Venta[] = [];
       let totalesData: TotalesVentas = { totalGeneral: 0, totalEfectivo: 0, totalQR: 0 };
 
       if (isAssistant) {
         ventas = await getVentasHoyAsistente(username);
-        
+
         const totalGeneral = ventas.reduce((sum, venta) => sum + venta.total, 0);
         const totalEfectivo = ventas.filter(v => v.metodo === "Efectivo").reduce((sum, venta) => sum + venta.total, 0);
         const totalQR = ventas.filter(v => v.metodo === "QR").reduce((sum, venta) => sum + venta.total, 0);
@@ -197,14 +226,14 @@ export function VentasView() {
           fechaInicio: fechaRangoAplicado.from,
           fechaFin: fechaRangoAplicado.to
         };
-        
+
         ventas = await getVentas(filtros);
         totalesData = await getTotalesVentas(filtros);
       }
 
       setVentasFiltradas(ventas);
       setTotales(totalesData);
-      
+
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar las ventas");
       console.error("Error cargando ventas:", err);
@@ -218,9 +247,9 @@ export function VentasView() {
   const handleExportarPDF = async () => {
     try {
       setGenerandoPDF(true);
-      
+
       let nombreArchivo = "reporte_ventas";
-      
+
       if (fechaBusqueda) {
         const fechaStr = format(fechaBusqueda, "dd-MM-yyyy");
         nombreArchivo = `reporte_ventas_${fechaStr}`;
@@ -229,12 +258,12 @@ export function VentasView() {
         const toStr = format(fechaRangoAplicado.to, "dd-MM-yyyy");
         nombreArchivo = `reporte_ventas_${fromStr}_a_${toStr}`;
       }
-      
+
       if (filtroEmpleado !== "Todos") {
         const empleadoLabel = empleadosOptions.find(e => e.value === filtroEmpleado)?.label || filtroEmpleado;
         nombreArchivo += `_${empleadoLabel.replace(/\s+/g, '_')}`;
       }
-      
+
       if (filtroMetodo !== "Todos") {
         nombreArchivo += `_${filtroMetodo}`;
       }
@@ -242,9 +271,9 @@ export function VentasView() {
       if (filtroMedico !== "Todos") {
         nombreArchivo += `_medico_${filtroMedico.replace(/\s+/g, '_')}`;
       }
-      
+
       nombreArchivo += ".pdf";
-      
+
       const pdfDocument = (
         <VentasTablaPDF
           ventas={ventasFiltradas}
@@ -262,10 +291,10 @@ export function VentasView() {
           totales={totales}
         />
       );
-      
+
       const pdfBlob = await pdf(pdfDocument).toBlob();
       downloadPDF(pdfBlob, nombreArchivo);
-      
+
     } catch (error) {
       console.error("Error generando PDF:", error);
       setError("Error al generar el PDF. Por favor, intente nuevamente.");
@@ -279,13 +308,13 @@ export function VentasView() {
     setFechaBusqueda(hoyBolivia);
     setFechaRangoTemp({ from: undefined, to: undefined });
     setFechaRangoAplicado({ from: undefined, to: undefined });
-    
+
     if (userRole === "Admin") {
       setFiltroEmpleado("Todos");
     } else {
       setFiltroEmpleado(currentUser.usuario);
     }
-    
+
     setFiltroMetodo("Todos");
     setFiltroMedico("Todos");
   };
@@ -334,7 +363,7 @@ export function VentasView() {
       setMostrarAlerta(true);
       return;
     }
-    
+
     if (ventaSeleccionada) {
       generateVentaPDF({
         venta: ventaSeleccionada,
@@ -342,6 +371,72 @@ export function VentasView() {
         fileName: `Venta_${ventaSeleccionada.id}_${nombreCliente.replace(/\s+/g, '_')}.pdf`
       });
     }
+  };
+
+  // Calcular paginación
+  const totalPaginas = Math.ceil(ventasFiltradas.length / itemsPorPagina);
+  const inicio = (paginaActual - 1) * itemsPorPagina;
+  const fin = inicio + itemsPorPagina;
+  const ventasPaginadas = ventasFiltradas.slice(inicio, fin);
+
+  // Renderizar vista móvil con tarjetas
+  const renderMobileCard = (venta: Venta) => {
+    return (
+      <div key={venta.id} className="bg-white rounded-lg border border-gray-200 p-4 mb-3 shadow-sm">
+        <div className="flex justify-between items-start mb-2">
+          <div>
+            <div className="text-sm font-medium text-gray-900">
+              {formatDateForDisplay(venta.fecha)}
+            </div>
+            <div className="text-xs text-gray-500">
+              {formatTimeForDisplay(venta.fecha)}
+            </div>
+          </div>
+          <Badge variant={venta.metodo === "Efectivo" ? "default" : "secondary"} className="text-xs">
+            {venta.metodo}
+          </Badge>
+        </div>
+
+        <div className="grid grid-cols-2 gap-1 text-sm">
+          <div className="text-gray-500">Usuario:</div>
+          <div className="font-medium truncate">{venta.usuario}</div>
+
+          <div className="text-gray-500">Descripción:</div>
+          <div className="font-medium truncate">{venta.descripcion}</div>
+
+          {venta.medico && (
+            <>
+              <div className="text-gray-500">Médico:</div>
+              <div className="font-medium truncate">{venta.medico}</div>
+            </>
+          )}
+
+          <div className="text-gray-500">Total:</div>
+          <div className="font-bold text-primary">Bs {venta.total.toFixed(2)}</div>
+        </div>
+
+        <div className="flex gap-2 mt-3 pt-2 border-t border-gray-100">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => abrirDetalleVenta(venta)}
+            className="flex-1 text-xs h-8"
+          >
+            <Printer className="h-3 w-3 mr-1" />
+            Imprimir
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => abrirDetalleVenta(venta, false)}
+            className="flex-1 text-xs h-8"
+          >
+            <Eye className="h-3 w-3 mr-1" />
+            Detalle
+          </Button>
+        </div>
+      </div>
+    );
   };
 
   if (initialLoading) {
@@ -354,60 +449,63 @@ export function VentasView() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <h1 className="text-2xl sm:text-3xl font-bold text-primary">Historial de Ventas</h1>
-        <Button 
-          onClick={handleExportarPDF} 
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-primary">Historial de Ventas</h1>
+        <Button
+          onClick={handleExportarPDF}
           disabled={ventasFiltradas.length === 0 || generandoPDF}
-          className="flex items-center gap-2 w-full sm:w-auto"
+          className="flex items-center gap-2 w-full sm:w-auto text-sm sm:text-base"
+          size={esMovil ? "sm" : "default"}
         >
           {generandoPDF ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              Generando PDF...
+              <span className="hidden xs:inline">Generando PDF...</span>
+              <span className="xs:hidden">PDF...</span>
             </>
           ) : (
             <>
               <Download className="h-4 w-4" />
-              Exportar PDF
+              <span className="hidden xs:inline">Exportar PDF</span>
+              <span className="xs:hidden">PDF</span>
             </>
           )}
         </Button>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 sm:px-4 sm:py-3 rounded text-sm">
           {error}
         </div>
       )}
 
-      {/* Cards de totales */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total General</CardTitle>
+      {/* Cards de totales - Responsive y lado a lado en escritorio */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
+        <Card className="w-full">
+          <CardHeader className="pb-1 sm:pb-2">
+            <CardTitle className="text-xs sm:text-sm font-medium">Total General</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-primary">Bs {totales.totalGeneral.toFixed(2)}</div>
+          <CardContent className="pb-2 sm:pb-4">
+            <div className="text-base sm:text-xl md:text-2xl font-bold text-primary">Bs {totales.totalGeneral.toFixed(2)}</div>
           </CardContent>
         </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Efectivo</CardTitle>
+
+        <Card className="w-full">
+          <CardHeader className="pb-1 sm:pb-2">
+            <CardTitle className="text-xs sm:text-sm font-medium">Total Efectivo</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">Bs {totales.totalEfectivo.toFixed(2)}</div>
+          <CardContent className="pb-2 sm:pb-4">
+            <div className="text-base sm:text-xl md:text-2xl font-bold text-green-600">Bs {totales.totalEfectivo.toFixed(2)}</div>
           </CardContent>
         </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total QR</CardTitle>
+
+        <Card className="w-full">
+          <CardHeader className="pb-1 sm:pb-2">
+            <CardTitle className="text-xs sm:text-sm font-medium">Total QR</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">Bs {totales.totalQR.toFixed(2)}</div>
+          <CardContent className="pb-2 sm:pb-4">
+            <div className="text-base sm:text-xl md:text-2xl font-bold text-blue-600">Bs {totales.totalQR.toFixed(2)}</div>
           </CardContent>
         </Card>
       </div>
@@ -415,20 +513,20 @@ export function VentasView() {
       {/* Filtros - Solo para Admin */}
       {!isAssistant && (
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-            <CardTitle>Filtros</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 sm:pb-3">
+            <CardTitle className="text-sm sm:text-base">Filtros</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+            <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
               <div>
-                <label className="text-sm font-medium">Empleado</label>
+                <label className="text-xs sm:text-sm font-medium">Empleado</label>
                 <Select value={filtroEmpleado} onValueChange={setFiltroEmpleado}>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-8 sm:h-10 text-xs sm:text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {empleadosOptions.map(empleado => (
-                      <SelectItem key={empleado.value} value={empleado.value}>
+                      <SelectItem key={empleado.value} value={empleado.value} className="text-xs sm:text-sm">
                         {empleado.label}
                       </SelectItem>
                     ))}
@@ -437,9 +535,9 @@ export function VentasView() {
               </div>
 
               <div>
-                <label className="text-sm font-medium">Método de Pago</label>
+                <label className="text-xs sm:text-sm font-medium">Método de Pago</label>
                 <Select value={filtroMetodo} onValueChange={setFiltroMetodo}>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-8 sm:h-10 text-xs sm:text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -451,14 +549,14 @@ export function VentasView() {
               </div>
 
               <div>
-                <label className="text-sm font-medium">Médico</label>
+                <label className="text-xs sm:text-sm font-medium">Médico</label>
                 <Select value={filtroMedico} onValueChange={setFiltroMedico}>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-8 sm:h-10 text-xs sm:text-sm">
                     <SelectValue placeholder="Seleccionar médico" />
                   </SelectTrigger>
                   <SelectContent>
                     {medicosOptions.map(medico => (
-                      <SelectItem key={medico} value={medico}>
+                      <SelectItem key={medico} value={medico} className="text-xs sm:text-sm">
                         {medico}
                       </SelectItem>
                     ))}
@@ -467,12 +565,14 @@ export function VentasView() {
               </div>
 
               <div>
-                <label className="text-sm font-medium">Fecha Específica</label>
+                <label className="text-xs sm:text-sm font-medium">Fecha</label>
                 <Popover open={mostrarCalendario} onOpenChange={setMostrarCalendario}>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal">
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {fechaBusqueda ? format(fechaBusqueda, "dd/MM/yyyy", { locale: es }) : "Seleccionar"}
+                    <Button variant="outline" className="w-full justify-start text-left font-normal h-8 sm:h-10 text-xs sm:text-sm">
+                      <CalendarIcon className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                      <span className="truncate">
+                        {fechaBusqueda ? format(fechaBusqueda, "dd/MM/yyyy", { locale: es }) : "Seleccionar"}
+                      </span>
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
@@ -481,7 +581,7 @@ export function VentasView() {
                       selected={fechaBusqueda}
                       onSelect={handleFechaBusquedaChange}
                       initialFocus
-                      className="p-3 pointer-events-auto"
+                      className="p-2 sm:p-3 pointer-events-auto"
                       disabled={(date) => date > new Date()}
                     />
                   </PopoverContent>
@@ -489,15 +589,17 @@ export function VentasView() {
               </div>
 
               <div>
-                <label className="text-sm font-medium">Rango de Fechas</label>
+                <label className="text-xs sm:text-sm font-medium">Rango</label>
                 <Popover open={mostrarRango} onOpenChange={setMostrarRango}>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal">
-                      <CalendarRangeIcon className="mr-2 h-4 w-4" />
-                      {fechaRangoAplicado.from && fechaRangoAplicado.to ? 
-                        `${format(fechaRangoAplicado.from, "dd/MM/yyyy", { locale: es })} - ${format(fechaRangoAplicado.to, "dd/MM/yyyy", { locale: es })}` : 
-                        "Seleccionar rango"
-                      }
+                    <Button variant="outline" className="w-full justify-start text-left font-normal h-8 sm:h-10 text-xs sm:text-sm">
+                      <CalendarRangeIcon className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                      <span className="truncate text-xs sm:text-sm">
+                        {fechaRangoAplicado.from && fechaRangoAplicado.to ?
+                          `${format(fechaRangoAplicado.from, "dd/MM/yyyy", { locale: es })} - ${format(fechaRangoAplicado.to, "dd/MM/yyyy", { locale: es })}` :
+                          "Seleccionar rango"
+                        }
+                      </span>
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
@@ -507,25 +609,27 @@ export function VentasView() {
                         selected={fechaRangoTemp}
                         onSelect={handleRangoTempChange}
                         numberOfMonths={1}
-                        className="p-3 pointer-events-auto"
+                        className="p-2 sm:p-3 pointer-events-auto"
                         disabled={(date) => date > new Date()}
                       />
-                      <div className="flex justify-end gap-2 p-3 border-t">
+                      <div className="flex justify-end gap-2 p-2 sm:p-3 border-t">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={cancelarRangoFechas}
                           disabled={!fechaRangoTemp.from && !fechaRangoTemp.to}
+                          className="h-7 sm:h-8 text-xs"
                         >
-                          <X className="h-4 w-4 mr-1" />
+                          <X className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                           Cancelar
                         </Button>
                         <Button
                           size="sm"
                           onClick={aplicarRangoFechas}
                           disabled={!fechaRangoTemp.from || !fechaRangoTemp.to}
+                          className="h-7 sm:h-8 text-xs"
                         >
-                          <Check className="h-4 w-4 mr-1" />
+                          <Check className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                           Aplicar
                         </Button>
                       </div>
@@ -535,43 +639,43 @@ export function VentasView() {
               </div>
 
               <div className="flex items-end">
-                <Button variant="outline" onClick={limpiarFiltros} className="w-full">
+                <Button variant="outline" onClick={limpiarFiltros} className="w-full h-8 sm:h-10 text-xs sm:text-sm">
                   Limpiar Filtros
                 </Button>
               </div>
             </div>
-            
-            {/* Indicador de filtros activos */}
-            <div className="mt-4 pt-4 border-t">
-              <div className="text-sm text-muted-foreground">
-                Filtros activos:
+
+            {/* Indicador de filtros activos - Responsive */}
+            <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t">
+              <div className="flex flex-wrap gap-1 sm:gap-2 text-xs sm:text-sm text-muted-foreground">
+                <span className="hidden xs:inline">Filtros activos:</span>
                 {fechaBusqueda && (
-                  <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
+                  <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-blue-100 text-blue-800 text-[10px] sm:text-xs rounded">
                     Fecha: {format(fechaBusqueda, "dd/MM/yyyy", { locale: es })}
                   </span>
                 )}
                 {fechaRangoAplicado.from && fechaRangoAplicado.to && (
-                  <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
+                  <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-blue-100 text-blue-800 text-[10px] sm:text-xs rounded">
                     Rango: {format(fechaRangoAplicado.from, "dd/MM/yyyy", { locale: es })} - {format(fechaRangoAplicado.to, "dd/MM/yyyy", { locale: es })}
                   </span>
                 )}
                 {filtroEmpleado !== "Todos" && (
-                  <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
+                  <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-blue-100 text-blue-800 text-[10px] sm:text-xs rounded">
                     Empleado: {empleadosOptions.find(e => e.value === filtroEmpleado)?.label}
                   </span>
                 )}
                 {filtroMetodo !== "Todos" && (
-                  <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
-                    Método: {filtroMetodo}
+                  <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-blue-100 text-blue-800 text-[10px] sm:text-xs rounded">
+                    {filtroMetodo}
                   </span>
                 )}
                 {filtroMedico !== "Todos" && (
-                  <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
+                  <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-blue-100 text-blue-800 text-[10px] sm:text-xs rounded">
                     Médico: {filtroMedico}
                   </span>
                 )}
                 {!fechaBusqueda && !fechaRangoAplicado.from && !fechaRangoAplicado.to && filtroEmpleado === "Todos" && filtroMetodo === "Todos" && filtroMedico === "Todos" && (
-                  <span className="ml-2 px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded">
+                  <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-gray-100 text-gray-800 text-[10px] sm:text-xs rounded">
                     Ventas de hoy
                   </span>
                 )}
@@ -584,11 +688,11 @@ export function VentasView() {
       {/* Información para asistentes */}
       {isAssistant && (
         <Card>
-          <CardContent className="pt-6">
-            <div className="text-center text-muted-foreground">
-              <p className="text-lg font-medium">Mostrando tus ventas de hoy</p>
-              <p className="text-sm">{formatDateForDisplay(fechaBoliviaHoy)}</p>
-              <p className="text-sm mt-2">Usuario: {currentUser?.nombres} {currentUser?.apellidos}</p>
+          <CardContent className="pt-4 sm:pt-6">
+            <div className="text-center text-muted-foreground text-sm sm:text-base">
+              <p className="text-base sm:text-lg font-medium">Mostrando tus ventas de hoy</p>
+              <p className="text-xs sm:text-sm">{formatDateForDisplay(fechaBoliviaHoy)}</p>
+              <p className="text-xs sm:text-sm mt-1 sm:mt-2">Usuario: {currentUser?.nombres} {currentUser?.apellidos}</p>
             </div>
           </CardContent>
         </Card>
@@ -596,12 +700,17 @@ export function VentasView() {
 
       {/* Tabla de ventas */}
       <Card>
-        <CardHeader>
-          <CardTitle>
-            Registro de Ventas 
-            <span className="ml-2 text-sm font-normal text-muted-foreground">
+        <CardHeader className="pb-2 sm:pb-3">
+          <CardTitle className="text-sm sm:text-base md:text-lg flex flex-wrap items-center gap-1 sm:gap-2">
+            Registro de Ventas
+            <span className="text-xs sm:text-sm font-normal text-muted-foreground">
               ({ventasFiltradas.length} registros)
             </span>
+            {esMovil && ventasFiltradas.length > 0 && (
+              <span className="text-xs text-muted-foreground ml-auto">
+                {inicio + 1}-{Math.min(fin, ventasFiltradas.length)}
+              </span>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -610,169 +719,203 @@ export function VentasView() {
               <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
               <span>Cargando ventas...</span>
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[140px]">Fecha y Hora</TableHead>
-                    <TableHead className="w-[150px]">Usuario</TableHead>
-                    <TableHead className="min-w-[200px]">Descripción</TableHead>
-                    <TableHead className="w-[150px]">Médico</TableHead>
-                    <TableHead className="w-[100px] text-right">Subtotal</TableHead>
-                    <TableHead className="w-[100px] text-right">Descuento</TableHead>
-                    <TableHead className="w-[130px] text-right">Total</TableHead>
-                    <TableHead className="w-[120px]">Método</TableHead>
-                    <TableHead className="w-[140px]">Impresión</TableHead>
-                    <TableHead className="w-[50px]">Detalle</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {ventasFiltradas.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={10} className="text-center py-8">
-                        <div className="flex flex-col items-center">
-                          <p className="text-muted-foreground mb-2">No se encontraron ventas</p>
-                          <p className="text-sm text-muted-foreground">
-                            {fechaBusqueda && `Para la fecha: ${format(fechaBusqueda, "dd/MM/yyyy", { locale: es })}`}
-                            {fechaRangoAplicado.from && fechaRangoAplicado.to && 
-                              `En el rango: ${format(fechaRangoAplicado.from, "dd/MM/yyyy", { locale: es })} - ${format(fechaRangoAplicado.to, "dd/MM/yyyy", { locale: es })}`}
-                            {filtroEmpleado !== "Todos" && ` - Empleado: ${empleadosOptions.find(e => e.value === filtroEmpleado)?.label}`}
-                            {filtroMetodo !== "Todos" && ` - Método: ${filtroMetodo}`}
-                            {filtroMedico !== "Todos" && ` - Médico: ${filtroMedico}`}
-                          </p>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    ventasFiltradas.map((venta) => (
-                      <TableRow key={venta.id}>
-                        {/* Fecha y Hora */}
-                        <TableCell>
-                          <div className="font-medium">
-                            {formatDateForDisplay(venta.fecha)}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {formatTimeForDisplay(venta.fecha)}
-                          </div>
-                        </TableCell>
-                        
-                        {/* Usuario */}
-                        <TableCell>
-                          <div className="font-medium">
-                            {venta.usuario}
-                          </div>
-                        </TableCell>
-                        
-                        {/* Descripción */}
-                        <TableCell>
-                          <div className="text-sm leading-relaxed">
-                            {venta.descripcion}
-                          </div>
-                        </TableCell>
-
-                        {/* Médico */}
-                        <TableCell>
-                          {venta.medico ? (
-                            <Badge variant="outline" className="text-xs">
-                              {venta.medico}
-                            </Badge>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">No registrado</span>
-                          )}
-                        </TableCell>
-                        
-                        {/* Subtotal */}
-                        <TableCell className="text-right">
-                          Bs {venta.subtotal.toFixed(2)}
-                        </TableCell>
-                        
-                        {/* Descuento */}
-                        <TableCell className="text-right">
-                          Bs {venta.descuento.toFixed(2)}
-                        </TableCell>
-                        
-                        {/* Total */}
-                        <TableCell className="text-right font-medium">
-                          <span className="text-lg font-bold text-primary">
-                            Bs {venta.total.toFixed(2)}
-                          </span>
-                        </TableCell>
-                        
-                        {/* Método de Pago */}
-                        <TableCell>
-                          <Badge variant={venta.metodo === "Efectivo" ? "default" : "secondary"}>
-                            {venta.metodo}
-                          </Badge>
-                        </TableCell>
-                        
-                        {/* Impresión */}
-                        <TableCell>
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            onClick={() => abrirDetalleVenta(venta)}
-                            className="flex items-center gap-2"
-                          >
-                            <Printer className="h-4 w-4" />
-                            <span className="hidden sm:inline">Imprimir</span>
-                          </Button>
-                        </TableCell>
-
-                        {/* Detalle */}
-                        <TableCell>
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            onClick={() => abrirDetalleVenta(venta, false)}
-                            className="flex items-center gap-2"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+          ) : ventasFiltradas.length === 0 ? (
+            <div className="text-center py-6 sm:py-8">
+              <div className="flex flex-col items-center">
+                <p className="text-muted-foreground mb-2 text-sm sm:text-base">No se encontraron ventas</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  {fechaBusqueda && `Para la fecha: ${format(fechaBusqueda, "dd/MM/yyyy", { locale: es })}`}
+                  {fechaRangoAplicado.from && fechaRangoAplicado.to &&
+                    `En el rango: ${format(fechaRangoAplicado.from, "dd/MM/yyyy", { locale: es })} - ${format(fechaRangoAplicado.to, "dd/MM/yyyy", { locale: es })}`}
+                  {filtroEmpleado !== "Todos" && ` - Empleado: ${empleadosOptions.find(e => e.value === filtroEmpleado)?.label}`}
+                  {filtroMetodo !== "Todos" && ` - Método: ${filtroMetodo}`}
+                  {filtroMedico !== "Todos" && ` - Médico: ${filtroMedico}`}
+                </p>
+              </div>
             </div>
+          ) : (
+            <>
+              {/* Vista móvil: Tarjetas */}
+              {esMovil ? (
+                <div className="space-y-2">
+                  {ventasPaginadas.map(renderMobileCard)}
+                </div>
+              ) : (
+                /* Vista desktop: Tabla */
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[130px] text-xs">Fecha y Hora</TableHead>
+                        <TableHead className="w-[120px] text-xs">Usuario</TableHead>
+                        <TableHead className="min-w-[180px] text-xs">Descripción</TableHead>
+                        <TableHead className="w-[130px] text-xs">Médico</TableHead>
+                        <TableHead className="w-[90px] text-right text-xs">Subtotal</TableHead>
+                        <TableHead className="w-[90px] text-right text-xs">Descuento</TableHead>
+                        <TableHead className="w-[110px] text-right text-xs">Total</TableHead>
+                        <TableHead className="w-[100px] text-xs">Método</TableHead>
+                        <TableHead className="w-[100px] text-xs">Impresión</TableHead>
+                        <TableHead className="w-[50px] text-xs">Detalle</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {ventasPaginadas.map((venta) => (
+                        <TableRow key={venta.id}>
+                          <TableCell className="py-2">
+                            <div className="text-sm font-medium">
+                              {formatDateForDisplay(venta.fecha)}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {formatTimeForDisplay(venta.fecha)}
+                            </div>
+                          </TableCell>
+
+                          <TableCell className="text-sm py-2">
+                            {venta.usuario}
+                          </TableCell>
+
+                          <TableCell className="text-sm py-2">
+                            <div className="text-sm leading-relaxed line-clamp-2">
+                              {venta.descripcion}
+                            </div>
+                          </TableCell>
+
+                          <TableCell className="py-2">
+                            {venta.medico ? (
+                              <Badge variant="outline" className="text-xs">
+                                {venta.medico}
+                              </Badge>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">No registrado</span>
+                            )}
+                          </TableCell>
+
+                          <TableCell className="text-right text-sm py-2">
+                            Bs {venta.subtotal.toFixed(2)}
+                          </TableCell>
+
+                          <TableCell className="text-right text-sm py-2">
+                            Bs {venta.descuento.toFixed(2)}
+                          </TableCell>
+
+                          <TableCell className="text-right font-medium py-2">
+                            <span className="text-sm font-bold text-primary">
+                              Bs {venta.total.toFixed(2)}
+                            </span>
+                          </TableCell>
+
+                          <TableCell className="py-2">
+                            <Badge variant={venta.metodo === "Efectivo" ? "default" : "secondary"} className="text-xs">
+                              {venta.metodo}
+                            </Badge>
+                          </TableCell>
+
+                          <TableCell className="py-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => abrirDetalleVenta(venta)}
+                              className="flex items-center gap-1 h-8 text-xs"
+                            >
+                              <Printer className="h-3.5 w-3.5" />
+                              <span className="hidden sm:inline">Imprimir</span>
+                            </Button>
+                          </TableCell>
+
+                          <TableCell className="py-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => abrirDetalleVenta(venta, false)}
+                              className="flex items-center gap-1 h-8 w-8 sm:w-auto"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              <span className="hidden sm:inline">Detalle</span>
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+
+              {/* Paginación */}
+              {ventasFiltradas.length > itemsPorPagina && (
+                <div className="flex items-center justify-between gap-2 mt-4 pt-3 border-t">
+                  <div className="text-xs text-muted-foreground">
+                    {esMovil ? (
+                      <span>{inicio + 1}-{Math.min(fin, ventasFiltradas.length)} de {ventasFiltradas.length}</span>
+                    ) : (
+                      <span>Mostrando {inicio + 1} a {Math.min(fin, ventasFiltradas.length)} de {ventasFiltradas.length} registros</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPaginaActual(p => Math.max(1, p - 1))}
+                      disabled={paginaActual === 1}
+                      className="h-8 w-8 sm:w-auto px-1 sm:px-3"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      <span className="hidden sm:inline">Anterior</span>
+                    </Button>
+                    <span className="text-xs sm:text-sm px-2">
+                      {paginaActual} / {totalPaginas}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPaginaActual(p => Math.min(totalPaginas, p + 1))}
+                      disabled={paginaActual === totalPaginas}
+                      className="h-8 w-8 sm:w-auto px-1 sm:px-3"
+                    >
+                      <span className="hidden sm:inline">Siguiente</span>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
 
       {/* Dialog para detalle de venta */}
       <Dialog open={mostrarDetalle} onOpenChange={setMostrarDetalle}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] sm:max-w-3xl md:max-w-4xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle>Detalle de Venta</DialogTitle>
+            <DialogTitle className="text-base sm:text-lg">Detalle de Venta</DialogTitle>
           </DialogHeader>
 
           {mostrarDetallesImpresion && (
-            <div className="mb-6">
+            <div className="mb-4 sm:mb-6">
               <div>
-                <Label htmlFor="nombreCliente">Nombre del Cliente</Label>
+                <Label htmlFor="nombreCliente" className="text-sm">Nombre del Cliente</Label>
                 <Input
                   id="nombreCliente"
                   value={nombreCliente}
                   onChange={(e) => setNombreCliente(e.target.value)}
                   placeholder="Ingrese el nombre del cliente"
+                  className="text-sm"
                 />
               </div>
             </div>
           )}
 
-          <div id="detalle-venta-imprimir" className="space-y-6">
+          <div id="detalle-venta-imprimir" className="space-y-4 sm:space-y-6">
             {mostrarDetallesImpresion && (
-              <div className="logo text-center mb-6">
-                <img 
-                  src="/lovable-uploads/84af3e7f-9171-4c73-900f-9499a9673234.png" 
-                  alt="Lumyla Logo" 
-                  className="h-16 mx-auto"
+              <div className="logo text-center mb-4 sm:mb-6">
+                <img
+                  src="/lovable-uploads/84af3e7f-9171-4c73-900f-9499a9673234.png"
+                  alt="Lumyla Logo"
+                  className="h-12 sm:h-16 mx-auto"
                 />
               </div>
             )}
 
-            <div className="info-cliente space-y-2">
+            <div className="info-cliente space-y-1 sm:space-y-2 text-sm sm:text-base">
               {mostrarDetallesImpresion && (
                 <p><strong>Cliente:</strong> {nombreCliente || "No especificado"}</p>
               )}
@@ -784,37 +927,37 @@ export function VentasView() {
               )}
             </div>
 
-            <div className="descripcion-venta bg-muted/50 p-4 rounded-lg">
-              <h3 className="font-semibold mb-2">Descripción de la Venta:</h3>
-              <p className="text-sm">{ventaSeleccionada?.descripcion}</p>
+            <div className="descripcion-venta bg-muted/50 p-3 sm:p-4 rounded-lg">
+              <h3 className="font-semibold mb-1 sm:mb-2 text-sm sm:text-base">Descripción de la Venta:</h3>
+              <p className="text-xs sm:text-sm">{ventaSeleccionada?.descripcion}</p>
             </div>
             {ventaSeleccionada?.descripcion_descuento && (
-              <div className="descripcion-venta bg-muted/50 p-4 rounded-lg">
-                <h3 className="font-semibold mb-2">Descripción del descuento:</h3>
-                <p className="text-sm">{ventaSeleccionada?.descripcion_descuento}</p>
+              <div className="descripcion-venta bg-muted/50 p-3 sm:p-4 rounded-lg">
+                <h3 className="font-semibold mb-1 sm:mb-2 text-sm sm:text-base">Descripción del descuento:</h3>
+                <p className="text-xs sm:text-sm">{ventaSeleccionada?.descripcion_descuento}</p>
               </div>
             )}
 
             {ventaSeleccionada?.detalle && ventaSeleccionada.detalle.length > 0 && (
-              <div className="flex flex-col lg:flex-row gap-6">
-                <div className="flex-1">
-                  <h3 className="font-semibold mb-2">Productos:</h3>
+              <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
+                <div className="flex-1 overflow-x-auto">
+                  <h3 className="font-semibold mb-2 text-sm sm:text-base">Productos:</h3>
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Producto</TableHead>
-                        <TableHead>Precio</TableHead>
-                        <TableHead>Cantidad</TableHead>
-                        <TableHead>Total</TableHead>
+                        <TableHead className="text-xs sm:text-sm">Producto</TableHead>
+                        <TableHead className="text-xs sm:text-sm text-right">Precio</TableHead>
+                        <TableHead className="text-xs sm:text-sm text-center">Cantidad</TableHead>
+                        <TableHead className="text-xs sm:text-sm text-right">Total</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {ventaSeleccionada.detalle.map((item, index) => (
                         <TableRow key={index}>
-                          <TableCell>{item.producto}</TableCell>
-                          <TableCell>Bs {item.precio_unitario.toFixed(2)}</TableCell>
-                          <TableCell>{item.cantidad}</TableCell>
-                          <TableCell>Bs {(item.precio_unitario * item.cantidad).toFixed(2)}</TableCell>
+                          <TableCell className="text-xs sm:text-sm">{item.producto}</TableCell>
+                          <TableCell className="text-xs sm:text-sm text-right">Bs {item.precio_unitario.toFixed(2)}</TableCell>
+                          <TableCell className="text-xs sm:text-sm text-center">{item.cantidad}</TableCell>
+                          <TableCell className="text-xs sm:text-sm text-right">Bs {(item.precio_unitario * item.cantidad).toFixed(2)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -825,16 +968,16 @@ export function VentasView() {
                   <Table>
                     <TableBody>
                       <TableRow>
-                        <TableCell className="font-medium">Subtotal:</TableCell>
-                        <TableCell>Bs {ventaSeleccionada?.subtotal.toFixed(2)}</TableCell>
+                        <TableCell className="font-medium text-sm">Subtotal:</TableCell>
+                        <TableCell className="text-sm text-right">Bs {ventaSeleccionada?.subtotal.toFixed(2)}</TableCell>
                       </TableRow>
                       <TableRow>
-                        <TableCell className="font-medium">Descuento:</TableCell>
-                        <TableCell>Bs {ventaSeleccionada?.descuento.toFixed(2)}</TableCell>
+                        <TableCell className="font-medium text-sm">Descuento:</TableCell>
+                        <TableCell className="text-sm text-right">Bs {ventaSeleccionada?.descuento.toFixed(2)}</TableCell>
                       </TableRow>
                       <TableRow>
-                        <TableCell className="font-bold">Total:</TableCell>
-                        <TableCell className="font-bold">Bs {ventaSeleccionada?.total.toFixed(2)}</TableCell>
+                        <TableCell className="font-bold text-sm">Total:</TableCell>
+                        <TableCell className="font-bold text-sm text-right">Bs {ventaSeleccionada?.total.toFixed(2)}</TableCell>
                       </TableRow>
                     </TableBody>
                   </Table>
@@ -844,8 +987,8 @@ export function VentasView() {
           </div>
 
           {mostrarDetallesImpresion && (
-            <div className="flex justify-end mt-6">
-              <Button onClick={imprimirDetalle} className="flex items-center gap-2">
+            <div className="flex justify-end mt-4 sm:mt-6">
+              <Button onClick={imprimirDetalle} className="flex items-center gap-2 text-sm">
                 <Printer className="h-4 w-4" />
                 Descargar PDF
               </Button>
@@ -855,15 +998,15 @@ export function VentasView() {
       </Dialog>
 
       <AlertDialog open={mostrarAlerta} onOpenChange={setMostrarAlerta}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-[90vw] sm:max-w-lg">
           <AlertDialogHeader>
-            <AlertDialogTitle>Información requerida</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="text-base sm:text-lg">Información requerida</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm">
               Por favor, ingresa el nombre del cliente antes de generar el PDF.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setMostrarAlerta(false)}>
+            <AlertDialogAction onClick={() => setMostrarAlerta(false)} className="text-sm">
               Entendido
             </AlertDialogAction>
           </AlertDialogFooter>

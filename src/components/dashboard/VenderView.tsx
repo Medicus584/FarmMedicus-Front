@@ -41,6 +41,7 @@ import {
   type SaleRequest,
   type Lote,
   type Doctor,
+  SaleItem,
 } from "@/api/SalesApi";
 import { getUserId, getCurrentUser } from "@/api/AuthApi";
 import BarcodeScanner from "./BarcodeScanner";
@@ -685,12 +686,15 @@ export function VenderView() {
         )
         .join(", ");
 
-      const items = ventaItems.map((item) => ({
+      const items: SaleItem[] = ventaItems.map((item) => ({
         idproducto: item.idproducto,
         cantidad: item.cantidad,
         precio_unitario: item.precio_venta,
         subtotal_linea: item.precio_venta * item.cantidad,
-        idlote: item.lotesSeleccionados[0]?.idlote || 0,
+        lotes: item.lotesSeleccionados.map((lote) => ({
+          idlote: lote.idlote,
+          cantidad: lote.cantidad,
+        })),
       }));
 
       const saleRequest: SaleRequest = {

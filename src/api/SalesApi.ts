@@ -72,7 +72,10 @@ export interface SaleItem {
   cantidad: number;
   precio_unitario: number;
   subtotal_linea: number;
-  idlote?: number;
+  lotes: {
+    idlote: number;
+    cantidad: number;
+  }[];
 }
 
 export interface SaleRequest {
@@ -185,7 +188,16 @@ export const processSale = async (
   userId: number,
 ): Promise<{ idventa: number }> => {
   try {
-    return {idventa: 1}
+    const saleWithUser = {
+      ...sale,
+      userId: userId,
+    };
+
+    const response = await api.post<{ idventa: number }>(
+      "/sales/process",
+      saleWithUser,
+    );
+    return response.data;
   } catch (error) {
     console.error("Error processing sale:", error);
     throw error instanceof Error ? error : new Error("No se pudo procesar la venta");

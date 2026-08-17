@@ -94,124 +94,6 @@ export interface ProductoListResponse {
   totalPages: number;
 }
 
-// Mock data
-const MOCK_UBICACIONES: BackendUbicacion[] = [
-  { idubicacion: 1, nombre: "Estante A1", estado: 1 },
-  { idubicacion: 2, nombre: "Estante B2", estado: 1 },
-  { idubicacion: 3, nombre: "Almacén Central", estado: 1 },
-];
-
-const MOCK_CATEGORIAS: BackendCategoria[] = [
-  { idcategoria: 1, nombre: "Analgésicos", estado: 1 },
-  { idcategoria: 2, nombre: "Antibióticos", estado: 1 },
-  { idcategoria: 3, nombre: "Vitaminas", estado: 1 },
-  { idcategoria: 4, nombre: "Antiinflamatorios", estado: 1 },
-];
-
-const MOCK_LABORATORIOS: BackendLaboratorio[] = [
-  { idlaboratorio: 1, nombre: "Laboratorio A", estado: 1 },
-  { idlaboratorio: 2, nombre: "Laboratorio B", estado: 1 },
-  { idlaboratorio: 3, nombre: "Laboratorio C", estado: 1 },
-];
-
-let MOCK_PRODUCTOS: any[] = [];
-let nextProductId = 1;
-let nextLoteId = 1;
-
-// Generar productos mock con productos similares
-const generateMockProducts = () => {
-  const productos = [];
-  const nombres = [
-    "Paracetamol 500mg", "Ibuprofeno 400mg", "Amoxicilina 500mg",
-    "Vitamina C 1000mg", "Omeprazol 20mg", "Loratadina 10mg",
-    "Metformina 850mg", "Losartan 50mg", "Atorvastatina 20mg",
-    "Salbutamol Inhalador", "Dexametasona 4mg", "Diclofenaco 50mg",
-    "Cetirizina 10mg", "Ranitidina 150mg", "Clonazepam 2mg",
-    "Fluoxetina 20mg", "Omeprazol 40mg", "Metronidazol 500mg",
-    "Diazepam 5mg", "Amlodipino 5mg",
-  ];
-  
-  const descripciones = [
-    "Analgésico y antipirético", "Antiinflamatorio", "Antibiótico de amplio espectro",
-    "Suplemento vitamínico", "Inhibidor de bomba de protones", "Antihistamínico",
-    "Antidiabético", "Antihipertensivo", "Hipolipemiante",
-    "Broncodilatador", "Corticoesteroide", "Antiinflamatorio",
-    "Antialérgico", "Antagonista H2", "Ansiolítico",
-    "Antidepresivo", "Inhibidor de bomba de protones", "Antibiótico",
-    "Ansiolítico", "Antihipertensivo",
-  ];
-
-  // Crear productos primero
-  for (let i = 0; i < nombres.length; i++) {
-    const categoriaIdx = i % MOCK_CATEGORIAS.length;
-    const ubicacionIdx = i % MOCK_UBICACIONES.length;
-    const laboratorioIdx = i % MOCK_LABORATORIOS.length;
-    
-    const lotes = [
-      {
-        idlote: nextLoteId++,
-        idproducto: i + 1,
-        stock: Math.floor(Math.random() * 50) + 5,
-        fecha_vencimiento: new Date(2026 + Math.floor(Math.random() * 3), Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toISOString().split('T')[0],
-        estado: 1,
-      },
-      {
-        idlote: nextLoteId++,
-        idproducto: i + 1,
-        stock: Math.floor(Math.random() * 30) + 3,
-        fecha_vencimiento: new Date(2027 + Math.floor(Math.random() * 2), Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toISOString().split('T')[0],
-        estado: 1,
-      },
-    ];
-    
-    const stockTotal = lotes.reduce((sum, lote) => sum + lote.stock, 0);
-    
-    productos.push({
-      idproducto: i + 1,
-      nombre: nombres[i],
-      descripcion: descripciones[i],
-      idubicacion: MOCK_UBICACIONES[ubicacionIdx].idubicacion,
-      ubicacion_nombre: MOCK_UBICACIONES[ubicacionIdx].nombre,
-      idlaboratorio: MOCK_LABORATORIOS[laboratorioIdx].idlaboratorio,
-      laboratorio_nombre: MOCK_LABORATORIOS[laboratorioIdx].nombre,
-      categorias: [MOCK_CATEGORIAS[categoriaIdx].nombre, MOCK_CATEGORIAS[(categoriaIdx + 1) % MOCK_CATEGORIAS.length].nombre],
-      estado: 1,
-      imagen: "https://static.vecteezy.com/system/resources/previews/011/781/801/non_2x/medicine-3d-render-icon-illustration-png.png",
-      precio_venta: (Math.random() * 100 + 20).toFixed(2),
-      precio_compra: (Math.random() * 60 + 10).toFixed(2),
-      stock_total: stockTotal,
-      stock_minimo: Math.floor(Math.random() * 10) + 2,
-      codigo_barras: `750${Math.floor(Math.random() * 10000000000).toString().padStart(10, '0')}`,
-      lotes: lotes,
-      productos_similares: [],
-    });
-  }
-  
-  // Asignar productos similares (cada producto tendrá entre 1 y 3 similares)
-  for (let i = 0; i < productos.length; i++) {
-    const numSimilares = Math.floor(Math.random() * 3) + 1; // 1-3 similares
-    const similaresIds = [];
-    const availableIds = productos.map(p => p.idproducto).filter(id => id !== i + 1);
-    
-    for (let j = 0; j < Math.min(numSimilares, availableIds.length); j++) {
-      const randomIndex = Math.floor(Math.random() * availableIds.length);
-      const selectedId = availableIds[randomIndex];
-      similaresIds.push(selectedId);
-      availableIds.splice(randomIndex, 1);
-    }
-    
-    productos[i].productos_similares = similaresIds.map(id => {
-      const prod = productos.find(p => p.idproducto === id);
-      return prod ? { idproducto: prod.idproducto, nombre: prod.nombre } : null;
-    }).filter(Boolean);
-  }
-  
-  nextProductId = productos.length + 1;
-  return productos;
-};
-
-MOCK_PRODUCTOS = generateMockProducts();
-
 const api = axios.create({
   baseURL: API_URL,
   withCredentials: true,
@@ -487,11 +369,7 @@ export const updateProducto = async (
 
 export const deleteProducto = async (id: number): Promise<void> => {
   try {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    const index = MOCK_PRODUCTOS.findIndex(p => p.idproducto === id);
-    if (index !== -1) {
-      MOCK_PRODUCTOS.splice(index, 1);
-    }
+    await api.delete(`/productos/${id}`);
   } catch (error) {
     console.error("Error deleting producto:", error);
     throw new Error("No se pudo eliminar el producto");

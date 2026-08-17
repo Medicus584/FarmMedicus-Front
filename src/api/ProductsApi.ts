@@ -441,10 +441,8 @@ export const getAllProductos = async (
 
 export const getProductoById = async (id: number): Promise<Producto> => {
   try {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    const producto = MOCK_PRODUCTOS.find(p => p.idproducto === id);
-    if (!producto) throw new Error("Producto no encontrado");
-    return mapBackendProducto(producto);
+    const response = await api.get<any>(`/productos/${id}`);
+    return mapBackendProducto(response.data);
   } catch (error) {
     console.error("Error fetching producto:", error);
     throw new Error("No se pudo cargar el producto");
@@ -453,65 +451,12 @@ export const getProductoById = async (id: number): Promise<Producto> => {
 
 export const createProducto = async (formData: FormData): Promise<Producto> => {
   try {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const nombre = formData.get('nombre') as string;
-    const descripcion = formData.get('descripcion') as string;
-    const idubicacion = parseInt(formData.get('idubicacion') as string);
-    const idlaboratorio = parseInt(formData.get('idlaboratorio') as string);
-    const categorias = JSON.parse(formData.get('categorias') as string);
-    const precio_venta = formData.get('precio_venta') as string;
-    const precio_compra = formData.get('precio_compra') as string;
-    const stock = parseInt(formData.get('stock') as string);
-    const stock_minimo = parseInt(formData.get('stock_minimo') as string || '0');
-    const codigo_barras = formData.get('codigo_barras') as string || null;
-    const productos_similares = JSON.parse(formData.get('productos_similares') as string || '[]');
-    const lotesData = JSON.parse(formData.get('lotes') as string || '[]');
-    
-    const ubicacion = MOCK_UBICACIONES.find(u => u.idubicacion === idubicacion);
-    const laboratorio = MOCK_LABORATORIOS.find(l => l.idlaboratorio === idlaboratorio);
-    const categoriaNombres = categorias.map((id: number) => {
-      const cat = MOCK_CATEGORIAS.find(c => c.idcategoria === id);
-      return cat ? cat.nombre : '';
-    }).filter(Boolean);
-    
-    const lotes = lotesData.map((lote: any) => ({
-      idlote: nextLoteId++,
-      idproducto: nextProductId,
-      stock: lote.stock,
-      fecha_vencimiento: lote.fecha_vencimiento,
-      estado: 1,
-    }));
-    
-    const stockTotal = lotes.reduce((sum: number, lote: any) => sum + lote.stock, 0);
-    
-    const similaresMapped = productos_similares.map((id: number) => {
-      const p = MOCK_PRODUCTOS.find(prod => prod.idproducto === id);
-      return p ? { idproducto: p.idproducto, nombre: p.nombre } : null;
-    }).filter(Boolean);
-    
-    const newProduct = {
-      idproducto: nextProductId++,
-      nombre,
-      descripcion,
-      idubicacion,
-      ubicacion_nombre: ubicacion?.nombre || '',
-      idlaboratorio,
-      laboratorio_nombre: laboratorio?.nombre || '',
-      categorias: categoriaNombres,
-      estado: 1,
-      imagen: "https://static.vecteezy.com/system/resources/previews/011/781/801/non_2x/medicine-3d-render-icon-illustration-png.png",
-      precio_venta,
-      precio_compra,
-      stock_total: stockTotal,
-      stock_minimo,
-      codigo_barras,
-      lotes,
-      productos_similares: similaresMapped,
-    };
-    
-    MOCK_PRODUCTOS.push(newProduct);
-    return mapBackendProducto(newProduct);
+    const response = await api.post<any>("/productos", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return mapBackendProducto(response.data);
   } catch (error) {
     console.error("Error creating producto:", error);
     throw new Error("No se pudo crear el producto");
@@ -523,95 +468,17 @@ export const updateProducto = async (
   formData: FormData
 ): Promise<Producto> => {
   try {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const index = MOCK_PRODUCTOS.findIndex(p => p.idproducto === id);
-    if (index === -1) throw new Error("Producto no encontrado");
-    
-    const existingProduct = MOCK_PRODUCTOS[index];
-    const updatedProduct = { ...existingProduct };
-    
-    const nombre = formData.get('nombre') as string;
-    if (nombre) updatedProduct.nombre = nombre;
-    
-    const descripcion = formData.get('descripcion') as string;
-    if (descripcion) updatedProduct.descripcion = descripcion;
-    
-    const idubicacion = formData.get('idubicacion');
-    if (idubicacion) {
-      const ubicacionId = parseInt(idubicacion as string);
-      updatedProduct.idubicacion = ubicacionId;
-      const ubicacion = MOCK_UBICACIONES.find(u => u.idubicacion === ubicacionId);
-      updatedProduct.ubicacion_nombre = ubicacion?.nombre || '';
-    }
-    
-    const idlaboratorio = formData.get('idlaboratorio');
-    if (idlaboratorio) {
-      const laboratorioId = parseInt(idlaboratorio as string);
-      updatedProduct.idlaboratorio = laboratorioId;
-      const laboratorio = MOCK_LABORATORIOS.find(l => l.idlaboratorio === laboratorioId);
-      updatedProduct.laboratorio_nombre = laboratorio?.nombre || '';
-    }
-    
-    const categorias = formData.get('categorias');
-    if (categorias) {
-      const categoriasIds = JSON.parse(categorias as string);
-      updatedProduct.categorias = categoriasIds.map((id: number) => {
-        const cat = MOCK_CATEGORIAS.find(c => c.idcategoria === id);
-        return cat ? cat.nombre : '';
-      }).filter(Boolean);
-    }
-    
-    const precio_venta = formData.get('precio_venta');
-    if (precio_venta) updatedProduct.precio_venta = precio_venta;
-    
-    const precio_compra = formData.get('precio_compra');
-    if (precio_compra) updatedProduct.precio_compra = precio_compra;
-    
-    const stock_minimo = formData.get('stock_minimo');
-    if (stock_minimo) updatedProduct.stock_minimo = parseInt(stock_minimo as string);
-    
-    const codigo_barras = formData.get('codigo_barras');
-    if (codigo_barras !== undefined) updatedProduct.codigo_barras = codigo_barras as string || null;
-    
-    const productos_similares = formData.get('productos_similares');
-    if (productos_similares) {
-      const similaresIds = JSON.parse(productos_similares as string);
-      updatedProduct.productos_similares = similaresIds.map((id: number) => {
-        const p = MOCK_PRODUCTOS.find(prod => prod.idproducto === id);
-        return p ? { idproducto: p.idproducto, nombre: p.nombre } : null;
-      }).filter(Boolean);
-    }
-    
-    const lotesData = formData.get('lotes');
-    if (lotesData) {
-      const nuevosLotes = JSON.parse(lotesData as string);
-      const lotesExistentes = updatedProduct.lotes || [];
-      
-      const lotesActualizados = [...lotesExistentes];
-      nuevosLotes.forEach((lote: any) => {
-        if (lote.idlote) {
-          const idx = lotesActualizados.findIndex((l: any) => l.idlote === lote.idlote);
-          if (idx !== -1) {
-            lotesActualizados[idx].stock += lote.stock;
-          }
-        } else {
-          lotesActualizados.push({
-            idlote: nextLoteId++,
-            idproducto: id,
-            stock: lote.stock,
-            fecha_vencimiento: lote.fecha_vencimiento,
-            estado: 1,
-          });
-        }
-      });
-      
-      updatedProduct.lotes = lotesActualizados;
-      updatedProduct.stock_total = lotesActualizados.reduce((sum: number, l: any) => sum + l.stock, 0);
-    }
-    
-    MOCK_PRODUCTOS[index] = updatedProduct;
-    return mapBackendProducto(updatedProduct);
+    const response = await api.put<any>(
+      `/productos/${id}`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      },
+    );
+
+    return mapBackendProducto(response.data);
   } catch (error) {
     console.error("Error updating producto:", error);
     throw new Error("No se pudo actualizar el producto");

@@ -363,8 +363,8 @@ export const getTodosProductosParaSelect = async (): Promise<
   { idproducto: number; nombre: string }[]
 > => {
   try {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    return MOCK_PRODUCTOS.map(p => ({ idproducto: p.idproducto, nombre: p.nombre }));
+    const response = await api.get("/todos-select");
+    return response.data;
   } catch (error) {
     console.error("Error fetching productos para select:", error);
     return [];
@@ -379,39 +379,33 @@ export const buscarProductos = async (
   limit: number = 15
 ): Promise<ProductoListResponse> => {
   try {
-    await new Promise(resolve => setTimeout(resolve, 400));
-    
-    let filtered = [...MOCK_PRODUCTOS];
-    
-    if (termino && termino.trim().length >= 2) {
-      const searchLower = termino.toLowerCase().trim();
-      filtered = filtered.filter(p =>
-        p.nombre.toLowerCase().includes(searchLower) ||
-        p.descripcion.toLowerCase().includes(searchLower) ||
-        (p.codigo_barras && p.codigo_barras.includes(searchLower))
-      );
-    }
-    
-    if (categoria) {
-      filtered = filtered.filter(p => p.categorias.includes(categoria));
-    }
-    
-    if (laboratorio) {
-      filtered = filtered.filter(p => p.laboratorio_nombre === laboratorio);
-    }
-    
-    const total = filtered.length;
-    const totalPages = Math.ceil(total / limit);
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
-    const paginated = filtered.slice(startIndex, endIndex);
-    
-    return {
-      productos: paginated.map(mapBackendProducto),
-      total,
+    const params: Record<string, string | number> = {
       page,
       limit,
-      totalPages,
+    };
+
+    if (termino && termino.trim().length >= 2) {
+      params.termino = termino.trim();
+    }
+
+    if (categoria) {
+      params.categoria = categoria;
+    }
+
+    if (laboratorio) {
+      params.laboratorio = laboratorio;
+    }
+
+    const response = await api.get<ProductoListResponse>("/buscar", {
+      params,
+    });
+
+    return {
+      productos: response.data.productos.map(mapBackendProducto),
+      total: response.data.total,
+      page: response.data.page,
+      limit: response.data.limit,
+      totalPages: response.data.totalPages,
     };
   } catch (error) {
     console.error("Error buscando productos:", error);
@@ -424,20 +418,20 @@ export const getAllProductos = async (
   limit: number = 15
 ): Promise<ProductoListResponse> => {
   try {
-    await new Promise(resolve => setTimeout(resolve, 400));
-    
-    const total = MOCK_PRODUCTOS.length;
-    const totalPages = Math.ceil(total / limit);
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
-    const paginated = MOCK_PRODUCTOS.slice(startIndex, endIndex);
-    
-    return {
-      productos: paginated.map(mapBackendProducto),
-      total,
+    const params: Record<string, string | number> = {
       page,
       limit,
-      totalPages,
+    };
+
+    const response = await api.get<ProductoListResponse>("/todos", {
+      params,
+    });
+    return {
+      productos: response.data.productos.map(mapBackendProducto),
+      total: response.data.total,
+      page: response.data.page,
+      limit: response.data.limit,
+      totalPages: response.data.totalPages,
     };
   } catch (error) {
     console.error("Error fetching todos los productos:", error);
@@ -644,31 +638,24 @@ export const updateStockProducto = async (
   fechaVencimiento?: string
 ): Promise<Producto> => {
   try {
-    await new Promise(resolve => setTimeout(resolve, 400));
-    
-    const index = MOCK_PRODUCTOS.findIndex(p => p.idproducto === idproducto);
-    if (index === -1) throw new Error("Producto no encontrado");
-    
-    const product = MOCK_PRODUCTOS[index];
-    
-    if (idlote > 0) {
-      const loteIndex = product.lotes.findIndex((l: any) => l.idlote === idlote);
-      if (loteIndex === -1) throw new Error("Lote no encontrado");
-      product.lotes[loteIndex].stock += cantidad;
-    } else {
-      product.lotes.push({
-        idlote: nextLoteId++,
-        idproducto: idproducto,
-        stock: cantidad,
-        fecha_vencimiento: fechaVencimiento || new Date().toISOString().split('T')[0],
-        estado: 1,
-      });
+    let endpoint = `/productos/${idproducto}/stock`;
+    let requestBody: any = { cantidad };
+
+    let response;
+    if ((idlote === 0 || idlote === null || idlote === undefined) && fechaVencimiento) {
+      requestBody = {
+        cantidad,
+        fecha_vencimiento: fechaVencimiento
+      };
+      response = await api.post<Producto>(endpoint, requestBody);
+    } else if (idlote > 0 && !fechaVencimiento) {
+      requestBody = {
+        cantidad,
+        idlote
+      };
+      response = await api.put<Producto>(endpoint, requestBody);
     }
-    
-    product.stock_total = product.lotes.reduce((sum: number, l: any) => sum + l.stock, 0);
-    MOCK_PRODUCTOS[index] = product;
-    
-    return mapBackendProducto(product);
+    return mapBackendProducto(response.data);
   } catch (error) {
     console.error("Error updating stock:", error);
     throw new Error("No se pudo actualizar el stock");

@@ -48,6 +48,7 @@ CREATE TABLE productos (
     nombre VARCHAR(200) NOT NULL,
     descripcion TEXT,
     idubicacion INTEGER REFERENCES ubicaciones(idubicacion),
+    idlaboratorio INTEGER REFERENCES laboratorios(idlaboratorio),
     estado SMALLINT DEFAULT 0,
     imagen bytea,
     precio_venta DOUBLE PRECISION NOT NULL DEFAULT 0.0,

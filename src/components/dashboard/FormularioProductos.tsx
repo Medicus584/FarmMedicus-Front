@@ -1163,7 +1163,7 @@ export function FormularioProductos({
     }
   };
 
-  const handleAddNewElement = async (name: string) => {
+  const handleAddNewElement = async (id: number, name: string) => {
     if (isAddingElement) return;
 
     const type = addDialogState.type;
@@ -1172,17 +1172,30 @@ export function FormularioProductos({
     setIsAddingElement(true);
 
     try {
-      switch (type) {
-        case "categoria":
-          await createCategoria({ nombre: name });
-          break;
-        case "ubicacion":
-          await createUbicacion({ nombre: name });
-          break;
-        case "laboratorio":
-          await createLaboratorio({ nombre: name });
-          break;
-      }
+      if (id) 
+        switch (type) {
+          case "categoria":
+            await updateCategoria(id, { nombre: name });
+            break;
+          case "ubicacion":
+            await updateUbicacion(id, { nombre: name });
+            break;
+          case "laboratorio":
+            await updateLaboratorio(id, { nombre: name });
+            break;
+        }
+      else
+        switch (type) {
+          case "categoria":
+            await createCategoria({ nombre: name });
+            break;
+          case "ubicacion":
+            await createUbicacion({ nombre: name });
+            break;
+          case "laboratorio":
+            await createLaboratorio({ nombre: name });
+            break;
+        }
 
       await loadManagementItems();
 
@@ -1749,7 +1762,7 @@ export function FormularioProductos({
                 className="w-full"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && editDialogData.name.trim()) {
-                    handleAddNewElement(editDialogData.name);
+                    handleAddNewElement(editDialogData.id, editDialogData.name);
                   }
                 }}
               />
@@ -1769,7 +1782,7 @@ export function FormularioProductos({
             <Button
               onClick={() => {
                 if (editDialogData.name.trim()) {
-                  handleAddNewElement(editDialogData.name.trim());
+                  handleAddNewElement(editDialogData.id, editDialogData.name.trim());
                 }
               }}
               className="bg-primary hover:bg-primary/90 w-full sm:w-auto"

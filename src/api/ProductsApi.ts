@@ -30,6 +30,12 @@ export interface BackendLote {
   estado: number;
 }
 
+interface BackendItem {
+  id: number;
+  nombre: string;
+  estado: number;
+}
+
 export interface ProductoLote {
   idlote: number;
   stock: number;
@@ -215,10 +221,19 @@ const api = axios.create({
 });
 
 // ============ FUNCIONES PARA UBICACIONES ============
+
+function mapBackendUbicacion (item: BackendItem): BackendUbicacion {
+  return {
+    idubicacion: item.id,
+    nombre: item.nombre,
+    estado: item.estado,
+  };
+}
+
 export const getUbicaciones = async (): Promise<BackendUbicacion[]> => {
   try {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    return MOCK_UBICACIONES;
+    const response = await api.get<BackendItem[]>("/management/ubicaciones");
+    return response.data.map(mapBackendUbicacion);
   } catch (error) {
     console.error("Error fetching ubicaciones:", error);
     throw new Error("No se pudieron cargar las ubicaciones");
@@ -227,14 +242,8 @@ export const getUbicaciones = async (): Promise<BackendUbicacion[]> => {
 
 export const createUbicacion = async (data: { nombre: string }): Promise<BackendUbicacion> => {
   try {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    const newUbicacion = {
-      idubicacion: MOCK_UBICACIONES.length + 1,
-      nombre: data.nombre,
-      estado: 1,
-    };
-    MOCK_UBICACIONES.push(newUbicacion);
-    return newUbicacion;
+    const response = await api.post<BackendItem>("/management/ubicaciones", {nombre: data.nombre});
+    return mapBackendUbicacion(response.data);
   } catch (error) {
     console.error("Error creating ubicacion:", error);
     throw new Error("No se pudo crear la ubicación");
@@ -243,11 +252,8 @@ export const createUbicacion = async (data: { nombre: string }): Promise<Backend
 
 export const updateUbicacion = async (id: number, data: { nombre: string }): Promise<BackendUbicacion> => {
   try {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    const index = MOCK_UBICACIONES.findIndex(u => u.idubicacion === id);
-    if (index === -1) throw new Error("Ubicación no encontrada");
-    MOCK_UBICACIONES[index].nombre = data.nombre;
-    return MOCK_UBICACIONES[index];
+    const response = await api.put<BackendItem>(`/management/ubicaciones/${id}`, {nombre: data.nombre});
+    return mapBackendUbicacion(response.data);
   } catch (error) {
     console.error("Error updating ubicacion:", error);
     throw new Error("No se pudo actualizar la ubicación");
@@ -256,11 +262,7 @@ export const updateUbicacion = async (id: number, data: { nombre: string }): Pro
 
 export const deleteUbicacion = async (id: number): Promise<void> => {
   try {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    const index = MOCK_UBICACIONES.findIndex(u => u.idubicacion === id);
-    if (index !== -1) {
-      MOCK_UBICACIONES.splice(index, 1);
-    }
+    await api.delete(`/management/ubicaciones/${id}`);
   } catch (error) {
     console.error("Error deleting ubicacion:", error);
     throw new Error("No se pudo eliminar la ubicación");
@@ -268,10 +270,19 @@ export const deleteUbicacion = async (id: number): Promise<void> => {
 };
 
 // ============ FUNCIONES PARA CATEGORÍAS ============
+
+function mapBackendCategorias (item: BackendItem): BackendCategoria {
+  return {
+    idcategoria: item.id,
+    nombre: item.nombre,
+    estado: item.estado,
+  };
+}
+
 export const getCategorias = async (): Promise<BackendCategoria[]> => {
   try {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    return MOCK_CATEGORIAS;
+    const response = await api.get<BackendItem[]>("/management/categorias");
+    return response.data.map(mapBackendCategorias);
   } catch (error) {
     console.error("Error fetching categorias:", error);
     throw new Error("No se pudieron cargar las categorías");
@@ -280,14 +291,8 @@ export const getCategorias = async (): Promise<BackendCategoria[]> => {
 
 export const createCategoria = async (data: { nombre: string }): Promise<BackendCategoria> => {
   try {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    const newCategoria = {
-      idcategoria: MOCK_CATEGORIAS.length + 1,
-      nombre: data.nombre,
-      estado: 1,
-    };
-    MOCK_CATEGORIAS.push(newCategoria);
-    return newCategoria;
+    const response = await api.post<BackendItem>("/management/categorias", {nombre: data.nombre});
+    return mapBackendCategorias(response.data);
   } catch (error) {
     console.error("Error creating categoria:", error);
     throw new Error("No se pudo crear la categoría");
@@ -296,11 +301,8 @@ export const createCategoria = async (data: { nombre: string }): Promise<Backend
 
 export const updateCategoria = async (id: number, data: { nombre: string }): Promise<BackendCategoria> => {
   try {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    const index = MOCK_CATEGORIAS.findIndex(c => c.idcategoria === id);
-    if (index === -1) throw new Error("Categoría no encontrada");
-    MOCK_CATEGORIAS[index].nombre = data.nombre;
-    return MOCK_CATEGORIAS[index];
+    const response = await api.put<BackendItem>(`/management/categorias/${id}`, {nombre: data.nombre});
+    return mapBackendCategorias(response.data);
   } catch (error) {
     console.error("Error updating categoria:", error);
     throw new Error("No se pudo actualizar la categoría");
@@ -309,11 +311,7 @@ export const updateCategoria = async (id: number, data: { nombre: string }): Pro
 
 export const deleteCategoria = async (id: number): Promise<void> => {
   try {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    const index = MOCK_CATEGORIAS.findIndex(c => c.idcategoria === id);
-    if (index !== -1) {
-      MOCK_CATEGORIAS.splice(index, 1);
-    }
+    await api.delete(`/management/categorias/${id}`);
   } catch (error) {
     console.error("Error deleting categoria:", error);
     throw new Error("No se pudo eliminar la categoría");
@@ -323,8 +321,8 @@ export const deleteCategoria = async (id: number): Promise<void> => {
 // ============ FUNCIONES PARA LABORATORIOS ============
 export const getLaboratorios = async (): Promise<BackendLaboratorio[]> => {
   try {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    return MOCK_LABORATORIOS;
+    const response = await api.get<BackendLaboratorio[]>("/management/laboratorios");
+    return response.data;
   } catch (error) {
     console.error("Error fetching laboratorios:", error);
     throw new Error("No se pudieron cargar los laboratorios");
@@ -333,14 +331,8 @@ export const getLaboratorios = async (): Promise<BackendLaboratorio[]> => {
 
 export const createLaboratorio = async (data: { nombre: string }): Promise<BackendLaboratorio> => {
   try {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    const newLaboratorio = {
-      idlaboratorio: MOCK_LABORATORIOS.length + 1,
-      nombre: data.nombre,
-      estado: 1,
-    };
-    MOCK_LABORATORIOS.push(newLaboratorio);
-    return newLaboratorio;
+    const response = await api.post<BackendLaboratorio>("/management/laboratorio", {nombre: data.nombre});
+    return response.data;
   } catch (error) {
     console.error("Error creating laboratorio:", error);
     throw new Error("No se pudo crear el laboratorio");
@@ -349,11 +341,8 @@ export const createLaboratorio = async (data: { nombre: string }): Promise<Backe
 
 export const updateLaboratorio = async (id: number, data: { nombre: string }): Promise<BackendLaboratorio> => {
   try {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    const index = MOCK_LABORATORIOS.findIndex(l => l.idlaboratorio === id);
-    if (index === -1) throw new Error("Laboratorio no encontrado");
-    MOCK_LABORATORIOS[index].nombre = data.nombre;
-    return MOCK_LABORATORIOS[index];
+    const response = await api.put<BackendLaboratorio>(`/management/laboratorio/${id}`, {nombre: data.nombre});
+    return response.data;
   } catch (error) {
     console.error("Error updating laboratorio:", error);
     throw new Error("No se pudo actualizar el laboratorio");
@@ -362,11 +351,7 @@ export const updateLaboratorio = async (id: number, data: { nombre: string }): P
 
 export const deleteLaboratorio = async (id: number): Promise<void> => {
   try {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    const index = MOCK_LABORATORIOS.findIndex(l => l.idlaboratorio === id);
-    if (index !== -1) {
-      MOCK_LABORATORIOS.splice(index, 1);
-    }
+    await api.delete(`/management/laboratorio/${id}`);
   } catch (error) {
     console.error("Error deleting laboratorio:", error);
     throw new Error("No se pudo eliminar el laboratorio");

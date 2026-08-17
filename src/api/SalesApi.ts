@@ -5,10 +5,8 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 // Interfaces para los lotes
 export interface Lote {
   idlote: number;
-  idproducto: number;
   stock: number;
   fechaVencimiento: string;
-  fechaCreacion: string;
 }
 
 // Interface para Doctor - solo nombre
@@ -23,15 +21,23 @@ export interface BackendProduct {
   descripcion: string;
   estado: number;
   idubicacion: number;
-  nombre_ubicacion: string;
+  ubicacion_nombre: string;
   imagen: string;
   precio_venta: string;
-  stock: number;
+  stock_total: string;
   lotes?: Lote[];
   productos_similares?: Array<{
     idproducto: number;
     nombre: string;
   }>;
+}
+
+interface ProductoListResponse {
+  productos: BackendProduct[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }
 
 interface BackendCashStatus {
@@ -91,19 +97,11 @@ export interface CashStatus {
   fecha_cierre: string | null;
 }
 
-// Datos mock para doctores - solo nombre
-let MOCK_DOCTORS: Doctor[] = [
-  { id: 1, nombre: "Dr. Juan Pérez" },
-  { id: 2, nombre: "Dra. María Gómez" },
-  { id: 3, nombre: "Dr. Carlos Rodríguez" },
-];
-
-let DOCTOR_ID_COUNTER = 4;
-
 // Funciones para doctores
 export const getDoctors = async (): Promise<Doctor[]> => {
   try {
-    return [...MOCK_DOCTORS];
+    const response = await api.get<Doctor[]>("/sales/doctores");
+    return response.data;
   } catch (error) {
     console.error("Error fetching doctors:", error);
     throw new Error("No se pudieron obtener los doctores");
@@ -112,12 +110,8 @@ export const getDoctors = async (): Promise<Doctor[]> => {
 
 export const createDoctor = async (data: { nombre: string }): Promise<Doctor> => {
   try {
-    const newDoctor = {
-      ...data,
-      id: DOCTOR_ID_COUNTER++
-    };
-    MOCK_DOCTORS.push(newDoctor);
-    return newDoctor;
+    const response = await api.post<Doctor>("/sales/doctor", data);
+    return response.data;
   } catch (error) {
     console.error("Error creating doctor:", error);
     throw new Error("No se pudo crear el doctor");
@@ -126,13 +120,8 @@ export const createDoctor = async (data: { nombre: string }): Promise<Doctor> =>
 
 export const updateDoctor = async (id: number, data: { nombre: string }): Promise<Doctor> => {
   try {
-    const index = MOCK_DOCTORS.findIndex(d => d.id === id);
-    if (index === -1) {
-      throw new Error("Doctor no encontrado");
-    }
-    const updatedDoctor = { ...data, id };
-    MOCK_DOCTORS[index] = updatedDoctor;
-    return updatedDoctor;
+    const response = await api.patch<Doctor>(`/sales/doctor/${id}`, data);
+    return response.data;
   } catch (error) {
     console.error("Error updating doctor:", error);
     throw new Error("No se pudo actualizar el doctor");
@@ -141,83 +130,12 @@ export const updateDoctor = async (id: number, data: { nombre: string }): Promis
 
 export const deleteDoctor = async (id: number): Promise<void> => {
   try {
-    MOCK_DOCTORS = MOCK_DOCTORS.filter(d => d.id !== id);
+    await api.delete<Doctor>(`/sales/doctor/${id}`);
   } catch (error) {
     console.error("Error deleting doctor:", error);
     throw new Error("No se pudo eliminar el doctor");
   }
 };
-
-// Datos mock para productos
-const MOCK_LOTES: Record<number, Lote[]> = {
-  1: [
-    { idlote: 101, idproducto: 1, stock: 10, fechaVencimiento: "2026-12-31", fechaCreacion: "2026-01-15" },
-    { idlote: 102, idproducto: 1, stock: 20, fechaVencimiento: "2027-06-30", fechaCreacion: "2026-02-20" }
-  ],
-  2: [
-    { idlote: 201, idproducto: 2, stock: 5, fechaVencimiento: "2026-10-15", fechaCreacion: "2026-01-10" },
-    { idlote: 202, idproducto: 2, stock: 15, fechaVencimiento: "2027-01-20", fechaCreacion: "2026-03-05" }
-  ],
-  3: [
-    { idlote: 301, idproducto: 3, stock: 30, fechaVencimiento: "2026-12-01", fechaCreacion: "2026-02-01" }
-  ],
-  4: [
-    { idlote: 401, idproducto: 4, stock: 8, fechaVencimiento: "2026-11-15", fechaCreacion: "2026-01-20" },
-    { idlote: 402, idproducto: 4, stock: 12, fechaVencimiento: "2027-02-28", fechaCreacion: "2026-03-10" },
-    { idlote: 403, idproducto: 4, stock: 5, fechaVencimiento: "2026-09-01", fechaCreacion: "2025-12-01" }
-  ]
-};
-
-const MOCK_PRODUCTS: BackendProduct[] = [
-  {
-    idproducto: 1,
-    nombre: "Paracetamol 500mg",
-    descripcion: "Analgésico y antipirético",
-    estado: 1,
-    idubicacion: 1,
-    nombre_ubicacion: "Estante A1",
-    imagen: "",
-    precio_venta: "15.50",
-    stock: 30,
-    productos_similares: [{ idproducto: 2, nombre: "Ibuprofeno 400mg" }]
-  },
-  {
-    idproducto: 2,
-    nombre: "Ibuprofeno 400mg",
-    descripcion: "Antiinflamatorio no esteroideo",
-    estado: 1,
-    idubicacion: 1,
-    nombre_ubicacion: "Estante A2",
-    imagen: "",
-    precio_venta: "18.00",
-    stock: 20,
-    productos_similares: [{ idproducto: 1, nombre: "Paracetamol 500mg" }]
-  },
-  {
-    idproducto: 3,
-    nombre: "Amoxicilina 500mg",
-    descripcion: "Antibiótico de amplio espectro",
-    estado: 1,
-    idubicacion: 2,
-    nombre_ubicacion: "Estante B1",
-    imagen: "",
-    precio_venta: "25.00",
-    stock: 30,
-    productos_similares: []
-  },
-  {
-    idproducto: 4,
-    nombre: "Omeprazol 20mg",
-    descripcion: "Inhibidor de la bomba de protones",
-    estado: 1,
-    idubicacion: 2,
-    nombre_ubicacion: "Estante B2",
-    imagen: "",
-    precio_venta: "12.00",
-    stock: 25,
-    productos_similares: []
-  }
-];
 
 const api = axios.create({
   baseURL: API_URL,
@@ -232,22 +150,20 @@ export const searchProducts = async (
   withoutStock: boolean = true,
 ): Promise<Product[]> => {
   try {
-    let filteredProducts = MOCK_PRODUCTS;
-    
-    if (query.trim()) {
-      const q = query.toLowerCase().trim();
-      filteredProducts = MOCK_PRODUCTS.filter(p => 
-        p.nombre.toLowerCase().includes(q) || 
-        p.descripcion.toLowerCase().includes(q)
-      );
+    const params: Record<string, string | number> = {
+      page: 1,
+      limit: 15,
+    };
+
+    if (query && query.trim().length >= 2) {
+      params.termino = query.trim();
     }
 
-    const productsWithLotes = filteredProducts.map(p => ({
-      ...p,
-      lotes: MOCK_LOTES[p.idproducto] || []
-    }));
+    const response = await api.get<ProductoListResponse>("/buscar", {
+      params,
+    });
 
-    return productsWithLotes.map(mapBackendProduct);
+    return response.data.productos.map(mapBackendProduct);
   } catch (error) {
     console.error("Error searching products:", error);
     throw new Error("No se pudieron buscar los productos");
@@ -256,17 +172,8 @@ export const searchProducts = async (
 
 export const getCashStatus = async (): Promise<CashStatus> => {
   try {
-    const mockCashStatus: BackendCashStatus = {
-      idestado_caja: 1,
-      estado: "abierta",
-      monto_inicial: "500.00",
-      monto_final: "0.00",
-      idusuario: 1,
-      fecha_apertura: new Date().toISOString(),
-      fecha_cierre: null
-    };
-    
-    return mapBackendCashStatus(mockCashStatus);
+    const response = await api.get<BackendCashStatus>("/sales/cash-status");
+    return mapBackendCashStatus(response.data);
   } catch (error) {
     console.error("Error fetching cash status:", error);
     throw new Error("No se pudo obtener el estado de la caja");
@@ -278,24 +185,7 @@ export const processSale = async (
   userId: number,
 ): Promise<{ idventa: number }> => {
   try {
-    const itemsSinLote = sale.items.filter(item => !item.idlote);
-    if (itemsSinLote.length > 0) {
-      throw new Error("Todos los items deben tener un lote asignado");
-    }
-
-    for (const item of sale.items) {
-      const product = MOCK_PRODUCTS.find(p => p.idproducto === item.idproducto);
-      if (!product) continue;
-      
-      const lote = MOCK_LOTES[item.idproducto]?.find(l => l.idlote === item.idlote);
-      if (!lote || lote.stock < item.cantidad) {
-        throw new Error(`Stock insuficiente para el producto ${product.nombre}`);
-      }
-    }
-
-    console.log("Venta procesada:", { sale, userId });
-    
-    return { idventa: Math.floor(Math.random() * 1000) };
+    return {idventa: 1}
   } catch (error) {
     console.error("Error processing sale:", error);
     throw error instanceof Error ? error : new Error("No se pudo procesar la venta");
@@ -309,10 +199,10 @@ export function mapBackendProduct(product: BackendProduct): Product {
     descripcion: product.descripcion,
     estado: product.estado,
     idubicacion: product.idubicacion,
-    nombre_ubicacion: product.nombre_ubicacion,
+    nombre_ubicacion: product.ubicacion_nombre,
     imagen: product.imagen,
     precio_venta: parseFloat(product.precio_venta),
-    stock: product.stock,
+    stock: parseInt(product.stock_total),
     lotes: product.lotes || [],
     productos_similares: product.productos_similares || [],
   };

@@ -1,5 +1,5 @@
 // components/FormularioProductos.tsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,25 +15,31 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, X, Search, Camera, Pencil, Trash2 } from "lucide-react";
+import { Plus, X, Search, Camera, Edit, Trash2, Loader2, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { AddItemDialog } from "./AddItemDialog";
 import BarcodeScanner from "./BarcodeScanner";
 import {
   createUbicacion,
+  updateUbicacion,
+  deleteUbicacion,
   createCategoria,
+  updateCategoria,
+  deleteCategoria,
   createLaboratorio,
+  updateLaboratorio,
+  deleteLaboratorio,
   getUbicaciones,
   getCategorias,
   getLaboratorios,
-  updateUbicacion,
-  updateCategoria,
-  updateLaboratorio,
-  deleteUbicacion,
-  deleteCategoria,
-  deleteLaboratorio,
 } from "@/api/ProductsApi";
 import {
   createProducto,
@@ -89,18 +95,23 @@ interface ManagementItem {
   estado: number;
 }
 
-// Componente de búsqueda con edición y eliminación en el dropdown
-const SearchSelectWithManagement = ({
+// ============================================
+// COMPONENTE DE BÚSQUEDA CON DROPDOWN PARA MÚLTIPLE SELECCIÓN (CATEGORÍAS)
+// ============================================
+const SearchSelectWithDropdown = ({
   options,
   selectedValues,
   onSelectionChange,
   placeholder,
   label,
   required,
+  onEdit,
+  onDelete,
+  showActions = false,
+  itemType = "item",
   onAddNew,
-  items,
-  type,
-  onRefreshList,
+  isAdding,
+  isDeleting,
 }: {
   options: string[];
   selectedValues: string[];
@@ -108,27 +119,47 @@ const SearchSelectWithManagement = ({
   placeholder: string;
   label: string;
   required?: boolean;
+  onEdit?: (item: string) => void;
+  onDelete?: (item: string) => void;
+  showActions?: boolean;
+  itemType?: string;
   onAddNew?: () => void;
-  items?: ManagementItem[];
-  type?: "ubicacion" | "categoria" | "laboratorio";
-  onRefreshList?: () => void;
+  isAdding?: boolean;
+  isDeleting?: boolean;
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isOpen, setIsOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<ManagementItem | null>(null);
-  const [editName, setEditName] = useState("");
-  const { toast } = useToast();
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Filtrar elementos que coinciden con la búsqueda
-  const searchResults = (items || []).filter(
-    (item) =>
-      item.nombre.toLowerCase().includes(searchTerm.toLowerCase()),
+  // Filtrar opciones que coinciden con la búsqueda Y que no están seleccionadas
+  const filteredOptions = options.filter(
+    (option) =>
+      option.toLowerCase().includes(searchTerm.toLowerCase()) &&
+      !selectedValues.includes(option),
   );
 
+  // Cerrar dropdown al hacer clic fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node) &&
+        inputRef.current &&
+        !inputRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const addSelection = (option: string) => {
-    if (!selectedValues.includes(option)) {
-      onSelectionChange([...selectedValues, option]);
-    }
+    onSelectionChange([...selectedValues, option]);
     setSearchTerm("");
     setIsOpen(false);
   };
@@ -137,305 +168,461 @@ const SearchSelectWithManagement = ({
     onSelectionChange(selectedValues.filter((v) => v !== option));
   };
 
-  const handleEdit = (item: ManagementItem) => {
-    setEditingItem(item);
-    setEditName(item.nombre);
-  };
-
-  const handleSaveEdit = async () => {
-    if (!editingItem || !editName.trim() || !type) return;
-
-    const id = (editingItem as any).idubicacion || 
-               (editingItem as any).idcategoria || 
-               (editingItem as any).idlaboratorio || 
-               editingItem.id || 0;
-
-    try {
-      switch (type) {
-        case "ubicacion":
-          await updateUbicacion(id, { nombre: editName.trim() });
-          break;
-        case "categoria":
-          await updateCategoria(id, { nombre: editName.trim() });
-          break;
-        case "laboratorio":
-          await updateLaboratorio(id, { nombre: editName.trim() });
-          break;
-      }
-
-      // Si el elemento editado estaba seleccionado, actualizar la selección
-      if (selectedValues.includes(editingItem.nombre)) {
-        const newValues = selectedValues.map(v => 
-          v === editingItem.nombre ? editName.trim() : v
-        );
-        onSelectionChange(newValues);
-      }
-
-      toast({
-        title: `${label} actualizado`,
-        description: `"${editingItem.nombre}" → "${editName.trim()}"`,
-      });
-
-      if (onRefreshList) onRefreshList();
-      setEditingItem(null);
-      setEditName("");
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: `No se pudo actualizar el ${label.toLowerCase()}`,
-        variant: "destructive",
-      });
+  const handleInputClick = () => {
+    setIsOpen(true);
+    if (inputRef.current) {
+      inputRef.current.focus();
     }
   };
 
-  const handleDelete = async (item: ManagementItem) => {
-    if (!type) return;
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+    setIsOpen(true);
+  };
 
-    const id = (item as any).idubicacion || 
-               (item as any).idcategoria || 
-               (item as any).idlaboratorio || 
-               item.id || 0;
+  const handleDeleteClick = (option: string) => {
+    setDeleteTarget(option);
+    setDeleteDialogOpen(true);
+  };
 
-    try {
-      switch (type) {
-        case "ubicacion":
-          await deleteUbicacion(id);
-          break;
-        case "categoria":
-          await deleteCategoria(id);
-          break;
-        case "laboratorio":
-          await deleteLaboratorio(id);
-          break;
-      }
-
-      // Si el elemento eliminado estaba seleccionado, removerlo
-      if (selectedValues.includes(item.nombre)) {
-        onSelectionChange(selectedValues.filter(v => v !== item.nombre));
-      }
-
-      toast({
-        title: `${label} eliminado`,
-        description: `"${item.nombre}" ha sido eliminado`,
-        variant: "destructive",
-      });
-
-      if (onRefreshList) onRefreshList();
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: `No se pudo eliminar el ${label.toLowerCase()}`,
-        variant: "destructive",
-      });
+  const confirmDelete = () => {
+    if (deleteTarget && onDelete) {
+      onDelete(deleteTarget);
+      setDeleteTarget(null);
     }
+    setDeleteDialogOpen(false);
   };
-
-  const cancelEdit = () => {
-    setEditingItem(null);
-    setEditName("");
-  };
-
-  const isSelected = (name: string) => selectedValues.includes(name);
 
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between">
-        <Label className="text-sm font-medium">
-          {label} {required && <span className="text-red-500">*</span>}
-        </Label>
-        {onAddNew && (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-6 w-6 p-0"
-            onClick={onAddNew}
-            title={`Agregar ${label.toLowerCase()}`}
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </Button>
-        )}
-      </div>
+    <>
+      <div className="space-y-1.5 w-full">
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-medium">
+            {label} {required && <span className="text-red-500">*</span>}
+          </Label>
+          {onAddNew && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={onAddNew}
+              className="h-6 w-6 p-0"
+              disabled={isAdding}
+              title={`Agregar ${itemType}`}
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
 
-      {/* Buscador con dropdown */}
-      <div className="relative">
-        <Input
-          value={searchTerm}
-          onChange={(e) => {
-            setSearchTerm(e.target.value);
-            setIsOpen(true);
-          }}
-          onFocus={() => setIsOpen(true)}
-          onBlur={() => setTimeout(() => setIsOpen(false), 200)}
-          placeholder={placeholder}
-          className="h-9 text-sm"
-        />
-        
-        {/* Dropdown de resultados */}
-        {isOpen && searchTerm.length > 0 && (
-          <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-52 overflow-y-auto">
-            {searchResults.length > 0 ? (
-              searchResults.map((item) => {
-                const selected = isSelected(item.nombre);
-                return (
+        <div className="relative w-full" ref={dropdownRef}>
+          <div className="relative">
+            <Input
+              ref={inputRef}
+              value={searchTerm}
+              onChange={handleInputChange}
+              onClick={handleInputClick}
+              onFocus={() => setIsOpen(true)}
+              placeholder={placeholder}
+              className="h-9 text-sm w-full pr-8 cursor-pointer"
+            />
+            <ChevronDown 
+              className={`absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`}
+            />
+          </div>
+
+          {/* DROPDOWN */}
+          {isOpen && (
+            <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-52 overflow-y-auto">
+              {filteredOptions.length > 0 ? (
+                filteredOptions.map((option) => (
                   <div
-                    key={item.id}
-                    className={`flex items-center justify-between px-3 py-1.5 hover:bg-accent group ${
-                      selected ? "bg-primary/5" : ""
-                    }`}
+                    key={option}
+                    className="flex items-center justify-between px-3 py-2 hover:bg-accent hover:text-accent-foreground border-b last:border-0"
                   >
                     <button
                       type="button"
-                      className={`flex-1 text-left text-sm ${
-                        selected ? "text-primary font-medium" : ""
-                      }`}
-                      onMouseDown={() => addSelection(item.nombre)}
+                      className="flex-1 text-left text-sm"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        addSelection(option);
+                      }}
                     >
-                      {item.nombre}
-                      {selected && (
-                        <span className="text-xs text-muted-foreground ml-2">
-                          ✓ seleccionado
-                        </span>
-                      )}
+                      {option}
                     </button>
-                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          handleEdit(item);
-                        }}
-                        title="Editar"
-                      >
-                        <Pencil className="h-3 w-3" />
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                            title="Eliminar"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>¿Eliminar {label.toLowerCase()}?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              ¿Estás seguro de eliminar "{item.nombre}"?
-                              {selected && (
-                                <span className="block mt-2 text-destructive font-medium">
-                                  ⚠️ Este elemento está seleccionado y será removido.
-                                </span>
-                              )}
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDelete(item)}
-                              className="bg-destructive hover:bg-destructive/90"
-                            >
-                              Eliminar
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
+                    {showActions && (
+                      <div className="flex gap-1 flex-shrink-0 ml-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEdit?.(option);
+                            setIsOpen(false);
+                          }}
+                          className="p-1 hover:text-blue-500 transition-colors"
+                          title={`Editar ${itemType}`}
+                        >
+                          <Edit className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteClick(option);
+                          }}
+                          className="p-1 hover:text-red-500 transition-colors"
+                          title={`Eliminar ${itemType}`}
+                          disabled={isDeleting}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
-                );
-              })
-            ) : (
-              <div className="px-3 py-2 text-sm text-muted-foreground">
-                No hay resultados para "{searchTerm}"
-                <Button
+                ))
+              ) : (
+                <div className="px-3 py-2 text-sm text-muted-foreground text-center">
+                  {searchTerm ? (
+                    <>
+                      No hay resultados para "{searchTerm}"
+                      {onAddNew && (
+                        <Button
+                          type="button"
+                          variant="link"
+                          size="sm"
+                          className="h-auto p-0 ml-1 text-primary text-sm"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            onAddNew();
+                            setIsOpen(false);
+                          }}
+                        >
+                          Agregar "{searchTerm}"
+                        </Button>
+                      )}
+                    </>
+                  ) : (
+                    "No hay opciones disponibles"
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Elementos seleccionados como badges */}
+        {selectedValues.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-1">
+            {selectedValues.map((value) => (
+              <Badge
+                key={value}
+                variant="secondary"
+                className="text-sm px-2 py-1 h-6 flex items-center gap-1"
+              >
+                <span className="max-w-[150px] truncate">{value}</span>
+                <button
                   type="button"
-                  variant="link"
-                  size="sm"
-                  className="ml-2 h-auto p-0 text-primary"
-                  onMouseDown={() => {
-                    if (onAddNew) onAddNew();
-                    setIsOpen(false);
-                  }}
+                  onClick={() => removeSelection(value)}
+                  className="hover:text-destructive transition-colors ml-1"
                 >
-                  Agregar nuevo
-                </Button>
-              </div>
-            )}
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            ))}
           </div>
         )}
       </div>
 
-      {/* Elementos seleccionados */}
-      {selectedValues.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {selectedValues.map((value) => (
-            <Badge
-              key={value}
-              variant="secondary"
-              className="text-sm px-2 py-1 h-6"
+      {/* AlertDialog de confirmación para eliminar */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar {itemType}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Estás seguro de eliminar "{deleteTarget}"?
+              {selectedValues.includes(deleteTarget || '') && (
+                <span className="block mt-2 text-destructive font-medium">
+                  ⚠️ Este elemento está seleccionado y será removido.
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeleteTarget(null)}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive hover:bg-destructive/90"
             >
-              {value}
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+};
+
+// ============================================
+// COMPONENTE PARA SELECCIÓN ÚNICA CON DROPDOWN (UBICACIÓN Y LABORATORIO)
+// ============================================
+const SingleSelectWithDropdown = ({
+  options,
+  selectedValue,
+  onSelectionChange,
+  placeholder,
+  label,
+  required,
+  onEdit,
+  onDelete,
+  onAddNew,
+  isAdding,
+  isDeleting,
+}: {
+  options: string[];
+  selectedValue: string;
+  onSelectionChange: (value: string) => void;
+  placeholder: string;
+  label: string;
+  required?: boolean;
+  onEdit?: (item: string) => void;
+  onDelete?: (item: string) => void;
+  onAddNew?: () => void;
+  isAdding?: boolean;
+  isDeleting?: boolean;
+}) => {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Filtrar opciones que coinciden con la búsqueda
+  const filteredOptions = options.filter(
+    (option) => option.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Cerrar dropdown al hacer clic fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node) &&
+        inputRef.current &&
+        !inputRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectOption = (option: string) => {
+    onSelectionChange(option);
+    setSearchTerm("");
+    setIsOpen(false);
+  };
+
+  const handleInputClick = () => {
+    setIsOpen(true);
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+    setIsOpen(true);
+  };
+
+  const handleDeleteClick = (option: string) => {
+    setDeleteTarget(option);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (deleteTarget && onDelete) {
+      onDelete(deleteTarget);
+      setDeleteTarget(null);
+    }
+    setDeleteDialogOpen(false);
+  };
+
+  return (
+    <>
+      <div className="space-y-1.5 w-full">
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-medium">
+            {label} {required && <span className="text-red-500">*</span>}
+          </Label>
+          {onAddNew && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={onAddNew}
+              className="h-6 w-6 p-0"
+              disabled={isAdding}
+              title={`Agregar ${label.toLowerCase()}`}
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
+
+        <div className="relative w-full" ref={dropdownRef}>
+          <div className="relative">
+            <Input
+              ref={inputRef}
+              value={searchTerm || selectedValue || ""}
+              onChange={handleInputChange}
+              onClick={handleInputClick}
+              onFocus={() => setIsOpen(true)}
+              placeholder={placeholder}
+              className="h-9 text-sm w-full pr-8 cursor-pointer"
+            />
+            <ChevronDown 
+              className={`absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`}
+            />
+          </div>
+
+          {/* DROPDOWN */}
+          {isOpen && (
+            <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-52 overflow-y-auto">
+              {filteredOptions.length > 0 ? (
+                filteredOptions.map((option) => (
+                  <div
+                    key={option}
+                    className={`flex items-center justify-between px-3 py-2 hover:bg-accent hover:text-accent-foreground border-b last:border-0 ${
+                      selectedValue === option ? "bg-primary/5" : ""
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      className="flex-1 text-left text-sm"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        selectOption(option);
+                      }}
+                    >
+                      {option}
+                      {selectedValue === option && (
+                        <span className="text-xs text-primary ml-2">✓ seleccionado</span>
+                      )}
+                    </button>
+                    <div className="flex gap-1 flex-shrink-0 ml-2">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEdit?.(option);
+                          setIsOpen(false);
+                        }}
+                        className="p-1 hover:text-blue-500 transition-colors"
+                        title={`Editar ${label.toLowerCase()}`}
+                      >
+                        <Edit className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteClick(option);
+                        }}
+                        className="p-1 hover:text-red-500 transition-colors"
+                        title={`Eliminar ${label.toLowerCase()}`}
+                        disabled={isDeleting}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="px-3 py-2 text-sm text-muted-foreground text-center">
+                  {searchTerm ? (
+                    <>
+                      No hay resultados para "{searchTerm}"
+                      {onAddNew && (
+                        <Button
+                          type="button"
+                          variant="link"
+                          size="sm"
+                          className="h-auto p-0 ml-1 text-primary text-sm"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            onAddNew();
+                            setIsOpen(false);
+                          }}
+                        >
+                          Agregar "{searchTerm}"
+                        </Button>
+                      )}
+                    </>
+                  ) : (
+                    "No hay opciones disponibles"
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Mostrar selección actual si existe */}
+        {selectedValue && !searchTerm && (
+          <div className="mt-1">
+            <Badge variant="secondary" className="text-sm px-2 py-1 h-6">
+              {selectedValue}
               <button
                 type="button"
-                onClick={() => removeSelection(value)}
+                onClick={() => onSelectionChange("")}
                 className="ml-1.5 hover:text-destructive"
               >
                 <X className="h-3 w-3" />
               </button>
             </Badge>
-          ))}
-        </div>
-      )}
-
-      {/* Modal de edición */}
-      {editingItem && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
-          <div className="bg-background rounded-lg p-4 max-w-sm w-full mx-4 shadow-lg">
-            <h4 className="text-sm font-medium mb-3">Editar {label.toLowerCase()}</h4>
-            <Input
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              className="h-9 text-sm mb-3"
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleSaveEdit();
-                if (e.key === "Escape") cancelEdit();
-              }}
-            />
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={cancelEdit}
-                className="h-8"
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                onClick={handleSaveEdit}
-                className="h-8 bg-primary hover:bg-primary/90"
-                disabled={!editName.trim()}
-              >
-                Guardar
-              </Button>
-            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+
+      {/* AlertDialog de confirmación para eliminar */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar {label.toLowerCase()}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Estás seguro de eliminar "{deleteTarget}"?
+              {selectedValue === deleteTarget && (
+                <span className="block mt-2 text-destructive font-medium">
+                  ⚠️ Este elemento está seleccionado y será removido.
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeleteTarget(null)}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };
 
+// ============================================
+// COMPONENTE PARA PRODUCTOS SIMILARES
+// ============================================
 interface ProductoSelect {
   idproducto: number;
   nombre: string;
@@ -454,6 +641,8 @@ const ProductoSimilarSelect = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const filteredOptions = productosDisponibles.filter(
     (producto) =>
@@ -461,6 +650,22 @@ const ProductoSimilarSelect = ({
       !selectedValues.includes(producto.idproducto) &&
       producto.idproducto !== currentProductId,
   );
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node) &&
+        inputRef.current &&
+        !inputRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const addSelection = (producto: ProductoSelect) => {
     onSelectionChange([...selectedValues, producto.idproducto]);
@@ -477,30 +682,47 @@ const ProductoSimilarSelect = ({
     return producto ? producto.nombre : `Producto ${id}`;
   };
 
+  const handleInputClick = () => {
+    setIsOpen(true);
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  };
+
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1.5 w-full">
       <Label className="text-sm font-medium">Productos Similares</Label>
-      <div className="relative">
-        <Input
-          value={searchTerm}
-          onChange={(e) => {
-            setSearchTerm(e.target.value);
-            setIsOpen(true);
-          }}
-          onFocus={() => setIsOpen(true)}
-          onBlur={() => setTimeout(() => setIsOpen(false), 200)}
-          placeholder="Buscar productos similares..."
-          className="h-9 text-sm pl-9"
-        />
-        <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+      <div className="relative w-full" ref={dropdownRef}>
+        <div className="relative">
+          <Input
+            ref={inputRef}
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setIsOpen(true);
+            }}
+            onClick={handleInputClick}
+            onFocus={() => setIsOpen(true)}
+            placeholder="Buscar productos similares..."
+            className="h-9 text-sm pl-9 w-full pr-8 cursor-pointer"
+          />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <ChevronDown 
+            className={`absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          />
+        </div>
+
         {isOpen && filteredOptions.length > 0 && (
           <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-32 overflow-y-auto">
             {filteredOptions.map((producto) => (
               <button
                 key={producto.idproducto}
                 type="button"
-                className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-                onMouseDown={() => addSelection(producto)}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground border-b last:border-0"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  addSelection(producto);
+                }}
               >
                 {producto.nombre}
               </button>
@@ -508,19 +730,20 @@ const ProductoSimilarSelect = ({
           </div>
         )}
       </div>
+
       {selectedValues.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-1.5 mt-1">
           {selectedValues.map((id) => (
             <Badge
               key={id}
               variant="secondary"
-              className="text-sm px-2 py-1 h-6"
+              className="text-sm px-2 py-1 h-6 flex items-center gap-1"
             >
-              {getProductoNombre(id)}
+              <span className="max-w-[150px] truncate">{getProductoNombre(id)}</span>
               <button
                 type="button"
                 onClick={() => removeSelection(id)}
-                className="ml-1.5 hover:text-destructive"
+                className="hover:text-destructive transition-colors ml-1"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -532,7 +755,9 @@ const ProductoSimilarSelect = ({
   );
 };
 
-// Función mejorada para convertir base64 a File
+// ============================================
+// FUNCIONES UTILITARIAS
+// ============================================
 const base64ToFile = (base64String: string, fileName = "imagen.jpg"): File | null => {
   try {
     if (base64String.startsWith('http') || base64String.startsWith('https')) {
@@ -568,7 +793,6 @@ const base64ToFile = (base64String: string, fileName = "imagen.jpg"): File | nul
   }
 };
 
-// Función para obtener la URL de la imagen
 const getImageUrl = (imagen: string | undefined): string => {
   if (!imagen) {
     return "https://static.vecteezy.com/system/resources/previews/011/781/801/non_2x/medicine-3d-render-icon-illustration-png.png";
@@ -585,6 +809,9 @@ const getImageUrl = (imagen: string | undefined): string => {
   return imagen;
 };
 
+// ============================================
+// COMPONENTE PRINCIPAL
+// ============================================
 export function FormularioProductos({
   product,
   ubicaciones,
@@ -643,7 +870,7 @@ export function FormularioProductos({
     open: false,
     type: null,
   });
-
+  const [editDialogData, setEditDialogData] = useState({ name: "", id: 0 });
   const [todosProductos, setTodosProductos] = useState<ProductoSelect[]>([]);
   const [loadingProductos, setLoadingProductos] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
@@ -669,6 +896,7 @@ export function FormularioProductos({
 
   const [isSubmittingProduct, setIsSubmittingProduct] = useState(false);
   const [isAddingElement, setIsAddingElement] = useState(false);
+  const [isDeletingElement, setIsDeletingElement] = useState(false);
 
   const { toast } = useToast();
   const isMobile = useIsMobile();
@@ -767,6 +995,15 @@ export function FormularioProductos({
     });
   }, [ubicaciones, categorias, laboratorios]);
 
+  useEffect(() => {
+    if (product && product.lotes && product.lotes.length > 0) {
+      setLotesForm(product.lotes.map((lote: any) => ({
+        stock: lote.stock,
+        fechaVencimiento: lote.fechaVencimiento || '',
+      })));
+    }
+  }, [product]);
+
   const handleInputChange = (
     field: keyof ProductFormData,
     value: string | string[] | File | number | number[] | LoteForm[],
@@ -809,197 +1046,121 @@ export function FormularioProductos({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // ============================================
+  // FUNCIONES PARA GESTIÓN DE ELEMENTOS
+  // ============================================
+  const handleEditUbicacion = (nombre: string) => {
+    const item = managementItems.ubicaciones.find(u => u.nombre === nombre);
+    if (!item) {
+      toast({ title: "Error", description: "Ubicación no encontrada", variant: "destructive" });
+      return;
+    }
+    setEditDialogData({ name: item.nombre, id: item.id || 0 });
+    setAddDialogState({ open: true, type: "ubicacion" });
+  };
 
-    if (isSubmittingProduct) return;
+  const handleDeleteUbicacion = async (nombre: string) => {
+    const item = managementItems.ubicaciones.find(u => u.nombre === nombre);
+    if (!item) {
+      toast({ title: "Error", description: "Ubicación no encontrada", variant: "destructive" });
+      return;
+    }
 
-    if (!formData.nombre.trim()) {
+    if (formData.ubicacion === nombre) {
       toast({
         title: "Error",
-        description: "El nombre del producto es obligatorio",
+        description: "No puedes eliminar la ubicación que está seleccionada",
         variant: "destructive",
       });
       return;
     }
 
-    if (!formData.ubicacion) {
-      toast({
-        title: "Error",
-        description: "La ubicación es obligatoria",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!formData.laboratorio) {
-      toast({
-        title: "Error",
-        description: "El laboratorio es obligatorio",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (formData.categorias.length === 0) {
-      toast({
-        title: "Error",
-        description: "Debe seleccionar al menos una categoría",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!formData.precioVenta || formData.precioVenta === "") {
-      toast({
-        title: "Error",
-        description: "El precio de venta es obligatorio",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!formData.descripcion.trim()) {
-      toast({
-        title: "Error",
-        description: "La descripción es obligatoria",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const lotesValidos = lotesForm.filter(l => l.stock > 0 && l.fechaVencimiento);
-    if (lotesValidos.length === 0) {
-      toast({
-        title: "Error",
-        description: "Debe agregar al menos un lote con stock y fecha de vencimiento",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsSubmittingProduct(true);
-
+    setIsDeletingElement(true);
     try {
-      const idubicacion = getItemIdByName(
-        managementItems.ubicaciones,
-        formData.ubicacion,
-      );
-
-      const idlaboratorio = getItemIdByName(
-        managementItems.laboratorios,
-        formData.laboratorio,
-      );
-
-      if (idubicacion === 0) {
-        toast({
-          title: "Error",
-          description: "La ubicación seleccionada no es válida",
-          variant: "destructive",
-        });
-        setIsSubmittingProduct(false);
-        return;
-      }
-
-      if (idlaboratorio === 0) {
-        toast({
-          title: "Error",
-          description: "El laboratorio seleccionado no es válido",
-          variant: "destructive",
-        });
-        setIsSubmittingProduct(false);
-        return;
-      }
-
-      const descripcionFormateada = formatDescriptionForProduction(
-        formData.descripcion,
-      );
-
-      const formDataToSend = new FormData();
-
-      formDataToSend.append("nombre", formData.nombre);
-      formDataToSend.append("descripcion", descripcionFormateada);
-      formDataToSend.append("idubicacion", idubicacion.toString());
-      formDataToSend.append("idlaboratorio", idlaboratorio.toString());
-      formDataToSend.append(
-        "categorias",
-        JSON.stringify(
-          formData.categorias.map((cat) =>
-            getItemIdByName(managementItems.categorias, cat),
-          ),
-        ),
-      );
-      
-      const precioVentaValue = formData.precioVenta === "" || formData.precioVenta === null || formData.precioVenta === undefined 
-        ? 0 
-        : Number(formData.precioVenta);
-      formDataToSend.append("precio_venta", precioVentaValue.toString());
-      
-      const precioCompraValue = formData.precioCompra === "" || formData.precioCompra === null || formData.precioCompra === undefined 
-        ? 0 
-        : Number(formData.precioCompra);
-      formDataToSend.append("precio_compra", precioCompraValue.toString());
-      
-      const stockMinimoValue = formData.stockMinimo === "" || formData.stockMinimo === null || formData.stockMinimo === undefined 
-        ? 0 
-        : Number(formData.stockMinimo);
-      formDataToSend.append("stock_minimo", stockMinimoValue.toString());
-
-      if (formData.codigoBarras && formData.codigoBarras.trim()) {
-        formDataToSend.append("codigo_barras", formData.codigoBarras.trim());
-      }
-
-      if (
-        formData.productosSimilares &&
-        formData.productosSimilares.length > 0
-      ) {
-        formDataToSend.append(
-          "productos_similares",
-          JSON.stringify(formData.productosSimilares),
-        );
-      }
-
-      const lotesData = lotesValidos.map(l => ({
-        stock: l.stock,
-        fecha_vencimiento: l.fechaVencimiento,
-      }));
-      formDataToSend.append("lotes", JSON.stringify(lotesData));
-
-      if (formData.imagenFile instanceof File) {
-        formDataToSend.append("imagen", formData.imagenFile);
-      }
-
-      if (product && formData.id) {
-        await updateProducto(parseInt(formData.id), formDataToSend);
-        toast({
-          title: "Producto actualizado",
-          description: "El producto ha sido actualizado exitosamente.",
-        });
-      } else {
-        await createProducto(formDataToSend);
-        toast({
-          title: "Producto creado",
-          description: "El producto ha sido creado exitosamente.",
-        });
-      }
-
-      onSubmit(formData, !!product);
+      await deleteUbicacion(item.id || 0);
+      await loadManagementItems();
+      toast({ title: "Ubicación eliminada", description: `"${nombre}" ha sido eliminada.`, variant: "destructive" });
     } catch (error: any) {
-      console.error("Error al guardar el producto:", error);
-      toast({
-        title: "Error",
-        description:
-          error.message ||
-          "No se pudo guardar el producto. Por favor, intenta nuevamente.",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: error.message || "No se pudo eliminar", variant: "destructive" });
     } finally {
-      setIsSubmittingProduct(false);
+      setIsDeletingElement(false);
     }
   };
 
-  const openAddDialog = (type: "categoria" | "ubicacion" | "laboratorio") => {
-    setAddDialogState({ open: true, type });
+  const handleEditCategoria = (nombre: string) => {
+    const item = managementItems.categorias.find(c => c.nombre === nombre);
+    if (!item) {
+      toast({ title: "Error", description: "Categoría no encontrada", variant: "destructive" });
+      return;
+    }
+    setEditDialogData({ name: item.nombre, id: item.id || 0 });
+    setAddDialogState({ open: true, type: "categoria" });
+  };
+
+  const handleDeleteCategoria = async (nombre: string) => {
+    const item = managementItems.categorias.find(c => c.nombre === nombre);
+    if (!item) {
+      toast({ title: "Error", description: "Categoría no encontrada", variant: "destructive" });
+      return;
+    }
+
+    if (formData.categorias.includes(nombre)) {
+      toast({
+        title: "Error",
+        description: "No puedes eliminar una categoría que está seleccionada",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsDeletingElement(true);
+    try {
+      await deleteCategoria(item.id || 0);
+      await loadManagementItems();
+      toast({ title: "Categoría eliminada", description: `"${nombre}" ha sido eliminada.`, variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "No se pudo eliminar", variant: "destructive" });
+    } finally {
+      setIsDeletingElement(false);
+    }
+  };
+
+  const handleEditLaboratorio = (nombre: string) => {
+    const item = managementItems.laboratorios.find(l => l.nombre === nombre);
+    if (!item) {
+      toast({ title: "Error", description: "Laboratorio no encontrado", variant: "destructive" });
+      return;
+    }
+    setEditDialogData({ name: item.nombre, id: item.id || 0 });
+    setAddDialogState({ open: true, type: "laboratorio" });
+  };
+
+  const handleDeleteLaboratorio = async (nombre: string) => {
+    const item = managementItems.laboratorios.find(l => l.nombre === nombre);
+    if (!item) {
+      toast({ title: "Error", description: "Laboratorio no encontrado", variant: "destructive" });
+      return;
+    }
+
+    if (formData.laboratorio === nombre) {
+      toast({
+        title: "Error",
+        description: "No puedes eliminar el laboratorio que está seleccionado",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsDeletingElement(true);
+    try {
+      await deleteLaboratorio(item.id || 0);
+      await loadManagementItems();
+      toast({ title: "Laboratorio eliminado", description: `"${nombre}" ha sido eliminado.`, variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "No se pudo eliminar", variant: "destructive" });
+    } finally {
+      setIsDeletingElement(false);
+    }
   };
 
   const handleAddNewElement = async (name: string) => {
@@ -1035,6 +1196,7 @@ export function FormularioProductos({
       }
 
       setAddDialogState({ open: false, type: null });
+      setEditDialogData({ name: "", id: 0 });
     } catch (error) {
       console.error(`Error agregando ${type}:`, error);
       toast({
@@ -1047,56 +1209,162 @@ export function FormularioProductos({
     }
   };
 
+  const openAddDialog = (type: "categoria" | "ubicacion" | "laboratorio") => {
+    setAddDialogState({ open: true, type });
+    setEditDialogData({ name: "", id: 0 });
+  };
+
+  // ============================================
+  // SUBMIT
+  // ============================================
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (isSubmittingProduct) return;
+
+    if (!formData.nombre?.trim()) {
+      toast({ title: "Error", description: "El nombre del producto es obligatorio", variant: "destructive" });
+      return;
+    }
+
+    if (!formData.ubicacion) {
+      toast({ title: "Error", description: "La ubicación es obligatoria", variant: "destructive" });
+      return;
+    }
+
+    if (!formData.laboratorio) {
+      toast({ title: "Error", description: "El laboratorio es obligatorio", variant: "destructive" });
+      return;
+    }
+
+    if (formData.categorias.length === 0) {
+      toast({ title: "Error", description: "Debe seleccionar al menos una categoría", variant: "destructive" });
+      return;
+    }
+
+    const precioVentaNum = Number(formData.precioVenta);
+    if (isNaN(precioVentaNum) || precioVentaNum <= 0) {
+      toast({ title: "Error", description: "El precio de venta debe ser mayor a 0", variant: "destructive" });
+      return;
+    }
+
+    if (!formData.descripcion?.trim()) {
+      toast({ title: "Error", description: "La descripción es obligatoria", variant: "destructive" });
+      return;
+    }
+
+    const lotesValidos = lotesForm.filter(l => l.stock > 0 && l.fechaVencimiento);
+    if (lotesValidos.length === 0) {
+      toast({
+        title: "Error",
+        description: "Debe agregar al menos un lote con stock y fecha de vencimiento",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmittingProduct(true);
+
+    try {
+      const idubicacion = getItemIdByName(managementItems.ubicaciones, formData.ubicacion);
+      const idlaboratorio = getItemIdByName(managementItems.laboratorios, formData.laboratorio);
+
+      if (idubicacion === 0) {
+        toast({ title: "Error", description: "La ubicación seleccionada no es válida", variant: "destructive" });
+        setIsSubmittingProduct(false);
+        return;
+      }
+
+      if (idlaboratorio === 0) {
+        toast({ title: "Error", description: "El laboratorio seleccionado no es válido", variant: "destructive" });
+        setIsSubmittingProduct(false);
+        return;
+      }
+
+      const descripcionFormateada = formatDescriptionForProduction(formData.descripcion);
+      const formDataToSend = new FormData();
+
+      formDataToSend.append("nombre", formData.nombre);
+      formDataToSend.append("descripcion", descripcionFormateada);
+      formDataToSend.append("idubicacion", idubicacion.toString());
+      formDataToSend.append("idlaboratorio", idlaboratorio.toString());
+
+      const categoriaIds = formData.categorias.map((cat) =>
+        getItemIdByName(managementItems.categorias, cat)
+      );
+      formDataToSend.append("categorias", JSON.stringify(categoriaIds));
+
+      formDataToSend.append("precio_venta", precioVentaNum.toString());
+      
+      const precioCompraNum = Number(formData.precioCompra) || 0;
+      formDataToSend.append("precio_compra", precioCompraNum.toString());
+      
+      const stockMinimoNum = Number(formData.stockMinimo) || 0;
+      formDataToSend.append("stock_minimo", stockMinimoNum.toString());
+
+      if (formData.codigoBarras && formData.codigoBarras.trim()) {
+        formDataToSend.append("codigo_barras", formData.codigoBarras.trim());
+      }
+
+      if (formData.productosSimilares && formData.productosSimilares.length > 0) {
+        formDataToSend.append("productos_similares", JSON.stringify(formData.productosSimilares));
+      }
+
+      const lotesData = lotesValidos.map(l => ({
+        stock: l.stock,
+        fecha_vencimiento: l.fechaVencimiento,
+      }));
+      formDataToSend.append("lotes", JSON.stringify(lotesData));
+
+      if (formData.imagenFile instanceof File) {
+        formDataToSend.append("imagen", formData.imagenFile);
+      }
+
+      const isEditing = !!product && !!formData.id;
+
+      if (isEditing) {
+        await updateProducto(parseInt(formData.id!), formDataToSend);
+        toast({ title: "Producto actualizado", description: "El producto ha sido actualizado exitosamente." });
+      } else {
+        await createProducto(formDataToSend);
+        toast({ title: "Producto creado", description: "El producto ha sido creado exitosamente." });
+      }
+
+      onSubmit(formData, isEditing);
+    } catch (error: any) {
+      console.error("Error al guardar el producto:", error);
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo guardar el producto. Por favor, intenta nuevamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmittingProduct(false);
+    }
+  };
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
 
     if (file) {
       if (!file.type.startsWith("image/")) {
-        toast({
-          title: "Error",
-          description: "Por favor, selecciona una imagen válida",
-          variant: "destructive",
-        });
+        toast({ title: "Error", description: "Por favor, selecciona una imagen válida", variant: "destructive" });
         return;
       }
 
       if (file.size > 5 * 1024 * 1024) {
-        toast({
-          title: "Error",
-          description: "La imagen no puede superar los 5MB",
-          variant: "destructive",
-        });
+        toast({ title: "Error", description: "La imagen no puede superar los 5MB", variant: "destructive" });
         return;
       }
 
       const previewUrl = URL.createObjectURL(file);
-
-      handleInputChange("imagen", previewUrl);
-      handleInputChange("imagenFile", file);
-      setFormData((prev) => ({
-        ...prev,
-        imagen: previewUrl,
-        imagenFile: file,
-      }));
+      setFormData((prev) => ({ ...prev, imagen: previewUrl, imagenFile: file }));
     }
   };
 
   const removeImage = () => {
-    setFormData((prev) => ({
-      ...prev,
-      imagen: "",
-      imagenFile: null,
-    }));
+    setFormData((prev) => ({ ...prev, imagen: "", imagenFile: null }));
   };
-
-  useEffect(() => {
-    if (product && product.lotes && product.lotes.length > 0) {
-      setLotesForm(product.lotes.map((lote: any) => ({
-        stock: lote.stock,
-        fechaVencimiento: lote.fechaVencimiento || '',
-      })));
-    }
-  }, [product]);
 
   return (
     <>
@@ -1111,7 +1379,7 @@ export function FormularioProductos({
       )}
 
       <form onSubmit={handleSubmit} className="w-full space-y-3">
-        {/* Nombre del producto */}
+        {/* Nombre */}
         <div className="space-y-1.5">
           <Label htmlFor="nombre" className="text-sm font-medium">
             Nombre <span className="text-red-500">*</span>
@@ -1126,14 +1394,12 @@ export function FormularioProductos({
           />
         </div>
 
-        {/* Imagen circular centrada */}
+        {/* Imagen circular */}
         <div className="flex justify-center py-2">
           <div className="relative">
             <div
               className="w-24 h-24 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-800 border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-              onClick={() =>
-                document.getElementById("image-upload-input")?.click()
-              }
+              onClick={() => document.getElementById("image-upload-input")?.click()}
             >
               {formData.imagen ? (
                 <img
@@ -1188,50 +1454,51 @@ export function FormularioProductos({
 
         {/* Ubicación y Categorías lado a lado */}
         <div className="grid grid-cols-2 gap-3">
-          <SearchSelectWithManagement
+          <SingleSelectWithDropdown
             options={localLists.ubicaciones}
-            selectedValues={formData.ubicacion ? [formData.ubicacion] : []}
-            onSelectionChange={(values) => {
-              handleInputChange("ubicacion", values.length > 0 ? values[0] : "");
-            }}
+            selectedValue={formData.ubicacion}
+            onSelectionChange={(value) => handleInputChange("ubicacion", value)}
             placeholder="Buscar ubicación..."
             label="Ubicación"
             required
+            onEdit={handleEditUbicacion}
+            onDelete={handleDeleteUbicacion}
             onAddNew={() => openAddDialog("ubicacion")}
-            items={managementItems.ubicaciones}
-            type="ubicacion"
-            onRefreshList={loadManagementItems}
+            isAdding={isAddingElement}
+            isDeleting={isDeletingElement}
           />
 
-          <SearchSelectWithManagement
+          <SearchSelectWithDropdown
             options={localLists.categorias}
             selectedValues={formData.categorias}
             onSelectionChange={(values) => handleInputChange("categorias", values)}
             placeholder="Buscar categorías..."
             label="Categorías"
             required
+            onEdit={handleEditCategoria}
+            onDelete={handleDeleteCategoria}
+            showActions={true}
+            itemType="categoría"
             onAddNew={() => openAddDialog("categoria")}
-            items={managementItems.categorias}
-            type="categoria"
-            onRefreshList={loadManagementItems}
+            isAdding={isAddingElement}
+            isDeleting={isDeletingElement}
           />
         </div>
 
         {/* Laboratorio y Stock Mínimo lado a lado */}
         <div className="grid grid-cols-2 gap-3">
-          <SearchSelectWithManagement
+          <SingleSelectWithDropdown
             options={localLists.laboratorios}
-            selectedValues={formData.laboratorio ? [formData.laboratorio] : []}
-            onSelectionChange={(values) => {
-              handleInputChange("laboratorio", values.length > 0 ? values[0] : "");
-            }}
+            selectedValue={formData.laboratorio}
+            onSelectionChange={(value) => handleInputChange("laboratorio", value)}
             placeholder="Buscar laboratorio..."
             label="Laboratorio"
             required
+            onEdit={handleEditLaboratorio}
+            onDelete={handleDeleteLaboratorio}
             onAddNew={() => openAddDialog("laboratorio")}
-            items={managementItems.laboratorios}
-            type="laboratorio"
-            onRefreshList={loadManagementItems}
+            isAdding={isAddingElement}
+            isDeleting={isDeletingElement}
           />
 
           <div className="space-y-1.5">
@@ -1251,7 +1518,7 @@ export function FormularioProductos({
           </div>
         </div>
 
-        {/* Precio Venta y Precio Compra lado a lado */}
+        {/* Precios lado a lado */}
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="precioVenta" className="text-sm font-medium">
@@ -1292,7 +1559,7 @@ export function FormularioProductos({
           </div>
         </div>
 
-        {/* Código de Barras con escáner integrado */}
+        {/* Código de Barras */}
         <div className="space-y-1.5">
           <Label htmlFor="codigoBarras" className="text-sm font-medium">
             Código de Barras
@@ -1319,7 +1586,7 @@ export function FormularioProductos({
           </div>
         </div>
 
-        {/* Lotes - Gestión de stock con fechas de vencimiento */}
+        {/* Lotes */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label className="text-sm font-medium">
@@ -1385,20 +1652,19 @@ export function FormularioProductos({
           <ProductoSimilarSelect
             productosDisponibles={todosProductos}
             selectedValues={formData.productosSimilares || []}
-            onSelectionChange={(values) =>
-              handleInputChange("productosSimilares", values)
-            }
+            onSelectionChange={(values) => handleInputChange("productosSimilares", values)}
             currentProductId={formData.id ? parseInt(formData.id) : undefined}
           />
           {loadingProductos && (
-            <div className="text-sm text-muted-foreground">
+            <div className="text-sm text-muted-foreground flex items-center gap-1">
+              <Loader2 className="h-3 w-3 animate-spin" />
               Cargando productos...
             </div>
           )}
         </div>
 
         {/* Botones */}
-        <div className="flex justify-end space-x-2 pt-3">
+        <div className="flex justify-end space-x-2 pt-3 border-t border-border">
           <Button
             type="button"
             variant="outline"
@@ -1417,7 +1683,7 @@ export function FormularioProductos({
               >
                 {isSubmittingProduct ? (
                   <>
-                    <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white mr-2"></div>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     {product ? "Actualizando..." : "Agregando..."}
                   </>
                 ) : product ? (
@@ -1437,13 +1703,8 @@ export function FormularioProductos({
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel disabled={isSubmittingProduct}>
-                  Cancelar
-                </AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleSubmit}
-                  disabled={isSubmittingProduct}
-                >
+                <AlertDialogCancel disabled={isSubmittingProduct}>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={handleSubmit} disabled={isSubmittingProduct}>
                   {isSubmittingProduct ? "Procesando..." : "Confirmar"}
                 </AlertDialogAction>
               </AlertDialogFooter>
@@ -1452,30 +1713,82 @@ export function FormularioProductos({
         </div>
       </form>
 
-      {/* Dialog para agregar nuevo elemento */}
-      <AddItemDialog
+      {/* Dialog para agregar/editar elementos */}
+      <Dialog
         open={addDialogState.open}
-        onOpenChange={(open) => setAddDialogState({ open, type: null })}
-        title={`Agregar ${
-          addDialogState.type === "categoria"
-            ? "Categoría"
-            : addDialogState.type === "ubicacion"
-              ? "Ubicación"
-              : addDialogState.type === "laboratorio"
+        onOpenChange={(open) => {
+          if (!open) {
+            setAddDialogState({ open: false, type: null });
+            setEditDialogData({ name: "", id: 0 });
+          }
+        }}
+      >
+        <DialogContent className="max-w-[95vw] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {editDialogData.id ? "Editar" : "Agregar"}{" "}
+              {addDialogState.type === "categoria"
+                ? "Categoría"
+                : addDialogState.type === "ubicacion"
+                ? "Ubicación"
+                : addDialogState.type === "laboratorio"
                 ? "Laboratorio"
-                : ""
-        }`}
-        itemType={
-          addDialogState.type === "categoria"
-            ? "categorías"
-            : addDialogState.type === "ubicacion"
-              ? "ubicaciones"
-              : addDialogState.type === "laboratorio"
-                ? "laboratorios"
-                : ""
-        }
-        onAdd={handleAddNewElement}
-      />
+                : ""}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                Nombre <span className="text-red-500">*</span>
+              </label>
+              <Input
+                placeholder={`Ej: ${addDialogState.type === "categoria" ? "Medicamentos" : addDialogState.type === "ubicacion" ? "Pasillo A" : "Laboratorio ABC"}`}
+                value={editDialogData.name}
+                onChange={(e) => setEditDialogData({ ...editDialogData, name: e.target.value })}
+                autoFocus
+                className="w-full"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && editDialogData.name.trim()) {
+                    handleAddNewElement(editDialogData.name);
+                  }
+                }}
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setAddDialogState({ open: false, type: null });
+                setEditDialogData({ name: "", id: 0 });
+              }}
+              className="w-full sm:w-auto"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => {
+                if (editDialogData.name.trim()) {
+                  handleAddNewElement(editDialogData.name.trim());
+                }
+              }}
+              className="bg-primary hover:bg-primary/90 w-full sm:w-auto"
+              disabled={!editDialogData.name.trim() || isAddingElement}
+            >
+              {isAddingElement ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {editDialogData.id ? "Actualizando..." : "Creando..."}
+                </>
+              ) : editDialogData.id ? (
+                "Actualizar"
+              ) : (
+                "Crear"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

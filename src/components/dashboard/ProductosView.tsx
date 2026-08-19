@@ -1,5 +1,5 @@
 // components/ProductosView.tsx
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -429,24 +429,33 @@ export function ProductosView() {
 
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
+  // REF para controlar si ya se procesó la búsqueda desde sessionStorage
+  const hasProcessedSessionStorage = useRef(false);
+
   // NUEVO: Efecto para leer los valores de sessionStorage cuando se monta el componente
   useEffect(() => {
+    // Solo procesar una vez
+    if (hasProcessedSessionStorage.current) return;
+    
     // Verificar si hay un producto guardado en sessionStorage
-    const storedProductId = sessionStorage.getItem('searchProductId');
     const storedProductName = sessionStorage.getItem('searchProductName');
     
     if (storedProductName) {
+      console.log('ProductosView: Leyendo sessionStorage:', storedProductName);
+      
       // Establecer el término de búsqueda
       setSearchTerm(storedProductName);
       
-      // Limpiar el sessionStorage para evitar que se mantenga en futuras cargas
-      sessionStorage.removeItem('searchProductId');
-      sessionStorage.removeItem('searchProductName');
+      // Marcar como procesado
+      hasProcessedSessionStorage.current = true;
       
-      // Si hay un ID, también podrías usarlo para scroll o resaltar
-      if (storedProductId) {
-        console.log(`Buscando producto con ID: ${storedProductId}`);
-      }
+      // Limpiar el sessionStorage DESPUÉS de establecer el valor
+      // Usamos setTimeout para asegurar que el estado se actualice primero
+      setTimeout(() => {
+        sessionStorage.removeItem('searchProductId');
+        sessionStorage.removeItem('searchProductName');
+        console.log('ProductosView: sessionStorage limpiado');
+      }, 100);
     }
   }, []); // Solo se ejecuta al montar el componente
 
@@ -530,10 +539,16 @@ export function ProductosView() {
     }
   }, [categoriaSeleccionada, laboratorioSeleccionado, toast]);
 
-  // Cargar productos iniciales
+  // Cargar productos iniciales - SOLO si no hay búsqueda desde sessionStorage
   useEffect(() => {
-    loadProducts(1);
-  }, [loadProducts]);
+    // Si ya hay un término de búsqueda (desde sessionStorage), no cargar todos los productos
+    if (searchTerm.trim().length >= 2) {
+      // Realizar la búsqueda directamente
+      performSearch(searchTerm, 1);
+    } else {
+      loadProducts(1);
+    }
+  }, []); // Solo ejecutar al montar
 
   // Efecto para búsqueda con debounce
   useEffect(() => {

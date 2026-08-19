@@ -429,6 +429,27 @@ export function ProductosView() {
 
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
+  // NUEVO: Efecto para leer los valores de sessionStorage cuando se monta el componente
+  useEffect(() => {
+    // Verificar si hay un producto guardado en sessionStorage
+    const storedProductId = sessionStorage.getItem('searchProductId');
+    const storedProductName = sessionStorage.getItem('searchProductName');
+    
+    if (storedProductName) {
+      // Establecer el término de búsqueda
+      setSearchTerm(storedProductName);
+      
+      // Limpiar el sessionStorage para evitar que se mantenga en futuras cargas
+      sessionStorage.removeItem('searchProductId');
+      sessionStorage.removeItem('searchProductName');
+      
+      // Si hay un ID, también podrías usarlo para scroll o resaltar
+      if (storedProductId) {
+        console.log(`Buscando producto con ID: ${storedProductId}`);
+      }
+    }
+  }, []); // Solo se ejecuta al montar el componente
+
   // Cargar datos básicos (opciones para selects)
   useEffect(() => {
     const loadBasicData = async () => {

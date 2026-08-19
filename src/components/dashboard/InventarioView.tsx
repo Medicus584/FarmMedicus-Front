@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Eye, Filter, RefreshCw, X } from "lucide-react";
+import { Search, Eye, Filter, RefreshCw, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { DashboardView } from "@/pages/Dashboard";
 import { getInventory, getLowMarginCount, InventoryItem, getCategories, Category } from "@/api/InventoryApi";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -16,6 +16,8 @@ interface InventarioViewProps {
   onViewChange?: (view: DashboardView) => void;
 }
 
+const ITEMS_PER_PAGE = 15;
+
 export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showLowMarginOnly, setShowLowMarginOnly] = useState(false);
@@ -25,6 +27,7 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
   const [loading, setLoading] = useState(true);
   const [lowMarginCount, setLowMarginCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
   
   const navigate = useNavigate();
 
@@ -38,6 +41,11 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
 
   useEffect(() => {
     loadInventoryData();
+  }, [searchTerm, showLowMarginOnly, selectedCategories]);
+
+  // Resetear a página 1 cuando cambian los filtros
+  useEffect(() => {
+    setCurrentPage(1);
   }, [searchTerm, showLowMarginOnly, selectedCategories]);
 
   const loadInventoryData = async () => {
@@ -93,7 +101,6 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
     setSelectedCategories([]);
   };
 
-
   const clearAllFilters = () => {
     setSelectedCategories([]);
     setSearchTerm("");
@@ -106,6 +113,16 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
     const matchesMargin = showLowMarginOnly ? item.margenPorcentaje < 50 : true;
     return matchesSearch && matchesMargin;
   });
+
+  // Calcular datos paginados
+  const totalPages = Math.ceil(filteredData.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedData = filteredData.slice(startIndex, endIndex);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
 
   const handleViewProduct = (item: InventoryItem) => {
     sessionStorage.setItem('searchProductId', item.id);
@@ -285,7 +302,7 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredData.map((item) => (
+                  paginatedData.map((item) => (
                     <TableRow key={item.id} className="border-b transition-colors hover:bg-muted/50">
                       {/* Desktop View */}
                       <TableCell className="hidden md:table-cell px-4 py-3 font-medium">
@@ -398,6 +415,77 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
               </TableBody>
             </Table>
           </div>
+
+          {/* Paginación */}
+          {filteredData.length > 0 && !loading && (
+            <div className="flex items-center justify-between px-2 py-4 border-t mt-4">
+              <div className="text-sm text-muted-foreground">
+                Mostrando {startIndex + 1} - {Math.min(endIndex, filteredData.length)} de {filteredData.length} productos
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  <span className="sr-only">Página anterior</span>
+                </Button>
+                
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                    let pageNumber;
+                    if (totalPages <= 5) {
+                      pageNumber = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNumber = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNumber = totalPages - 4 + i;
+                    } else {
+                      pageNumber = currentPage - 2 + i;
+                    }
+                    
+                    return (
+                      <Button
+                        key={pageNumber}
+                        variant={currentPage === pageNumber ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handlePageChange(pageNumber)}
+                        className="w-8 h-8"
+                      >
+                        {pageNumber}
+                      </Button>
+                    );
+                  })}
+                  
+                  {totalPages > 5 && currentPage < totalPages - 2 && (
+                    <>
+                      <span className="text-muted-foreground">...</span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePageChange(totalPages)}
+                        className="w-8 h-8"
+                      >
+                        {totalPages}
+                      </Button>
+                    </>
+                  )}
+                </div>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                  <span className="sr-only">Página siguiente</span>
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -431,6 +431,8 @@ export function ProductosView() {
 
   // REF para controlar si ya se procesó la búsqueda desde sessionStorage
   const hasProcessedSessionStorage = useRef(false);
+  // REF para controlar si es la primera carga
+  const isInitialMount = useRef(true);
 
   // NUEVO: Efecto para leer los valores de sessionStorage cuando se monta el componente
   useEffect(() => {
@@ -450,14 +452,13 @@ export function ProductosView() {
       hasProcessedSessionStorage.current = true;
       
       // Limpiar el sessionStorage DESPUÉS de establecer el valor
-      // Usamos setTimeout para asegurar que el estado se actualice primero
       setTimeout(() => {
         sessionStorage.removeItem('searchProductId');
         sessionStorage.removeItem('searchProductName');
         console.log('ProductosView: sessionStorage limpiado');
       }, 100);
     }
-  }, []); // Solo se ejecuta al montar el componente
+  }, []);
 
   // Cargar datos básicos (opciones para selects)
   useEffect(() => {
@@ -539,19 +540,14 @@ export function ProductosView() {
     }
   }, [categoriaSeleccionada, laboratorioSeleccionado, toast]);
 
-  // Cargar productos iniciales - SOLO si no hay búsqueda desde sessionStorage
+  // Efecto para búsqueda con debounce - SOLO cuando cambia el searchTerm por input del usuario
   useEffect(() => {
-    // Si ya hay un término de búsqueda (desde sessionStorage), no cargar todos los productos
-    if (searchTerm.trim().length >= 2) {
-      // Realizar la búsqueda directamente
-      performSearch(searchTerm, 1);
-    } else {
-      loadProducts(1);
+    // Si es la primera carga, no ejecutar porque ya se maneja en el efecto de inicialización
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
     }
-  }, []); // Solo ejecutar al montar
-
-  // Efecto para búsqueda con debounce
-  useEffect(() => {
+    
     if (debouncedSearchTerm.trim().length >= 2) {
       performSearch(debouncedSearchTerm, 1);
     } else if (debouncedSearchTerm.trim().length === 0) {
@@ -567,6 +563,20 @@ export function ProductosView() {
       loadProducts(1);
     }
   }, [categoriaSeleccionada, laboratorioSeleccionado]);
+
+  // Efecto para carga inicial - se ejecuta solo una vez
+  useEffect(() => {
+    // Verificar si hay un término de búsqueda desde sessionStorage
+    const storedProductName = sessionStorage.getItem('searchProductName');
+    
+    if (storedProductName) {
+      // Si hay búsqueda, ejecutarla
+      performSearch(storedProductName, 1);
+    } else {
+      // Si no, cargar todos los productos
+      loadProducts(1);
+    }
+  }, []); // Solo ejecutar al montar
 
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages && newPage !== currentPage) {

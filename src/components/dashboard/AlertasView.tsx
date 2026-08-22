@@ -15,6 +15,48 @@ import { ImageCarousel } from "./ProductosView";
 import { getImageUrl } from "./VenderView";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+// Función helper para formatear fechas sin problemas de zona horaria
+function formatDateToLocal(dateStr: string): string {
+  if (!dateStr) return '';
+  
+  // Si la fecha viene en formato YYYY-MM-DD
+  if (dateStr.includes('-')) {
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const [year, month, day] = parts;
+      return `${day}/${month}/${year}`;
+    }
+  }
+  
+  // Fallback: usar Date con UTC
+  try {
+    return new Date(dateStr + 'T00:00:00').toLocaleDateString('es-ES', { timeZone: 'UTC' });
+  } catch {
+    return dateStr;
+  }
+}
+
+// Función para calcular meses restantes sin problemas de zona horaria
+function getMonthsRemaining(fechaVencimiento: string): number {
+  const hoy = new Date();
+  // Crear fecha sin problemas de zona horaria
+  const parts = fechaVencimiento.split('-');
+  if (parts.length === 3) {
+    const [year, month, day] = parts.map(Number);
+    // Meses en JavaScript van de 0-11, por eso restamos 1
+    const fechaVenc = new Date(year, month - 1, day);
+    const diffTime = fechaVenc.getTime() - hoy.getTime();
+    const diffMonths = diffTime / (1000 * 60 * 60 * 24 * 30.44); // Promedio de días por mes
+    return Math.round(diffMonths);
+  }
+  
+  // Fallback
+  const fechaVenc = new Date(fechaVencimiento + 'T00:00:00');
+  const diffTime = fechaVenc.getTime() - hoy.getTime();
+  const diffMonths = diffTime / (1000 * 60 * 60 * 24 * 30.44);
+  return Math.round(diffMonths);
+}
+
 export function AlertasView() {
   const [stockBajo, setStockBajo] = useState<AlertStockBajo[]>([]);
   const [vencimiento, setVencimiento] = useState<AlertVencimiento[]>([]);
@@ -62,15 +104,6 @@ export function AlertasView() {
     if (stock === 0) return "critical";
     if (stock < min) return "low";
     return "ok";
-  };
-
-  // Nueva función para calcular meses restantes
-  const getMonthsRemaining = (fechaVencimiento: string): number => {
-    const hoy = new Date();
-    const fechaVenc = new Date(fechaVencimiento);
-    const diffTime = fechaVenc.getTime() - hoy.getTime();
-    const diffMonths = diffTime / (1000 * 60 * 60 * 24 * 30.44); // Promedio de días por mes
-    return Math.round(diffMonths);
   };
 
   // Nueva función para determinar el color basado en meses
@@ -215,11 +248,7 @@ export function AlertasView() {
                   variant={badgeVariant}
                   className={`text-xs px-2 py-0.5 ${badgeClassName}`}
                 >
-                  {new Date(alert.fechaVencimiento).toLocaleDateString('es-ES', {
-                    day: '2-digit',
-                    month: 'short',
-                    year: 'numeric'
-                  })}
+                  {formatDateToLocal(alert.fechaVencimiento)}
                 </Badge>
               </div>
             </div>
@@ -533,11 +562,7 @@ export function AlertasView() {
                                     variant={badgeVariant}
                                     className={`text-sm px-3 py-1 ${badgeClassName}`}
                                   >
-                                    {new Date(alert.fechaVencimiento).toLocaleDateString('es-ES', {
-                                      day: '2-digit',
-                                      month: 'long',
-                                      year: 'numeric'
-                                    })}
+                                    {formatDateToLocal(alert.fechaVencimiento)}
                                   </Badge>
                                 </TableCell>
                               </TableRow>

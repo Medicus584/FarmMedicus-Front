@@ -71,6 +71,27 @@ interface StockFormData {
   modoNuevoLote: boolean;
 }
 
+// Función helper para formatear fechas sin problemas de zona horaria
+function formatDateToLocal(dateStr: string): string {
+  if (!dateStr) return '';
+  
+  // Si la fecha viene en formato YYYY-MM-DD
+  if (dateStr.includes('-')) {
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const [year, month, day] = parts;
+      return `${day}/${month}/${year}`;
+    }
+  }
+  
+  // Fallback: usar Date con UTC
+  try {
+    return new Date(dateStr + 'T00:00:00').toLocaleDateString('es-ES', { timeZone: 'UTC' });
+  } catch {
+    return dateStr;
+  }
+}
+
 // Componente para el carrusel de imágenes
 interface ImageCarouselProps {
   images: string[];
@@ -210,7 +231,7 @@ function LotesDesglose({ lotes, productName }: { lotes: ProductoLote[], productN
               </Badge>
               <span className="font-medium">{lote.stock} u.</span>
               <span className="text-muted-foreground">
-                Vence: {new Date(lote.fechaVencimiento).toLocaleDateString('es-ES')}
+                Vence: {formatDateToLocal(lote.fechaVencimiento)}
               </span>
             </div>
           ))}
@@ -855,7 +876,7 @@ export function ProductosView() {
                     <option value={0}>Seleccionar lote</option>
                     {currentStockProduct.lotes.map((lote: any) => (
                       <option key={lote.idlote} value={lote.idlote}>
-                        Lote {lote.idlote} - {lote.stock} u. - Vence: {new Date(lote.fechaVencimiento).toLocaleDateString('es-ES')}
+                        Lote {lote.idlote} - {lote.stock} u. - Vence: {formatDateToLocal(lote.fechaVencimiento)}
                       </option>
                     ))}
                   </select>

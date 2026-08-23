@@ -875,7 +875,7 @@ export function ProductosView() {
         )}
       </div>
 
-      {/* Dialog para aumentar stock */}
+      {/* Dialog para aumentar stock - CORREGIDO */}
       <Dialog open={isStockFormOpen} onOpenChange={setIsStockFormOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -976,12 +976,13 @@ export function ProductosView() {
                 min="0"
               />
             </div>
+
             <div className="space-y-2">
               <div className="text-sm font-medium">Total después del aumento</div>
               <Input
                 value={
-                  stockFormData.stockActual +
-                  parseInt(stockFormData.cantidadAñadir || "0")
+                  Number(stockFormData.stockActual) + 
+                  Number(parseInt(stockFormData.cantidadAñadir || "0") || 0)
                 }
                 disabled
                 className="font-bold"
@@ -1235,7 +1236,7 @@ export function ProductosView() {
                             <TableRow>
                               <TableHead className="w-[60px]">Imagen</TableHead>
                               <TableHead className="min-w-[150px]">N. Comercial</TableHead>
-                              <TableHead className="min-w-[200px]">Descripción</TableHead>
+                              <TableHead className="min-w-[200px]">N. Genérico</TableHead>
                               <TableHead className="w-[120px]">Ubicación</TableHead>
                               <TableHead className="w-[130px]">Laboratorio</TableHead>
                               <TableHead className="w-[140px]">Código</TableHead>

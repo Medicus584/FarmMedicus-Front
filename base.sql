@@ -51,6 +51,7 @@ CREATE TABLE forma_farmaceutica (
 CREATE TABLE productos (
     idproducto SERIAL PRIMARY KEY,
     nombre VARCHAR(200) NOT NULL,
+    codigop VARCHAR(50) UNIQUE,
     descripcion TEXT,
     idubicacion INTEGER REFERENCES ubicaciones(idubicacion),
     idlaboratorio INTEGER REFERENCES laboratorios(idlaboratorio),

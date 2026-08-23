@@ -474,7 +474,6 @@ export function ProductosView() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [totalProducts, setTotalProducts] = useState(0);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState("");
   const [laboratorioSeleccionado, setLaboratorioSeleccionado] = useState("");
@@ -504,6 +503,8 @@ export function ProductosView() {
   const hasProcessedSessionStorage = useRef(false);
   const isInitialMount = useRef(true);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isPerformingSearch = useRef(false);
+  const isFilterChange = useRef(false);
 
   // ============================================
   // LEER sessionStorage PARA BÚSQUEDA AUTOMÁTICA
@@ -522,7 +523,7 @@ export function ProductosView() {
         sessionStorage.removeItem('searchProductId');
         sessionStorage.removeItem('searchProductName');
         console.log('ProductosView: sessionStorage limpiado');
-      }, 100);
+      }, 300);
     }
   }, []);
 
@@ -560,7 +561,7 @@ export function ProductosView() {
   }, [toast]);
 
   // ============================================
-  // CARGAR PRODUCTOS
+  // FUNCIÓN PRINCIPAL PARA CARGAR PRODUCTOS
   // ============================================
   const loadProducts = useCallback(async (page: number = 1) => {
     setLoadingAll(true);
@@ -584,19 +585,26 @@ export function ProductosView() {
   }, [toast]);
 
   // ============================================
-  // BUSCAR PRODUCTOS
+  // FUNCIÓN PARA BUSCAR PRODUCTOS
   // ============================================
   const performSearch = useCallback(async (query: string, page: number = 1) => {
-    if (query.trim().length < 2 && !categoriaSeleccionada && !laboratorioSeleccionado) {
+    // Si no hay término de búsqueda y no hay filtros, cargar todos
+    const hasFilters = categoriaSeleccionada || laboratorioSeleccionado;
+    
+    if ((!query || query.trim().length < 2) && !hasFilters) {
       await loadProducts(page);
       return;
     }
+
+    // Evitar búsquedas duplicadas
+    if (isPerformingSearch.current) return;
+    isPerformingSearch.current = true;
 
     setSearching(true);
     try {
       console.log("Buscando con filtros:", { query, categoriaSeleccionada, laboratorioSeleccionado });
       const response = await buscarProductos(
-        query.trim().length >= 2 ? query : "",
+        query && query.trim().length >= 2 ? query : "",
         categoriaSeleccionada || undefined,
         laboratorioSeleccionado || undefined,
         page,
@@ -619,40 +627,47 @@ export function ProductosView() {
       setTotalProducts(0);
     } finally {
       setSearching(false);
+      isPerformingSearch.current = false;
     }
   }, [categoriaSeleccionada, laboratorioSeleccionado, loadProducts, toast]);
 
+  // ============================================
+  // UNIFICAR CARGA CON FILTROS
+  // ============================================
   const loadProductsWithFilters = useCallback(async (page: number = 1) => {
-    if (searchTerm.trim().length >= 2) {
+    // Si hay término de búsqueda (>= 2 caracteres) O hay filtros activos
+    const hasFilters = categoriaSeleccionada || laboratorioSeleccionado;
+    
+    if (searchTerm.trim().length >= 2 || hasFilters) {
       await performSearch(searchTerm, page);
     } else {
-      if (categoriaSeleccionada || laboratorioSeleccionado) {
-        await performSearch("", page);
-      } else {
-        await loadProducts(page);
-      }
+      await loadProducts(page);
     }
   }, [searchTerm, categoriaSeleccionada, laboratorioSeleccionado, performSearch, loadProducts]);
 
   // ============================================
-  // EFECTOS PARA BÚSQUEDA Y FILTROS
+  // EFECTO: CUANDO CAMBIA EL TÉRMINO DE BÚSQUEDA
   // ============================================
   useEffect(() => {
+    // Ignorar el primer renderizado
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
     
+    // Limpiar timeout anterior
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
       searchTimeoutRef.current = null;
     }
 
+    // Si no hay término y no hay filtros, cargar todos los productos
     if (searchTerm.trim().length < 2 && !categoriaSeleccionada && !laboratorioSeleccionado) {
       loadProducts(1);
       return;
     }
 
+    // Debounce para búsqueda (solo para el término de búsqueda)
     searchTimeoutRef.current = setTimeout(() => {
       loadProductsWithFilters(1);
     }, 500);
@@ -663,25 +678,41 @@ export function ProductosView() {
         searchTimeoutRef.current = null;
       }
     };
-  }, [searchTerm, loadProductsWithFilters, loadProducts, categoriaSeleccionada, laboratorioSeleccionado]);
+  }, [searchTerm]); // Solo depende de searchTerm
 
+  // ============================================
+  // EFECTO: CUANDO CAMBIAN LOS FILTROS
+  // ============================================
   useEffect(() => {
+    // Ignorar el primer renderizado
     if (isInitialMount.current) return;
     
     console.log("Filtros cambiados:", { categoriaSeleccionada, laboratorioSeleccionado });
+    
+    // Cargar con los filtros actuales (sin debounce para respuesta inmediata)
     loadProductsWithFilters(1);
-  }, [categoriaSeleccionada, laboratorioSeleccionado, loadProductsWithFilters]);
+    
+  }, [categoriaSeleccionada, laboratorioSeleccionado]); // Solo depende de los filtros
 
-  // Carga inicial con sessionStorage
+  // ============================================
+  // CARGA INICIAL CON sessionStorage
+  // ============================================
   useEffect(() => {
     const storedProductName = sessionStorage.getItem('searchProductName');
     
     if (storedProductName && storedProductName.trim().length >= 2) {
-      performSearch(storedProductName, 1);
+      // Si hay sessionStorage, buscar directamente
+      const searchQuery = storedProductName;
+      // Limpiar sessionStorage inmediatamente
+      sessionStorage.removeItem('searchProductName');
+      // Establecer el término de búsqueda
+      setSearchTerm(searchQuery);
+      // Ejecutar búsqueda directa (sin debounce)
+      performSearch(searchQuery, 1);
     } else {
       loadProducts(1);
     }
-  }, []);
+  }, []); // Solo se ejecuta una vez
 
   // ============================================
   // PAGINACIÓN
@@ -833,6 +864,13 @@ export function ProductosView() {
   const clearFilters = () => {
     setCategoriaSeleccionada("");
     setLaboratorioSeleccionado("");
+    // Si no hay término de búsqueda, recargar todos
+    if (!searchTerm || searchTerm.trim().length < 2) {
+      loadProducts(1);
+    } else {
+      // Si hay término, buscar con ese término
+      performSearch(searchTerm, 1);
+    }
   };
 
   // ============================================
@@ -1030,7 +1068,7 @@ export function ProductosView() {
       <Card>
         <CardHeader className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <CardTitle>
-            {searchTerm.trim().length >= 2
+            {searchTerm.trim().length >= 2 || categoriaSeleccionada || laboratorioSeleccionado
               ? `Resultados de búsqueda (${totalProducts})`
               : `Todos los Productos (${totalProducts})`}
           </CardTitle>
@@ -1513,7 +1551,7 @@ export function ProductosView() {
                 </>
               ) : (
                 <div className="text-center text-muted-foreground py-8">
-                  {searchTerm.trim().length >= 2
+                  {searchTerm.trim().length >= 2 || categoriaSeleccionada || laboratorioSeleccionado
                     ? "No se encontraron productos que coincidan con la búsqueda."
                     : "No hay productos registrados."}
                 </div>

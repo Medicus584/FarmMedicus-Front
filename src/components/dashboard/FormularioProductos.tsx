@@ -1588,7 +1588,6 @@ export function FormularioProductos({
               placeholder="Ej: PROD-001"
               className={`h-9 text-sm font-mono ${mostrarMensajeExistente && productoEncontrado ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
               required
-              disabled={buscandoCodigo}
             />
             {buscandoCodigo && (
               <div className="absolute right-3 top-1/2 transform -translate-y-1/2">

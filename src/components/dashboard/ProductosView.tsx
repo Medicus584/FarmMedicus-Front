@@ -519,6 +519,10 @@ export function ProductosView() {
   const hasProcessedSessionStorage = useRef(false);
   // REF para controlar si es la primera carga
   const isInitialMount = useRef(true);
+  // REF para controlar si se está ejecutando una búsqueda
+  const isSearchingRef = useRef(false);
+  // REF para el timeout de búsqueda - CORREGIDO: usar ReturnType<typeof setTimeout> en lugar de NodeJS.Timeout
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // NUEVO: Efecto para leer los valores de sessionStorage cuando se monta el componente
   useEffect(() => {
@@ -600,11 +604,17 @@ export function ProductosView() {
 
   // Búsqueda con paginación y filtros
   const performSearch = useCallback(async (query: string, page: number = 1) => {
+    // Si el query tiene menos de 2 caracteres y no hay filtros, cargar todos
+    if (query.trim().length < 2 && !categoriaSeleccionada && !laboratorioSeleccionado) {
+      await loadProducts(page);
+      return;
+    }
+
     setSearching(true);
     try {
       console.log("Buscando con filtros:", { query, categoriaSeleccionada, laboratorioSeleccionado });
       const response = await buscarProductos(
-        query,
+        query.trim().length >= 2 ? query : "",
         categoriaSeleccionada || undefined,
         laboratorioSeleccionado || undefined,
         page,
@@ -627,11 +637,11 @@ export function ProductosView() {
     } finally {
       setSearching(false);
     }
-  }, [categoriaSeleccionada, laboratorioSeleccionado, toast]);
+  }, [categoriaSeleccionada, laboratorioSeleccionado, loadProducts, toast]);
 
   // Función para cargar productos con filtros aplicados
   const loadProductsWithFilters = useCallback(async (page: number = 1) => {
-    // Si hay término de búsqueda, usar búsqueda con filtros
+    // Si hay término de búsqueda con al menos 2 caracteres, usar búsqueda
     if (searchTerm.trim().length >= 2) {
       await performSearch(searchTerm, page);
     } else {
@@ -653,8 +663,30 @@ export function ProductosView() {
       return;
     }
     
-    loadProductsWithFilters(1);
-  }, [debouncedSearchTerm, loadProductsWithFilters]);
+    // Limpiar timeout anterior
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+      searchTimeoutRef.current = null;
+    }
+
+    // Si el término de búsqueda tiene menos de 2 caracteres y no hay filtros, cargar todos inmediatamente
+    if (searchTerm.trim().length < 2 && !categoriaSeleccionada && !laboratorioSeleccionado) {
+      loadProducts(1);
+      return;
+    }
+
+    // Si el término tiene 2 o más caracteres, hacer la búsqueda con debounce
+    searchTimeoutRef.current = setTimeout(() => {
+      loadProductsWithFilters(1);
+    }, 500);
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+        searchTimeoutRef.current = null;
+      }
+    };
+  }, [searchTerm, loadProductsWithFilters, loadProducts, categoriaSeleccionada, laboratorioSeleccionado]);
 
   // Efecto para filtros - cuando cambian los filtros, recargar
   useEffect(() => {
@@ -670,7 +702,7 @@ export function ProductosView() {
     // Verificar si hay un término de búsqueda desde sessionStorage
     const storedProductName = sessionStorage.getItem('searchProductName');
     
-    if (storedProductName) {
+    if (storedProductName && storedProductName.trim().length >= 2) {
       // Si hay búsqueda, ejecutarla
       performSearch(storedProductName, 1);
     } else {

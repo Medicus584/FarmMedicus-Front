@@ -598,6 +598,7 @@ export function ProductosView() {
   const performSearch = useCallback(async (query: string, page: number = 1) => {
     setSearching(true);
     try {
+      console.log("Buscando con filtros:", { query, categoriaSeleccionada, laboratorioSeleccionado });
       const response = await buscarProductos(
         query,
         categoriaSeleccionada || undefined,
@@ -624,6 +625,22 @@ export function ProductosView() {
     }
   }, [categoriaSeleccionada, laboratorioSeleccionado, toast]);
 
+  // Función para cargar productos con filtros aplicados
+  const loadProductsWithFilters = useCallback(async (page: number = 1) => {
+    // Si hay término de búsqueda, usar búsqueda con filtros
+    if (searchTerm.trim().length >= 2) {
+      await performSearch(searchTerm, page);
+    } else {
+      // Si no hay búsqueda pero hay filtros, usar búsqueda con filtros
+      if (categoriaSeleccionada || laboratorioSeleccionado) {
+        await performSearch("", page);
+      } else {
+        // Sin búsqueda ni filtros, cargar todos
+        await loadProducts(page);
+      }
+    }
+  }, [searchTerm, categoriaSeleccionada, laboratorioSeleccionado, performSearch, loadProducts]);
+
   // Efecto para búsqueda con debounce - SOLO cuando cambia el searchTerm por input del usuario
   useEffect(() => {
     // Si es la primera carga, no ejecutar porque ya se maneja en el efecto de inicialización
@@ -632,21 +649,17 @@ export function ProductosView() {
       return;
     }
     
-    if (debouncedSearchTerm.trim().length >= 2) {
-      performSearch(debouncedSearchTerm, 1);
-    } else if (debouncedSearchTerm.trim().length === 0) {
-      loadProducts(1);
-    }
-  }, [debouncedSearchTerm, performSearch, loadProducts]);
+    loadProductsWithFilters(1);
+  }, [debouncedSearchTerm, loadProductsWithFilters]);
 
-  // Efecto para filtros
+  // Efecto para filtros - cuando cambian los filtros, recargar
   useEffect(() => {
-    if (searchTerm.trim().length >= 2) {
-      performSearch(searchTerm, 1);
-    } else {
-      loadProducts(1);
-    }
-  }, [categoriaSeleccionada, laboratorioSeleccionado]);
+    // No ejecutar en la primera carga
+    if (isInitialMount.current) return;
+    
+    console.log("Filtros cambiados:", { categoriaSeleccionada, laboratorioSeleccionado });
+    loadProductsWithFilters(1);
+  }, [categoriaSeleccionada, laboratorioSeleccionado, loadProductsWithFilters]);
 
   // Efecto para carga inicial - se ejecuta solo una vez
   useEffect(() => {
@@ -664,11 +677,7 @@ export function ProductosView() {
 
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages && newPage !== currentPage) {
-      if (searchTerm.trim().length >= 2) {
-        performSearch(searchTerm, newPage);
-      } else {
-        loadProducts(newPage);
-      }
+      loadProductsWithFilters(newPage);
     }
   };
 
@@ -737,11 +746,7 @@ export function ProductosView() {
       });
 
       // Recargar productos para actualizar la vista
-      if (searchTerm.trim().length >= 2) {
-        await performSearch(searchTerm, currentPage);
-      } else {
-        await loadProducts(currentPage);
-      }
+      await loadProductsWithFilters(currentPage);
 
       setIsStockFormOpen(false);
       setStockFormData({
@@ -774,11 +779,7 @@ export function ProductosView() {
       });
 
       // Recargar productos
-      if (searchTerm.trim().length >= 2) {
-        await performSearch(searchTerm, currentPage);
-      } else {
-        await loadProducts(currentPage);
-      }
+      await loadProductsWithFilters(currentPage);
     } catch (error) {
       toast({
         title: "Error",
@@ -800,11 +801,7 @@ export function ProductosView() {
       setIsFormOpen(false);
 
       // Recargar productos
-      if (searchTerm.trim().length >= 2) {
-        await performSearch(searchTerm, currentPage);
-      } else {
-        await loadProducts(currentPage);
-      }
+      await loadProductsWithFilters(currentPage);
     } catch (error) {
       toast({
         title: "Error",
@@ -1238,7 +1235,7 @@ export function ProductosView() {
                             <TableRow>
                               <TableHead className="w-[60px]">Imagen</TableHead>
                               <TableHead className="min-w-[150px]">N. Comercial</TableHead>
-                              <TableHead className="min-w-[200px]">N. Genérico</TableHead>
+                              <TableHead className="min-w-[200px]">Descripción</TableHead>
                               <TableHead className="w-[120px]">Ubicación</TableHead>
                               <TableHead className="w-[130px]">Laboratorio</TableHead>
                               <TableHead className="w-[140px]">Código</TableHead>

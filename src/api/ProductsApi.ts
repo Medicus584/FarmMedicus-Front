@@ -280,20 +280,50 @@ export const buscarProductos = async (
       params.laboratorio = laboratorio;
     }
 
-    const response = await api.get<ProductoListResponse>("/buscar", {
+    const response = await api.get("/buscar", {
       params,
     });
 
+    const data = response.data;
+    
+    if (Array.isArray(data)) {
+      return {
+        productos: [],
+        total: 0,
+        page: 1,
+        limit: limit,
+        totalPages: 0,
+      };
+    }
+
+    if (data && typeof data === 'object') {
+      const productos = data.productos || [];
+      
+      return {
+        productos: productos.map(mapBackendProducto),
+        total: data.total || 0,
+        page: data.page || 1,
+        limit: data.limit || limit,
+        totalPages: data.totalPages || 0,
+      };
+    }
+
     return {
-      productos: response.data.productos.map(mapBackendProducto),
-      total: response.data.total,
-      page: response.data.page,
-      limit: response.data.limit,
-      totalPages: response.data.totalPages,
+      productos: [],
+      total: 0,
+      page: 1,
+      limit: limit,
+      totalPages: 0,
     };
   } catch (error) {
     console.error("Error buscando productos:", error);
-    throw new Error("No se pudieron buscar los productos");
+    return {
+      productos: [],
+      total: 0,
+      page: 1,
+      limit: limit,
+      totalPages: 0,
+    };
   }
 };
 
@@ -307,19 +337,50 @@ export const getAllProductos = async (
       limit,
     };
 
-    const response = await api.get<ProductoListResponse>("/todos", {
+    const response = await api.get("/todos", {
       params,
     });
+
+    const data = response.data;
+
+    if (Array.isArray(data)) {
+      return {
+        productos: [],
+        total: 0,
+        page: 1,
+        limit: limit,
+        totalPages: 0,
+      };
+    }
+
+    if (data && typeof data === 'object') {
+      const productos = data.productos || [];
+      
+      return {
+        productos: productos.map(mapBackendProducto),
+        total: data.total || 0,
+        page: data.page || 1,
+        limit: data.limit || limit,
+        totalPages: data.totalPages || 0,
+      };
+    }
+
     return {
-      productos: response.data.productos.map(mapBackendProducto),
-      total: response.data.total,
-      page: response.data.page,
-      limit: response.data.limit,
-      totalPages: response.data.totalPages,
+      productos: [],
+      total: 0,
+      page: 1,
+      limit: limit,
+      totalPages: 0,
     };
   } catch (error) {
     console.error("Error fetching todos los productos:", error);
-    throw new Error("No se pudieron cargar todos los productos");
+    return {
+      productos: [],
+      total: 0,
+      page: 1,
+      limit: limit,
+      totalPages: 0,
+    };
   }
 };
 

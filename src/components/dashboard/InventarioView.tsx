@@ -171,9 +171,12 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
     setShowLowMarginOnly(false);
   };
 
-  // Filtrar por término de búsqueda
+  // Filtrar por término de búsqueda (ahora se filtra tanto por nombre como por descripción)
   const filteredData = inventoryData.filter(item => {
-    const matchesSearch = item.nombre.toLowerCase().includes(searchTerm.toLowerCase())
+    const searchLower = searchTerm.toLowerCase();
+    const matchesSearch = !searchTerm || 
+      item.nombre.toLowerCase().includes(searchLower) ||
+      item.descripcion.toLowerCase().includes(searchLower);
     const matchesMargin = showLowMarginOnly ? item.margenPorcentaje < 50 : true;
     return matchesSearch && matchesMargin;
   });
@@ -226,7 +229,7 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
           <div className="relative flex-1 sm:min-w-[250px]">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
-              placeholder="Buscar productos..."
+              placeholder="Buscar por nombre o descripción..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -362,7 +365,7 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
                     <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                       {showLowMarginOnly 
                         ? "No hay productos con margen bajo" 
-                        : "No se encontraron productos"
+                        : "No se encontraron productos que coincidan con la búsqueda"
                       }
                     </TableCell>
                   </TableRow>

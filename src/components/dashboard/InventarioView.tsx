@@ -171,12 +171,13 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
     setShowLowMarginOnly(false);
   };
 
-  // Filtrar por término de búsqueda (ahora se filtra tanto por nombre como por descripción)
+  // Filtrar por término de búsqueda (nombre, descripción o código)
   const filteredData = inventoryData.filter(item => {
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch = !searchTerm || 
       item.nombre.toLowerCase().includes(searchLower) ||
-      item.descripcion.toLowerCase().includes(searchLower);
+      item.descripcion.toLowerCase().includes(searchLower) ||
+      (item.codigo && item.codigo.toLowerCase().includes(searchLower));
     const matchesMargin = showLowMarginOnly ? item.margenPorcentaje < 50 : true;
     return matchesSearch && matchesMargin;
   });
@@ -229,7 +230,7 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
           <div className="relative flex-1 sm:min-w-[250px]">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
-              placeholder="Buscar por nombre o descripción..."
+              placeholder="Buscar por nombre, código o descripción..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -341,6 +342,7 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
             <Table>
               <TableHeader className="hidden md:table-header-group">
                 <TableRow>
+                  <TableHead className="px-4 py-3">Código</TableHead>
                   <TableHead className="px-4 py-3">N. Comercial</TableHead>
                   <TableHead className="px-4 py-3 min-w-[200px]">N. Genérico</TableHead>
                   <TableHead className="px-4 py-3">P. Compra</TableHead>
@@ -373,6 +375,11 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
                   paginatedData.map((item) => (
                     <TableRow key={item.id} className="border-b transition-colors hover:bg-muted/50">
                       {/* Desktop View */}
+                      <TableCell className="hidden md:table-cell px-4 py-3">
+                        <span className="text-xs font-mono font-medium text-primary">
+                          {item.codigo || "—"}
+                        </span>
+                      </TableCell>
                       <TableCell className="hidden md:table-cell px-4 py-3 font-medium">
                         {item.nombre}
                       </TableCell>
@@ -424,7 +431,14 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
                       <TableCell className="md:hidden px-4 py-3">
                         <div className="space-y-3">
                           <div className="flex justify-between items-start">
-                            <div className="font-medium">{item.nombre}</div>
+                            <div>
+                              <div className="font-medium">{item.nombre}</div>
+                              {item.codigo && (
+                                <div className="text-xs font-mono text-primary mt-0.5">
+                                  Código: {item.codigo}
+                                </div>
+                              )}
+                            </div>
                             <Button
                               variant="ghost"
                               size="sm"

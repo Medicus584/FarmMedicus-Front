@@ -5,6 +5,7 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 interface BackendInventoryItem {
   idproducto: number;
+  codigop: string | null;
   nombre_producto: string;
   descripcion: string;
   precio_compra: string;
@@ -17,6 +18,7 @@ interface BackendInventoryItem {
 
 export interface InventoryItem {
   id: string;
+  codigo: string | null;
   nombre: string;
   descripcion: string;
   precioCompra: number;
@@ -68,6 +70,7 @@ export const getInventory = async (
 
       return {
         id: item.idproducto.toString(),
+        codigo: item.codigop || null,
         nombre: item.nombre_producto,
         descripcion: item.descripcion || '',
         precioCompra,
@@ -110,24 +113,3 @@ export const getCategories = async (): Promise<Category[]> => {
     return [];
   }
 };
-
-function mapBackendInventoryItem(item: BackendInventoryItem): InventoryItem {
-  const precioCompra = parseFloat(item.precio_compra);
-  const precioVenta = parseFloat(item.precio_venta);
-  const margen = precioVenta - precioCompra;
-  const margenPorcentaje = precioCompra > 0 ? (margen / precioCompra) * 100 : 0;
-
-  return {
-    id: item.idproducto.toString(),
-    nombre: item.nombre_producto,
-    descripcion: item.descripcion || '',
-    precioCompra,
-    precioVenta,
-    cantidad: item.stock,
-    margen,
-    margenPorcentaje,
-    ultimaEdicion: new Date(item.ultima_edicion).toLocaleDateString(),
-    stockMinimo: item.stock_minimo,
-    estado: item.estado
-  };
-}

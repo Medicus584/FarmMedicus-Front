@@ -2,7 +2,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { 
   getLowStockAlerts, 
   getExpirationAlerts, 
@@ -10,16 +10,35 @@ import {
   AlertVencimiento 
 } from "@/api/AlertsApi";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Package, AlertTriangle, Calendar, Clock, Building2, MapPin, ChevronRight } from "lucide-react";
+import { 
+  Package, 
+  AlertTriangle, 
+  Calendar, 
+  Clock, 
+  Building2, 
+  MapPin, 
+  ChevronLeft, 
+  ChevronRight,
+  Search,
+  Filter,
+  X,
+  Loader2
+} from "lucide-react";
 import { ImageCarousel } from "./ProductosView";
 import { getImageUrl } from "./VenderView";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-// Función helper para formatear fechas sin problemas de zona horaria
 function formatDateToLocal(dateStr: string): string {
   if (!dateStr) return '';
-  
-  // Si la fecha viene en formato YYYY-MM-DD
   if (dateStr.includes('-')) {
     const parts = dateStr.split('-');
     if (parts.length === 3) {
@@ -27,8 +46,6 @@ function formatDateToLocal(dateStr: string): string {
       return `${day}/${month}/${year}`;
     }
   }
-  
-  // Fallback: usar Date con UTC
   try {
     return new Date(dateStr + 'T00:00:00').toLocaleDateString('es-ES', { timeZone: 'UTC' });
   } catch {
@@ -36,25 +53,101 @@ function formatDateToLocal(dateStr: string): string {
   }
 }
 
-// Función para calcular meses restantes sin problemas de zona horaria
 function getMonthsRemaining(fechaVencimiento: string): number {
   const hoy = new Date();
-  // Crear fecha sin problemas de zona horaria
   const parts = fechaVencimiento.split('-');
   if (parts.length === 3) {
     const [year, month, day] = parts.map(Number);
-    // Meses en JavaScript van de 0-11, por eso restamos 1
     const fechaVenc = new Date(year, month - 1, day);
     const diffTime = fechaVenc.getTime() - hoy.getTime();
-    const diffMonths = diffTime / (1000 * 60 * 60 * 24 * 30.44); // Promedio de días por mes
+    const diffMonths = diffTime / (1000 * 60 * 60 * 24 * 30.44);
     return Math.round(diffMonths);
   }
-  
-  // Fallback
   const fechaVenc = new Date(fechaVencimiento + 'T00:00:00');
   const diffTime = fechaVenc.getTime() - hoy.getTime();
   const diffMonths = diffTime / (1000 * 60 * 60 * 24 * 30.44);
   return Math.round(diffMonths);
+}
+
+type Prioridad = 'todas' | 'rojo' | 'amarillo' | 'verde';
+
+function Paginacion({ 
+  currentPage, 
+  totalPages, 
+  onPageChange, 
+  totalItems, 
+  itemsPerPage, 
+  loading 
+}: { 
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+  totalItems: number;
+  itemsPerPage: number;
+  loading: boolean;
+}) {
+  if (totalPages <= 1 && !loading) return null;
+
+  const startIndex = (currentPage - 1) * itemsPerPage + 1;
+  const endIndex = Math.min(currentPage * itemsPerPage, totalItems);
+
+  return (
+    <div className="flex items-center justify-between px-2 py-4 border-t mt-4">
+      <div className="text-sm text-muted-foreground">
+        {loading ? (
+          <span>Cargando...</span>
+        ) : (
+          <>Mostrando {startIndex} - {endIndex} de {totalItems} productos</>
+        )}
+      </div>
+      <div className="flex items-center space-x-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1 || loading}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        
+        <div className="flex items-center gap-1">
+          {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+            let pageNumber;
+            if (totalPages <= 5) {
+              pageNumber = i + 1;
+            } else if (currentPage <= 3) {
+              pageNumber = i + 1;
+            } else if (currentPage >= totalPages - 2) {
+              pageNumber = totalPages - 4 + i;
+            } else {
+              pageNumber = currentPage - 2 + i;
+            }
+            return (
+              <Button
+                key={pageNumber}
+                variant={currentPage === pageNumber ? "default" : "outline"}
+                size="sm"
+                onClick={() => onPageChange(pageNumber)}
+                disabled={loading}
+                className="w-8 h-8"
+              >
+                {pageNumber}
+              </Button>
+            );
+          })}
+        </div>
+        
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages || loading}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 export function AlertasView() {
@@ -65,40 +158,84 @@ export function AlertasView() {
   const [activeTab, setActiveTab] = useState("stock-bajo");
   const [esMovil, setEsMovil] = useState(false);
 
-  // Detectar si es dispositivo móvil
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalStockItems, setTotalStockItems] = useState(0);
+  const [totalExpirationItems, setTotalExpirationItems] = useState(0);
+  const [totalPagesStock, setTotalPagesStock] = useState(0);
+  const [totalPagesExpiration, setTotalPagesExpiration] = useState(0);
+  const ITEMS_PER_PAGE = 15;
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [prioridad, setPrioridad] = useState<Prioridad>("todas");
+
   useEffect(() => {
     const detectarMovil = () => {
       setEsMovil(window.innerWidth < 768);
     };
-    
     detectarMovil();
     window.addEventListener('resize', detectarMovil);
     return () => window.removeEventListener('resize', detectarMovil);
   }, []);
 
-  useEffect(() => {
-    const loadAlerts = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        const [stockAlerts, expAlerts] = await Promise.all([
-          getLowStockAlerts(),
-          getExpirationAlerts()
-        ]);
-        
-        setStockBajo(stockAlerts);
-        setVencimiento(expAlerts);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Error al cargar las alertas");
-        console.error("Error loading alerts:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const loadStockAlerts = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const filters: any = { page: currentPage, limit: ITEMS_PER_PAGE };
+      if (searchTerm) filters.search = searchTerm;
+      if (prioridad !== 'todas') filters.prioridad = prioridad;
+      
+      const response = await getLowStockAlerts(filters);
+      setStockBajo(response.items as AlertStockBajo[]);
+      setTotalStockItems(response.total);
+      setTotalPagesStock(response.totalPages);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al cargar las alertas de stock bajo");
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage, searchTerm, prioridad]);
 
-    loadAlerts();
-  }, []);
+  const loadExpirationAlerts = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const filters: any = { page: currentPage, limit: ITEMS_PER_PAGE };
+      if (searchTerm) filters.search = searchTerm;
+      if (prioridad !== 'todas') filters.prioridad = prioridad;
+      
+      const response = await getExpirationAlerts(filters);
+      setVencimiento(response.items as AlertVencimiento[]);
+      setTotalExpirationItems(response.total);
+      setTotalPagesExpiration(response.totalPages);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al cargar las alertas de vencimiento");
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage, searchTerm, prioridad]);
+
+  useEffect(() => {
+    if (activeTab === "stock-bajo") {
+      loadStockAlerts();
+    } else {
+      loadExpirationAlerts();
+    }
+  }, [activeTab, loadStockAlerts, loadExpirationAlerts]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, prioridad]);
+
+  useEffect(() => {
+    if (activeTab === "stock-bajo") {
+      loadStockAlerts();
+    } else {
+      loadExpirationAlerts();
+    }
+  }, [currentPage]);
 
   const getStockStatus = (stock: number, min: number) => {
     if (stock === 0) return "critical";
@@ -106,11 +243,10 @@ export function AlertasView() {
     return "ok";
   };
 
-  // Nueva función para determinar el color basado en meses
   const getMonthsColor = (meses: number) => {
-    if (meses <= 6) return "bg-red-600"; // Rojo: 6 meses o menos
-    if (meses <= 9) return "bg-yellow-500"; // Amarillo: entre 6 y 9 meses
-    return "bg-green-500"; // Verde: más de 9 meses
+    if (meses <= 6) return "rojo";
+    if (meses <= 9) return "amarillo";
+    return "verde";
   };
 
   const getMonthsText = (meses: number) => {
@@ -119,151 +255,34 @@ export function AlertasView() {
     return `${meses} meses`;
   };
 
-  // Renderizar tarjeta para stock bajo (móvil)
-  const renderStockBajoCard = (alert: AlertStockBajo) => {
+  const getStockPrioridad = (alert: AlertStockBajo): Prioridad => {
     const status = getStockStatus(alert.cantidad, alert.stockMinimo);
-    
-    return (
-      <div key={alert.id} className="bg-white rounded-lg border border-gray-200 p-4 mb-3 shadow-sm">
-        <div className="flex items-start gap-3">
-          <div className="w-16 h-16 flex-shrink-0">
-            <ImageCarousel
-              images={[getImageUrl(alert.imagen)]}
-              productName={alert.producto}
-              className="w-16 h-16 rounded-lg"
-            />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <h3 className="font-bold text-primary text-sm truncate">{alert.producto}</h3>
-              <Badge 
-                variant={status === "critical" ? "destructive" : "destructive"}
-                className="text-xs px-2 py-0.5 flex-shrink-0"
-              >
-                {status === "critical" ? "¡Crítico!" : "Bajo"}
-              </Badge>
-            </div>
-            
-            {alert.descripcion && (
-              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{alert.descripcion}</p>
-            )}
-            
-            <div className="grid grid-cols-2 gap-1 mt-2 text-xs">
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <MapPin className="h-3 w-3 flex-shrink-0" />
-                <span className="truncate">{alert.ubicacion}</span>
-              </div>
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <Building2 className="h-3 w-3 flex-shrink-0" />
-                <span className="truncate">{alert.laboratorio}</span>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-3 mt-2 pt-2 border-t border-gray-100">
-              <div className="flex items-center gap-1">
-                <span className="text-xs text-muted-foreground">Stock:</span>
-                <Badge variant="destructive" className="text-xs px-2 py-0.5">
-                  {alert.cantidad}
-                </Badge>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="text-xs text-muted-foreground">Mínimo:</span>
-                <Badge variant="outline" className="text-xs px-2 py-0.5">
-                  {alert.stockMinimo}
-                </Badge>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    if (status === "critical") return "rojo";
+    if (status === "low") return "amarillo";
+    return "verde";
   };
 
-  // Renderizar tarjeta para vencimiento (móvil)
-  const renderVencimientoCard = (alert: AlertVencimiento) => {
-    const mesesRestantes = getMonthsRemaining(alert.fechaVencimiento);
-    const monthsColor = getMonthsColor(mesesRestantes);
-    const isCritical = mesesRestantes <= 6;
-    const isWarning = mesesRestantes <= 9 && mesesRestantes > 6;
-    const isGood = mesesRestantes > 9;
-    
-    let badgeVariant: "default" | "destructive" | "outline" = "outline";
-    let badgeClassName = "";
-    
-    if (isCritical) {
-      badgeVariant = "destructive";
-      badgeClassName = "bg-red-600 hover:bg-red-700 text-white border-red-600";
-    } else if (isWarning) {
-      badgeVariant = "default";
-      badgeClassName = "bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500";
-    } else if (isGood) {
-      badgeVariant = "default";
-      badgeClassName = "bg-green-500 hover:bg-green-600 text-white border-green-500";
-    }
-    
-    return (
-      <div key={alert.id} className="bg-white rounded-lg border border-gray-200 p-4 mb-3 shadow-sm">
-        <div className="flex items-start gap-3">
-          <div className="w-16 h-16 flex-shrink-0">
-            <ImageCarousel
-              images={[getImageUrl(alert.imagen)]}
-              productName={alert.producto}
-              className="w-16 h-16 rounded-lg"
-            />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <h3 className="font-bold text-primary text-sm truncate">{alert.producto}</h3>
-              <div className={`${monthsColor} text-white font-bold text-xs px-2 py-0.5 rounded-full inline-flex items-center gap-1 flex-shrink-0`}>
-                <Clock className="h-3 w-3" />
-                {getMonthsText(mesesRestantes)}
-              </div>
-            </div>
-            
-            {alert.descripcion && (
-              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{alert.descripcion}</p>
-            )}
-            
-            <div className="grid grid-cols-2 gap-1 mt-2 text-xs">
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <MapPin className="h-3 w-3 flex-shrink-0" />
-                <span className="truncate">{alert.ubicacion}</span>
-              </div>
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <Building2 className="h-3 w-3 flex-shrink-0" />
-                <span className="truncate">{alert.laboratorio}</span>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-3 mt-2 pt-2 border-t border-gray-100 flex-wrap">
-              <div className="flex items-center gap-1">
-                <span className="text-xs text-muted-foreground">Stock:</span>
-                <Badge variant="outline" className="text-xs px-2 py-0.5">
-                  {alert.stock} u.
-                </Badge>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="text-xs text-muted-foreground">Vence:</span>
-                <Badge 
-                  variant={badgeVariant}
-                  className={`text-xs px-2 py-0.5 ${badgeClassName}`}
-                >
-                  {formatDateToLocal(alert.fechaVencimiento)}
-                </Badge>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+  const getVencimientoPrioridad = (alert: AlertVencimiento): Prioridad => {
+    const meses = getMonthsRemaining(alert.fechaVencimiento);
+    return getMonthsColor(meses) as Prioridad;
   };
 
-  if (loading) {
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const clearFilters = () => {
+    setSearchTerm("");
+    setPrioridad("todas");
+    setCurrentPage(1);
+  };
+
+  const hasFilters = searchTerm || prioridad !== "todas";
+
+  if (loading && stockBajo.length === 0 && vencimiento.length === 0) {
     return (
       <div className="space-y-4 sm:space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-primary">Alertas</h1>
-        </div>
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-primary">Alertas</h1>
         <Card>
           <CardContent className="pt-4 sm:pt-6">
             <div className="space-y-3 sm:space-y-4">
@@ -283,26 +302,23 @@ export function AlertasView() {
     );
   }
 
-  if (error) {
+  if (error && stockBajo.length === 0 && vencimiento.length === 0) {
     return (
       <div className="space-y-4 sm:space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-primary">Alertas</h1>
-        </div>
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-primary">Alertas</h1>
         <Card>
           <CardContent className="pt-4 sm:pt-6">
             <div className="text-center text-destructive text-sm sm:text-base">
               <p>Error: {error}</p>
+              <Button onClick={() => window.location.reload()} className="mt-4">
+                Reintentar
+              </Button>
             </div>
           </CardContent>
         </Card>
       </div>
     );
   }
-
-  const totalStockBajo = stockBajo.length;
-  const totalVencimiento = vencimiento.length;
-  const totalAlertas = totalStockBajo + totalVencimiento;
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -311,17 +327,85 @@ export function AlertasView() {
         <div className="flex flex-wrap gap-1.5 sm:gap-2">
           <Badge variant="destructive" className="text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1">
             <AlertTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1" />
-            Stock Bajo: {totalStockBajo}
+            Stock Bajo: {totalStockItems}
           </Badge>
           <Badge className="text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1 bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500">
             <Calendar className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1" />
-            Por Vencer: {totalVencimiento}
+            Por Vencer: {totalExpirationItems}
           </Badge>
           <Badge variant="outline" className="text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1">
-            Total: {totalAlertas}
+            Total: {totalStockItems + totalExpirationItems}
           </Badge>
         </div>
       </div>
+
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+          <Input
+            placeholder="Buscar por nombre o descripción..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        
+        <div className="flex gap-2">
+          <Select value={prioridad} onValueChange={(value: Prioridad) => setPrioridad(value)}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="Prioridad" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todas">Todas</SelectItem>
+              <SelectItem value="rojo">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-red-600"></div>
+                  Rojo (Crítico)
+                </div>
+              </SelectItem>
+              <SelectItem value="amarillo">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                  Amarillo (Alerta)
+                </div>
+              </SelectItem>
+              <SelectItem value="verde">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                  Verde (Normal)
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+
+          {hasFilters && (
+            <Button variant="outline" onClick={clearFilters} className="px-3">
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {hasFilters && (
+        <div className="flex flex-wrap gap-2">
+          {searchTerm && (
+            <Badge variant="secondary" className="flex items-center gap-1">
+              Búsqueda: {searchTerm}
+              <X className="h-3 w-3 cursor-pointer" onClick={() => setSearchTerm("")} />
+            </Badge>
+          )}
+          {prioridad !== "todas" && (
+            <Badge variant="secondary" className="flex items-center gap-1">
+              <span className={`w-2 h-2 rounded-full inline-block ${
+                prioridad === "rojo" ? "bg-red-600" :
+                prioridad === "amarillo" ? "bg-yellow-500" : "bg-green-500"
+              }`} />
+              Prioridad: {prioridad === "rojo" ? "Crítico" : prioridad === "amarillo" ? "Alerta" : "Normal"}
+              <X className="h-3 w-3 cursor-pointer" onClick={() => setPrioridad("todas")} />
+            </Badge>
+          )}
+        </div>
+      )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
@@ -329,9 +413,9 @@ export function AlertasView() {
             <AlertTriangle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             <span className="hidden xs:inline">Stock Bajo</span>
             <span className="xs:hidden">Stock</span>
-            {totalStockBajo > 0 && (
+            {totalStockItems > 0 && (
               <Badge variant="destructive" className="ml-0.5 sm:ml-1 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0">
-                {totalStockBajo}
+                {totalStockItems}
               </Badge>
             )}
           </TabsTrigger>
@@ -339,15 +423,14 @@ export function AlertasView() {
             <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             <span className="hidden xs:inline">Por Vencer</span>
             <span className="xs:hidden">Vencer</span>
-            {totalVencimiento > 0 && (
+            {totalExpirationItems > 0 && (
               <Badge className="ml-0.5 sm:ml-1 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0 bg-yellow-500 text-white border-yellow-500">
-                {totalVencimiento}
+                {totalExpirationItems}
               </Badge>
             )}
           </TabsTrigger>
         </TabsList>
 
-        {/* Tab: Stock Bajo */}
         <TabsContent value="stock-bajo" className="mt-3 sm:mt-4">
           <Card>
             <CardHeader className="pb-2 sm:pb-3">
@@ -355,26 +438,68 @@ export function AlertasView() {
                 <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />
                 <span>Productos con Stock Bajo</span>
                 <span className="text-xs sm:text-sm font-normal text-muted-foreground">
-                  ({stockBajo.length})
+                  ({totalStockItems})
                 </span>
+                {loading && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {stockBajo.length === 0 ? (
+              {totalStockItems === 0 && !loading ? (
                 <div className="text-center py-6 sm:py-8 text-muted-foreground">
                   <Package className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-2 sm:mb-3 text-muted-foreground/50" />
-                  <p className="text-sm sm:text-lg font-medium">No hay productos con stock bajo</p>
-                  <p className="text-xs sm:text-sm">Todos los productos tienen stock suficiente.</p>
+                  <p className="text-sm sm:text-lg font-medium">
+                    {hasFilters ? "No hay productos que coincidan con los filtros" : "No hay productos con stock bajo"}
+                  </p>
                 </div>
               ) : (
                 <>
-                  {/* Vista móvil: Tarjetas */}
                   {esMovil ? (
                     <div className="space-y-2">
-                      {stockBajo.map(renderStockBajoCard)}
+                      {stockBajo.map((alert) => {
+                        const prioridadColor = getStockPrioridad(alert);
+                        const borderColor = prioridadColor === "rojo" ? "border-red-400" :
+                                          prioridadColor === "amarillo" ? "border-yellow-400" : "border-green-400";
+                        const bgColor = prioridadColor === "rojo" ? "bg-red-50" :
+                                       prioridadColor === "amarillo" ? "bg-yellow-50" : "bg-green-50";
+                        
+                        return (
+                          <div key={alert.id} className={`bg-white rounded-lg border-2 ${borderColor} p-4 mb-3 shadow-sm ${bgColor}`}>
+                            <div className="flex items-start gap-3">
+                              <div className="w-16 h-16 flex-shrink-0">
+                                <ImageCarousel images={[getImageUrl(alert.imagen)]} productName={alert.producto} className="w-16 h-16 rounded-lg" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h3 className="font-bold text-primary text-sm truncate">{alert.producto}</h3>
+                                {alert.descripcion && (
+                                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{alert.descripcion}</p>
+                                )}
+                                <div className="grid grid-cols-2 gap-1 mt-2 text-xs">
+                                  <div className="flex items-center gap-1 text-muted-foreground">
+                                    <MapPin className="h-3 w-3 flex-shrink-0" />
+                                    <span className="truncate">{alert.ubicacion}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1 text-muted-foreground">
+                                    <Building2 className="h-3 w-3 flex-shrink-0" />
+                                    <span className="truncate">{alert.laboratorio}</span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-3 mt-2 pt-2 border-t border-gray-100">
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-xs text-muted-foreground">Stock:</span>
+                                    <Badge variant="destructive" className="text-xs px-2 py-0.5">{alert.cantidad}</Badge>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-xs text-muted-foreground">Mínimo:</span>
+                                    <Badge variant="outline" className="text-xs px-2 py-0.5">{alert.stockMinimo}</Badge>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : (
-                    /* Vista desktop: Tabla */
                     <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
@@ -385,28 +510,27 @@ export function AlertasView() {
                             <TableHead>Laboratorio</TableHead>
                             <TableHead className="text-center">Stock Actual</TableHead>
                             <TableHead className="text-center">Stock Mínimo</TableHead>
-                            <TableHead className="text-center">Estado</TableHead>
+                            <TableHead className="text-center">Prioridad</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {stockBajo.map((alert) => {
-                            const status = getStockStatus(alert.cantidad, alert.stockMinimo);
+                            const prioridadColor = getStockPrioridad(alert);
+                            const prioridadBg = prioridadColor === "rojo" ? "bg-red-600" :
+                                               prioridadColor === "amarillo" ? "bg-yellow-500" : "bg-green-500";
+                            const prioridadText = prioridadColor === "rojo" ? "Crítico" :
+                                                 prioridadColor === "amarillo" ? "Alerta" : "Normal";
+                            
                             return (
                               <TableRow key={alert.id}>
                                 <TableCell>
                                   <div className="w-16 h-16">
-                                    <ImageCarousel
-                                      images={[getImageUrl(alert.imagen)]}
-                                      productName={alert.producto}
-                                      className="w-16 h-16"
-                                    />
+                                    <ImageCarousel images={[getImageUrl(alert.imagen)]} productName={alert.producto} className="w-16 h-16" />
                                   </div>
                                 </TableCell>
                                 <TableCell>
                                   <div className="font-bold text-primary text-sm">{alert.producto}</div>
-                                  {alert.descripcion && (
-                                    <div className="text-xs text-muted-foreground">{alert.descripcion}</div>
-                                  )}
+                                  {alert.descripcion && <div className="text-xs text-muted-foreground">{alert.descripcion}</div>}
                                 </TableCell>
                                 <TableCell>
                                   <div className="flex items-center gap-1 text-sm">
@@ -421,25 +545,13 @@ export function AlertasView() {
                                   </div>
                                 </TableCell>
                                 <TableCell className="text-center">
-                                  <Badge 
-                                    variant="destructive"
-                                    className="text-sm px-3 py-1 font-bold"
-                                  >
-                                    {alert.cantidad}
-                                  </Badge>
+                                  <Badge variant="destructive" className="text-sm px-3 py-1 font-bold">{alert.cantidad}</Badge>
                                 </TableCell>
                                 <TableCell className="text-center">
-                                  <Badge variant="outline" className="text-sm px-3 py-1">
-                                    {alert.stockMinimo}
-                                  </Badge>
+                                  <Badge variant="outline" className="text-sm px-3 py-1">{alert.stockMinimo}</Badge>
                                 </TableCell>
                                 <TableCell className="text-center">
-                                  <Badge 
-                                    variant={status === "critical" ? "destructive" : "destructive"}
-                                    className="text-xs px-2 py-1"
-                                  >
-                                    {status === "critical" ? "¡Crítico!" : "Bajo"}
-                                  </Badge>
+                                  <Badge className={`text-white ${prioridadBg}`}>{prioridadText}</Badge>
                                 </TableCell>
                               </TableRow>
                             );
@@ -448,13 +560,21 @@ export function AlertasView() {
                       </Table>
                     </div>
                   )}
+                  
+                  <Paginacion
+                    currentPage={currentPage}
+                    totalPages={totalPagesStock}
+                    onPageChange={handlePageChange}
+                    totalItems={totalStockItems}
+                    itemsPerPage={ITEMS_PER_PAGE}
+                    loading={loading}
+                  />
                 </>
               )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Tab: Vencimiento */}
         <TabsContent value="vencimiento" className="mt-3 sm:mt-4">
           <Card>
             <CardHeader className="pb-2 sm:pb-3">
@@ -462,26 +582,79 @@ export function AlertasView() {
                 <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-500" />
                 <span>Productos por Vencer</span>
                 <span className="text-xs sm:text-sm font-normal text-muted-foreground">
-                  ({vencimiento.length})
+                  ({totalExpirationItems})
                 </span>
+                {loading && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {vencimiento.length === 0 ? (
+              {totalExpirationItems === 0 && !loading ? (
                 <div className="text-center py-6 sm:py-8 text-muted-foreground">
                   <Calendar className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-2 sm:mb-3 text-muted-foreground/50" />
-                  <p className="text-sm sm:text-lg font-medium">No hay productos por vencer</p>
-                  <p className="text-xs sm:text-sm">Todos los productos tienen fecha de vencimiento vigente.</p>
+                  <p className="text-sm sm:text-lg font-medium">
+                    {hasFilters ? "No hay productos que coincidan con los filtros" : "No hay productos por vencer"}
+                  </p>
                 </div>
               ) : (
                 <>
-                  {/* Vista móvil: Tarjetas */}
                   {esMovil ? (
                     <div className="space-y-2">
-                      {vencimiento.map(renderVencimientoCard)}
+                      {vencimiento.map((alert) => {
+                        const mesesRestantes = getMonthsRemaining(alert.fechaVencimiento);
+                        const prioridadColor = getVencimientoPrioridad(alert);
+                        const borderColor = prioridadColor === "rojo" ? "border-red-400" :
+                                          prioridadColor === "amarillo" ? "border-yellow-400" : "border-green-400";
+                        const bgColor = prioridadColor === "rojo" ? "bg-red-50" :
+                                       prioridadColor === "amarillo" ? "bg-yellow-50" : "bg-green-50";
+                        const badgeColor = prioridadColor === "rojo" ? "bg-red-600" :
+                                          prioridadColor === "amarillo" ? "bg-yellow-500" : "bg-green-500";
+                        
+                        return (
+                          <div key={alert.id} className={`bg-white rounded-lg border-2 ${borderColor} p-4 mb-3 shadow-sm ${bgColor}`}>
+                            <div className="flex items-start gap-3">
+                              <div className="w-16 h-16 flex-shrink-0">
+                                <ImageCarousel images={[getImageUrl(alert.imagen)]} productName={alert.producto} className="w-16 h-16 rounded-lg" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between gap-2">
+                                  <h3 className="font-bold text-primary text-sm truncate">{alert.producto}</h3>
+                                  <div className={`text-white font-bold text-xs px-2 py-0.5 rounded-full inline-flex items-center gap-1 flex-shrink-0 ${badgeColor}`}>
+                                    <Clock className="h-3 w-3" />
+                                    {getMonthsText(mesesRestantes)}
+                                  </div>
+                                </div>
+                                {alert.descripcion && (
+                                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{alert.descripcion}</p>
+                                )}
+                                <div className="grid grid-cols-2 gap-1 mt-2 text-xs">
+                                  <div className="flex items-center gap-1 text-muted-foreground">
+                                    <MapPin className="h-3 w-3 flex-shrink-0" />
+                                    <span className="truncate">{alert.ubicacion}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1 text-muted-foreground">
+                                    <Building2 className="h-3 w-3 flex-shrink-0" />
+                                    <span className="truncate">{alert.laboratorio}</span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-3 mt-2 pt-2 border-t border-gray-100 flex-wrap">
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-xs text-muted-foreground">Stock:</span>
+                                    <Badge variant="outline" className="text-xs px-2 py-0.5">{alert.stock} u.</Badge>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-xs text-muted-foreground">Vence:</span>
+                                    <Badge className={`text-xs px-2 py-0.5 text-white ${badgeColor}`}>
+                                      {formatDateToLocal(alert.fechaVencimiento)}
+                                    </Badge>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : (
-                    /* Vista desktop: Tabla */
                     <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
@@ -491,6 +664,7 @@ export function AlertasView() {
                             <TableHead>Ubicación</TableHead>
                             <TableHead>Laboratorio</TableHead>
                             <TableHead className="text-center">Stock</TableHead>
+                            <TableHead className="text-center">Prioridad</TableHead>
                             <TableHead className="text-center">Meses Restantes</TableHead>
                             <TableHead className="text-center">Fecha Vencimiento</TableHead>
                           </TableRow>
@@ -498,41 +672,22 @@ export function AlertasView() {
                         <TableBody>
                           {vencimiento.map((alert) => {
                             const mesesRestantes = getMonthsRemaining(alert.fechaVencimiento);
-                            const monthsColor = getMonthsColor(mesesRestantes);
-                            const isCritical = mesesRestantes <= 6;
-                            const isWarning = mesesRestantes <= 9 && mesesRestantes > 6;
-                            const isGood = mesesRestantes > 9;
-                            
-                            let badgeVariant: "default" | "destructive" | "outline" = "outline";
-                            let badgeClassName = "";
-                            
-                            if (isCritical) {
-                              badgeVariant = "destructive";
-                              badgeClassName = "bg-red-600 hover:bg-red-700 text-white border-red-600";
-                            } else if (isWarning) {
-                              badgeVariant = "default";
-                              badgeClassName = "bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500";
-                            } else if (isGood) {
-                              badgeVariant = "default";
-                              badgeClassName = "bg-green-500 hover:bg-green-600 text-white border-green-500";
-                            }
+                            const prioridadColor = getVencimientoPrioridad(alert);
+                            const prioridadBg = prioridadColor === "rojo" ? "bg-red-600" :
+                                               prioridadColor === "amarillo" ? "bg-yellow-500" : "bg-green-500";
+                            const prioridadText = prioridadColor === "rojo" ? "Crítico" :
+                                                 prioridadColor === "amarillo" ? "Alerta" : "Normal";
                             
                             return (
                               <TableRow key={alert.id}>
                                 <TableCell>
                                   <div className="w-16 h-16">
-                                    <ImageCarousel
-                                      images={[getImageUrl(alert.imagen)]}
-                                      productName={alert.producto}
-                                      className="w-16 h-16"
-                                    />
+                                    <ImageCarousel images={[getImageUrl(alert.imagen)]} productName={alert.producto} className="w-16 h-16" />
                                   </div>
                                 </TableCell>
                                 <TableCell>
                                   <div className="font-bold text-primary text-sm">{alert.producto}</div>
-                                  {alert.descripcion && (
-                                    <div className="text-xs text-muted-foreground">{alert.descripcion}</div>
-                                  )}
+                                  {alert.descripcion && <div className="text-xs text-muted-foreground">{alert.descripcion}</div>}
                                 </TableCell>
                                 <TableCell>
                                   <div className="flex items-center gap-1 text-sm">
@@ -547,21 +702,19 @@ export function AlertasView() {
                                   </div>
                                 </TableCell>
                                 <TableCell className="text-center">
-                                  <Badge variant="outline" className="text-sm px-3 py-1">
-                                    {alert.stock} u.
-                                  </Badge>
+                                  <Badge variant="outline" className="text-sm px-3 py-1">{alert.stock} u.</Badge>
                                 </TableCell>
                                 <TableCell className="text-center">
-                                  <div className={`${monthsColor} text-white font-bold text-sm px-3 py-1 rounded-full inline-flex items-center gap-1 min-w-[80px] justify-center`}>
+                                  <Badge className={`text-white ${prioridadBg}`}>{prioridadText}</Badge>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <div className={`text-white font-bold text-sm px-3 py-1 rounded-full inline-flex items-center gap-1 min-w-[80px] justify-center ${prioridadBg}`}>
                                     <Clock className="h-3.5 w-3.5" />
                                     {getMonthsText(mesesRestantes)}
                                   </div>
                                 </TableCell>
                                 <TableCell className="text-center">
-                                  <Badge 
-                                    variant={badgeVariant}
-                                    className={`text-sm px-3 py-1 ${badgeClassName}`}
-                                  >
+                                  <Badge className={`text-sm px-3 py-1 text-white ${prioridadBg}`}>
                                     {formatDateToLocal(alert.fechaVencimiento)}
                                   </Badge>
                                 </TableCell>
@@ -572,6 +725,15 @@ export function AlertasView() {
                       </Table>
                     </div>
                   )}
+                  
+                  <Paginacion
+                    currentPage={currentPage}
+                    totalPages={totalPagesExpiration}
+                    onPageChange={handlePageChange}
+                    totalItems={totalExpirationItems}
+                    itemsPerPage={ITEMS_PER_PAGE}
+                    loading={loading}
+                  />
                 </>
               )}
             </CardContent>

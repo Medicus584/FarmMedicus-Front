@@ -38,6 +38,7 @@ export interface SaleItemWithLotes extends Product {
   cantidad: number;
   ubicacion?: string;
   lotesSeleccionados: { idlote: number; cantidad: number; fechaVencimiento: string }[];
+  descuentoProducto: number; // Descuento en monto fijo (Bs)
 }
 
 export const formatBs = (value: number) => {
@@ -524,7 +525,7 @@ export const DoctorSelect = ({
 };
 
 // Componente para seleccionar cantidad y lotes
-export function SeleccionarLoteDialog({
+export const SeleccionarLoteDialog = ({
   open,
   onOpenChange,
   lotes,
@@ -544,7 +545,7 @@ export function SeleccionarLoteDialog({
   esEdicion?: boolean;
   onConfirm: (cantidad: number, selecciones: { idlote: number; cantidad: number }[]) => void;
   onCancel: () => void;
-}) {
+}) => {
   const [cantidadSolicitada, setCantidadSolicitada] = useState<number | undefined>(cantidadInicial);
   const [cantidades, setCantidades] = useState<Record<number, number>>({});
   const [error, setError] = useState<string>("");
@@ -880,10 +881,10 @@ export function SeleccionarLoteDialog({
       </DialogContent>
     </Dialog>
   );
-}
+};
 
 // Componente para ver lotes en carrito
-export function LotesCarritoDialog({
+export const LotesCarritoDialog = ({
   open,
   onOpenChange,
   productName,
@@ -893,7 +894,7 @@ export function LotesCarritoDialog({
   onOpenChange: (open: boolean) => void;
   productName: string;
   lotes: { idlote: number; cantidad: number; fechaVencimiento: string }[];
-}) {
+}) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
@@ -929,4 +930,4 @@ export function LotesCarritoDialog({
       </DialogContent>
     </Dialog>
   );
-}
+};

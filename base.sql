@@ -107,7 +107,8 @@ CREATE TABLE detalle_ventas (
     cantidad INTEGER NOT NULL CHECK (cantidad > 0),
     precio_unitario DECIMAL(10,2) NOT NULL CHECK (precio_unitario >= 0),
     subtotal_linea DECIMAL(10,2) NOT NULL CHECK (subtotal_linea >= 0),
-    iddoctor INTEGER REFERENCES doctores(iddoctor) NULL -- Opcional
+    descuento_monto DECIMAL(10,2) DEFAULT 0 CHECK (descuento_monto >= 0),
+    iddoctor INTEGER REFERENCES doctores(iddoctor) NULL
 );
 
 -- Tablas de caja

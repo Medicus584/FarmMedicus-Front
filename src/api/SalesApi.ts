@@ -76,6 +76,7 @@ export interface SaleItem {
     idlote: number;
     cantidad: number;
   }[];
+  descuento_monto?: number; // Descuento en monto fijo (Bs) para este producto
 }
 
 export interface SaleRequest {
@@ -133,7 +134,7 @@ export const updateDoctor = async (id: number, data: { nombre: string }): Promis
 
 export const deleteDoctor = async (id: number): Promise<void> => {
   try {
-    await api.delete<Doctor>(`/sales/doctor/${id}`);
+    await api.delete(`/sales/doctor/${id}`);
   } catch (error) {
     console.error("Error deleting doctor:", error);
     throw new Error("No se pudo eliminar el doctor");
@@ -200,6 +201,9 @@ export const processSale = async (
     return response.data;
   } catch (error) {
     console.error("Error processing sale:", error);
+    if (axios.isAxiosError(error) && error.response) {
+      throw new Error(error.response.data?.error || "No se pudo procesar la venta");
+    }
     throw error instanceof Error ? error : new Error("No se pudo procesar la venta");
   }
 };

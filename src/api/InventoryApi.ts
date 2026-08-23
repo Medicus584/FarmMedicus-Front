@@ -1,9 +1,12 @@
+// api/InventoryApi.ts
 import axios from "axios";
+
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 interface BackendInventoryItem {
   idproducto: number;
   nombre_producto: string;
+  descripcion: string;
   precio_compra: string;
   precio_venta: string;
   stock: number;
@@ -15,6 +18,7 @@ interface BackendInventoryItem {
 export interface InventoryItem {
   id: string;
   nombre: string;
+  descripcion: string;
   precioCompra: number;
   precioVenta: number;
   cantidad: number;
@@ -65,6 +69,7 @@ export const getInventory = async (
       return {
         id: item.idproducto.toString(),
         nombre: item.nombre_producto,
+        descripcion: item.descripcion || '',
         precioCompra,
         precioVenta,
         cantidad: item.stock,
@@ -115,6 +120,7 @@ function mapBackendInventoryItem(item: BackendInventoryItem): InventoryItem {
   return {
     id: item.idproducto.toString(),
     nombre: item.nombre_producto,
+    descripcion: item.descripcion || '',
     precioCompra,
     precioVenta,
     cantidad: item.stock,

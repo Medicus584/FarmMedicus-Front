@@ -1,3 +1,4 @@
+// components/InventarioView.tsx
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +15,69 @@ import { useNavigate } from "react-router-dom";
 
 interface InventarioViewProps {
   onViewChange?: (view: DashboardView) => void;
+}
+
+// Componente para mostrar descripción con opción de expandir
+function DescripcionCell({ descripcion }: { descripcion: string }) {
+  const [showFull, setShowFull] = useState(false);
+
+  if (!descripcion) {
+    return <span className="text-xs text-muted-foreground">—</span>;
+  }
+
+  const maxLength = 60;
+  const isLong = descripcion.length > maxLength;
+  const displayText = isLong && !showFull 
+    ? descripcion.substring(0, maxLength) + '...' 
+    : descripcion;
+
+  return (
+    <div className="relative">
+      <div className="text-xs max-w-[200px] break-words">
+        {displayText}
+        {isLong && (
+          <button
+            onClick={() => setShowFull(!showFull)}
+            className="ml-1 text-primary hover:underline text-[10px] font-medium"
+          >
+            {showFull ? 'Ver menos' : 'Ver más'}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Componente para mostrar descripción en móvil
+function DescripcionMobile({ descripcion }: { descripcion: string }) {
+  const [showFull, setShowFull] = useState(false);
+
+  if (!descripcion) {
+    return <span className="text-xs text-muted-foreground">Sin descripción</span>;
+  }
+
+  const maxLength = 50;
+  const isLong = descripcion.length > maxLength;
+  const displayText = isLong && !showFull 
+    ? descripcion.substring(0, maxLength) + '...' 
+    : descripcion;
+
+  return (
+    <div className="text-xs">
+      <span className="font-medium">Descripción:</span>
+      <span className="text-muted-foreground ml-1 block sm:inline">
+        {displayText}
+      </span>
+      {isLong && (
+        <button
+          onClick={() => setShowFull(!showFull)}
+          className="ml-1 text-primary hover:underline text-[10px] font-medium block sm:inline"
+        >
+          {showFull ? 'Ver menos' : 'Ver más'}
+        </button>
+      )}
+    </div>
+  );
 }
 
 const ITEMS_PER_PAGE = 15;
@@ -270,11 +334,12 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
+          <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader className="hidden md:table-header-group">
                 <TableRow>
                   <TableHead className="px-4 py-3">N. Comercial</TableHead>
+                  <TableHead className="px-4 py-3 min-w-[200px]">N. Genérico</TableHead>
                   <TableHead className="px-4 py-3">P. Compra</TableHead>
                   <TableHead className="px-4 py-3">P. Venta</TableHead>
                   <TableHead className="px-4 py-3">Cantidad</TableHead>
@@ -286,7 +351,7 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
+                    <TableCell colSpan={9} className="text-center py-8">
                       <div className="flex justify-center">
                         <RefreshCw className="h-6 w-6 animate-spin" />
                       </div>
@@ -294,7 +359,7 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
                   </TableRow>
                 ) : filteredData.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                       {showLowMarginOnly 
                         ? "No hay productos con margen bajo" 
                         : "No se encontraron productos"
@@ -307,6 +372,9 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
                       {/* Desktop View */}
                       <TableCell className="hidden md:table-cell px-4 py-3 font-medium">
                         {item.nombre}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell px-4 py-3">
+                        <DescripcionCell descripcion={item.descripcion} />
                       </TableCell>
                       <TableCell className="hidden md:table-cell px-4 py-3">
                         <div className="text-sm">Bs. {item.precioCompra.toFixed(2)}</div>
@@ -365,6 +433,9 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
                               <span className="sr-only">Ver producto</span>
                             </Button>
                           </div>
+                          
+                          {/* Descripción en móvil */}
+                          <DescripcionMobile descripcion={item.descripcion} />
                           
                           <div className="grid grid-cols-2 gap-2 text-sm">
                             <div>

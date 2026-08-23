@@ -1171,7 +1171,7 @@ export function ProductosView() {
                           <TableHeader>
                             <TableRow>
                               <TableHead className="w-[60px]">Imagen</TableHead>
-                              <TableHead className="min-w-[200px]">Nombre Comercial</TableHead>
+                              <TableHead className="min-w-[200px]">N. Comercial</TableHead>
                               <TableHead className="w-[120px]">Ubicación</TableHead>
                               <TableHead className="w-[130px]">Laboratorio</TableHead>
                               <TableHead className="w-[140px]">Código</TableHead>

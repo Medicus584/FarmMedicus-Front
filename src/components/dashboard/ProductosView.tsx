@@ -407,6 +407,69 @@ function Label({ children, className }: { children: React.ReactNode; className?:
   return <span className={className}>{children}</span>;
 }
 
+// Componente para mostrar descripción con tooltip en desktop
+function DescripcionCell({ descripcion }: { descripcion: string }) {
+  const [showFull, setShowFull] = useState(false);
+
+  if (!descripcion) {
+    return <span className="text-xs text-muted-foreground">—</span>;
+  }
+
+  const maxLength = 60;
+  const isLong = descripcion.length > maxLength;
+  const displayText = isLong && !showFull 
+    ? descripcion.substring(0, maxLength) + '...' 
+    : descripcion;
+
+  return (
+    <div className="relative">
+      <div className="text-xs max-w-[200px] break-words">
+        {displayText}
+        {isLong && (
+          <button
+            onClick={() => setShowFull(!showFull)}
+            className="ml-1 text-primary hover:underline text-[10px] font-medium"
+          >
+            {showFull ? 'Ver menos' : 'Ver más'}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Componente para mostrar descripción en móvil
+function DescripcionMobile({ descripcion }: { descripcion: string }) {
+  const [showFull, setShowFull] = useState(false);
+
+  if (!descripcion) {
+    return <span className="text-xs text-muted-foreground">Sin descripción</span>;
+  }
+
+  const maxLength = 50;
+  const isLong = descripcion.length > maxLength;
+  const displayText = isLong && !showFull 
+    ? descripcion.substring(0, maxLength) + '...' 
+    : descripcion;
+
+  return (
+    <div className="text-xs">
+      <span className="font-medium">Descripción:</span>
+      <span className="text-muted-foreground ml-1 block sm:inline">
+        {displayText}
+      </span>
+      {isLong && (
+        <button
+          onClick={() => setShowFull(!showFull)}
+          className="ml-1 text-primary hover:underline text-[10px] font-medium block sm:inline"
+        >
+          {showFull ? 'Ver menos' : 'Ver más'}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function ProductosView() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isStockFormOpen, setIsStockFormOpen] = useState(false);
@@ -1053,6 +1116,9 @@ export function ProductosView() {
                                 </span>
                               </div>
                               <div className="col-span-2">
+                                <DescripcionMobile descripcion={product.descripcion} />
+                              </div>
+                              <div className="col-span-2">
                                 <span className="font-medium">Stock:</span>
                                 <LotesDesglose lotes={product.lotes || []} productName={product.nombre} />
                               </div>
@@ -1171,7 +1237,8 @@ export function ProductosView() {
                           <TableHeader>
                             <TableRow>
                               <TableHead className="w-[60px]">Imagen</TableHead>
-                              <TableHead className="min-w-[200px]">N. Comercial</TableHead>
+                              <TableHead className="min-w-[150px]">N. Comercial</TableHead>
+                              <TableHead className="min-w-[200px]">N. Genérico</TableHead>
                               <TableHead className="w-[120px]">Ubicación</TableHead>
                               <TableHead className="w-[130px]">Laboratorio</TableHead>
                               <TableHead className="w-[140px]">Código</TableHead>
@@ -1220,6 +1287,9 @@ export function ProductosView() {
                                         )}
                                       </div>
                                     </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <DescripcionCell descripcion={product.descripcion} />
                                   </TableCell>
                                   <TableCell className="text-sm">
                                     {product.ubicacion}

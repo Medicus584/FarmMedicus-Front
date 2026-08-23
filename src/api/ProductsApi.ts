@@ -104,7 +104,7 @@ const api = axios.create({
 
 // ============ FUNCIONES PARA UBICACIONES ============
 
-function mapBackendUbicacion (item: BackendItem): BackendUbicacion {
+function mapBackendUbicacion(item: BackendItem): BackendUbicacion {
   return {
     idubicacion: item.id,
     nombre: item.nombre,
@@ -124,7 +124,7 @@ export const getUbicaciones = async (): Promise<BackendUbicacion[]> => {
 
 export const createUbicacion = async (data: { nombre: string }): Promise<BackendUbicacion> => {
   try {
-    const response = await api.post<BackendItem>("/management/ubicaciones", {nombre: data.nombre});
+    const response = await api.post<BackendItem>("/management/ubicaciones", { nombre: data.nombre });
     return mapBackendUbicacion(response.data);
   } catch (error) {
     console.error("Error creating ubicacion:", error);
@@ -134,7 +134,7 @@ export const createUbicacion = async (data: { nombre: string }): Promise<Backend
 
 export const updateUbicacion = async (id: number, data: { nombre: string }): Promise<BackendUbicacion> => {
   try {
-    const response = await api.put<BackendItem>(`/management/ubicaciones/${id}`, {nombre: data.nombre});
+    const response = await api.put<BackendItem>(`/management/ubicaciones/${id}`, { nombre: data.nombre });
     return mapBackendUbicacion(response.data);
   } catch (error) {
     console.error("Error updating ubicacion:", error);
@@ -153,7 +153,7 @@ export const deleteUbicacion = async (id: number): Promise<void> => {
 
 // ============ FUNCIONES PARA CATEGORÍAS ============
 
-function mapBackendCategorias (item: BackendItem): BackendCategoria {
+function mapBackendCategorias(item: BackendItem): BackendCategoria {
   return {
     idcategoria: item.id,
     nombre: item.nombre,
@@ -173,7 +173,7 @@ export const getCategorias = async (): Promise<BackendCategoria[]> => {
 
 export const createCategoria = async (data: { nombre: string }): Promise<BackendCategoria> => {
   try {
-    const response = await api.post<BackendItem>("/management/categorias", {nombre: data.nombre});
+    const response = await api.post<BackendItem>("/management/categorias", { nombre: data.nombre });
     return mapBackendCategorias(response.data);
   } catch (error) {
     console.error("Error creating categoria:", error);
@@ -183,7 +183,7 @@ export const createCategoria = async (data: { nombre: string }): Promise<Backend
 
 export const updateCategoria = async (id: number, data: { nombre: string }): Promise<BackendCategoria> => {
   try {
-    const response = await api.put<BackendItem>(`/management/categorias/${id}`, {nombre: data.nombre});
+    const response = await api.put<BackendItem>(`/management/categorias/${id}`, { nombre: data.nombre });
     return mapBackendCategorias(response.data);
   } catch (error) {
     console.error("Error updating categoria:", error);
@@ -201,6 +201,7 @@ export const deleteCategoria = async (id: number): Promise<void> => {
 };
 
 // ============ FUNCIONES PARA LABORATORIOS ============
+
 export const getLaboratorios = async (): Promise<BackendLaboratorio[]> => {
   try {
     const response = await api.get<BackendLaboratorio[]>("/management/laboratorios");
@@ -213,7 +214,7 @@ export const getLaboratorios = async (): Promise<BackendLaboratorio[]> => {
 
 export const createLaboratorio = async (data: { nombre: string }): Promise<BackendLaboratorio> => {
   try {
-    const response = await api.post<BackendLaboratorio>("/management/laboratorio", {nombre: data.nombre});
+    const response = await api.post<BackendLaboratorio>("/management/laboratorio", { nombre: data.nombre });
     return response.data;
   } catch (error) {
     console.error("Error creating laboratorio:", error);
@@ -223,7 +224,7 @@ export const createLaboratorio = async (data: { nombre: string }): Promise<Backe
 
 export const updateLaboratorio = async (id: number, data: { nombre: string }): Promise<BackendLaboratorio> => {
   try {
-    const response = await api.put<BackendLaboratorio>(`/management/laboratorio/${id}`, {nombre: data.nombre});
+    const response = await api.put<BackendLaboratorio>(`/management/laboratorio/${id}`, { nombre: data.nombre });
     return response.data;
   } catch (error) {
     console.error("Error updating laboratorio:", error);
@@ -241,6 +242,7 @@ export const deleteLaboratorio = async (id: number): Promise<void> => {
 };
 
 // ============ FUNCIONES PARA PRODUCTOS ============
+
 export const getTodosProductosParaSelect = async (): Promise<
   { idproducto: number; nombre: string }[]
 > => {
@@ -399,6 +401,8 @@ export const updateStockProducto = async (
         idlote
       };
       response = await api.put<Producto>(endpoint, requestBody);
+    } else {
+      throw new Error("Datos inválidos para actualizar stock");
     }
     return mapBackendProducto(response.data);
   } catch (error) {
@@ -406,6 +410,8 @@ export const updateStockProducto = async (
     throw new Error("No se pudo actualizar el stock");
   }
 };
+
+// ============ FUNCIÓN DE MAPEO ============
 
 function mapBackendProducto(producto: any): Producto {
   return {

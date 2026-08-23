@@ -20,7 +20,6 @@ import {
   ChevronLeft, 
   ChevronRight,
   Search,
-  Filter,
   X,
   Loader2
 } from "lucide-react";
@@ -53,20 +52,20 @@ function formatDateToLocal(dateStr: string): string {
   }
 }
 
-function getMonthsRemaining(fechaVencimiento: string): number {
-  const hoy = new Date();
-  const parts = fechaVencimiento.split('-');
-  if (parts.length === 3) {
-    const [year, month, day] = parts.map(Number);
-    const fechaVenc = new Date(year, month - 1, day);
-    const diffTime = fechaVenc.getTime() - hoy.getTime();
-    const diffMonths = diffTime / (1000 * 60 * 60 * 24 * 30.44);
-    return Math.round(diffMonths);
-  }
-  const fechaVenc = new Date(fechaVencimiento + 'T00:00:00');
-  const diffTime = fechaVenc.getTime() - hoy.getTime();
-  const diffMonths = diffTime / (1000 * 60 * 60 * 24 * 30.44);
-  return Math.round(diffMonths);
+// Función para obtener el color según los días restantes
+function getMonthsColor(dias: number): string {
+  if (dias <= 180) return "rojo";      // 0-6 meses = Rojo
+  if (dias <= 270) return "amarillo";   // 7-9 meses = Amarillo
+  if (dias <= 365) return "verde";      // 10-12 meses = Verde
+  return "verde";
+}
+
+// Función para obtener el texto de meses según los días
+function getMonthsText(dias: number): string {
+  if (dias <= 0) return "¡VENCIDO!";
+  const meses = Math.ceil(dias / 30);
+  if (meses === 1) return "1 mes";
+  return `${meses} meses`;
 }
 
 type Prioridad = 'todas' | 'rojo' | 'amarillo' | 'verde';
@@ -243,19 +242,6 @@ export function AlertasView() {
     return "ok";
   };
 
-  const getMonthsColor = (meses: number) => {
-  if (meses <= 6) return "rojo";      // 0-6 meses = Rojo
-  if (meses <= 9) return "amarillo";   // 7-9 meses = Amarillo
-  if (meses <= 12) return "verde";     // 10-12 meses = Verde
-  return "verde";                      // Más de 12 meses no debería salir
-};
-
-  const getMonthsText = (meses: number) => {
-    if (meses <= 0) return "¡VENCIDO!";
-    if (meses === 1) return "1 mes";
-    return `${meses} meses`;
-  };
-
   const getStockPrioridad = (alert: AlertStockBajo): Prioridad => {
     const status = getStockStatus(alert.cantidad, alert.stockMinimo);
     if (status === "critical") return "rojo";
@@ -264,8 +250,7 @@ export function AlertasView() {
   };
 
   const getVencimientoPrioridad = (alert: AlertVencimiento): Prioridad => {
-    const meses = getMonthsRemaining(alert.fechaVencimiento);
-    return getMonthsColor(meses) as Prioridad;
+    return getMonthsColor(alert.diasRestantes) as Prioridad;
   };
 
   const handlePageChange = (page: number) => {
@@ -601,7 +586,6 @@ export function AlertasView() {
                   {esMovil ? (
                     <div className="space-y-2">
                       {vencimiento.map((alert) => {
-                        const mesesRestantes = getMonthsRemaining(alert.fechaVencimiento);
                         const prioridadColor = getVencimientoPrioridad(alert);
                         const borderColor = prioridadColor === "rojo" ? "border-red-400" :
                                           prioridadColor === "amarillo" ? "border-yellow-400" : "border-green-400";
@@ -621,7 +605,7 @@ export function AlertasView() {
                                   <h3 className="font-bold text-primary text-sm truncate">{alert.producto}</h3>
                                   <div className={`text-white font-bold text-xs px-2 py-0.5 rounded-full inline-flex items-center gap-1 flex-shrink-0 ${badgeColor}`}>
                                     <Clock className="h-3 w-3" />
-                                    {getMonthsText(mesesRestantes)}
+                                    {getMonthsText(alert.diasRestantes)}
                                   </div>
                                 </div>
                                 {alert.descripcion && (
@@ -672,7 +656,6 @@ export function AlertasView() {
                         </TableHeader>
                         <TableBody>
                           {vencimiento.map((alert) => {
-                            const mesesRestantes = getMonthsRemaining(alert.fechaVencimiento);
                             const prioridadColor = getVencimientoPrioridad(alert);
                             const prioridadBg = prioridadColor === "rojo" ? "bg-red-600" :
                                                prioridadColor === "amarillo" ? "bg-yellow-500" : "bg-green-500";
@@ -711,7 +694,7 @@ export function AlertasView() {
                                 <TableCell className="text-center">
                                   <div className={`text-white font-bold text-sm px-3 py-1 rounded-full inline-flex items-center gap-1 min-w-[80px] justify-center ${prioridadBg}`}>
                                     <Clock className="h-3.5 w-3.5" />
-                                    {getMonthsText(mesesRestantes)}
+                                    {getMonthsText(alert.diasRestantes)}
                                   </div>
                                 </TableCell>
                                 <TableCell className="text-center">

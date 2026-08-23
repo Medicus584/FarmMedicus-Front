@@ -244,10 +244,11 @@ export function AlertasView() {
   };
 
   const getMonthsColor = (meses: number) => {
-    if (meses <= 6) return "rojo";
-    if (meses <= 9) return "amarillo";
-    return "verde";
-  };
+  if (meses <= 6) return "rojo";      // 0-6 meses = Rojo
+  if (meses <= 9) return "amarillo";   // 7-9 meses = Amarillo
+  if (meses <= 12) return "verde";     // 10-12 meses = Verde
+  return "verde";                      // Más de 12 meses no debería salir
+};
 
   const getMonthsText = (meses: number) => {
     if (meses <= 0) return "¡VENCIDO!";

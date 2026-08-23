@@ -72,11 +72,9 @@ interface StockFormData {
   modoNuevoLote: boolean;
 }
 
-// Función helper para formatear fechas sin problemas de zona horaria
 function formatDateToLocal(dateStr: string): string {
   if (!dateStr) return '';
   
-  // Si la fecha viene en formato YYYY-MM-DD
   if (dateStr.includes('-')) {
     const parts = dateStr.split('-');
     if (parts.length === 3) {
@@ -85,7 +83,6 @@ function formatDateToLocal(dateStr: string): string {
     }
   }
   
-  // Fallback: usar Date con UTC
   try {
     return new Date(dateStr + 'T00:00:00').toLocaleDateString('es-ES', { timeZone: 'UTC' });
   } catch {
@@ -93,7 +90,6 @@ function formatDateToLocal(dateStr: string): string {
   }
 }
 
-// Componente para el carrusel de imágenes
 interface ImageCarouselProps {
   images: string[];
   productName: string;
@@ -198,7 +194,6 @@ export function ImageCarousel({
   );
 }
 
-// Componente para desglose de lotes
 function LotesDesglose({ lotes, productName }: { lotes: ProductoLote[], productName: string }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -242,7 +237,6 @@ function LotesDesglose({ lotes, productName }: { lotes: ProductoLote[], productN
   );
 }
 
-// Componente para mostrar productos similares en un Dialog
 function ProductosSimilaresDialog({ 
   similares, 
   productName,
@@ -291,7 +285,6 @@ function ProductosSimilaresDialog({
   );
 }
 
-// Hook para debounce
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
 
@@ -308,7 +301,6 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
-// Componente de filtros
 function FiltrosProductos({
   categorias,
   laboratorios,
@@ -403,12 +395,10 @@ function FiltrosProductos({
   );
 }
 
-// Componente Label
 function Label({ children, className }: { children: React.ReactNode; className?: string }) {
   return <span className={className}>{children}</span>;
 }
 
-// Componente para mostrar descripción con tooltip en desktop
 function DescripcionCell({ descripcion }: { descripcion: string }) {
   const [showFull, setShowFull] = useState(false);
 
@@ -439,7 +429,6 @@ function DescripcionCell({ descripcion }: { descripcion: string }) {
   );
 }
 
-// Componente para mostrar descripción en móvil
 function DescripcionMobile({ descripcion }: { descripcion: string }) {
   const [showFull, setShowFull] = useState(false);
 
@@ -482,17 +471,14 @@ export function ProductosView() {
   const [loadingAll, setLoadingAll] = useState(false);
   const [searching, setSearching] = useState(false);
 
-  // Paginación
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [totalProducts, setTotalProducts] = useState(0);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  // Filtros
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState("");
   const [laboratorioSeleccionado, setLaboratorioSeleccionado] = useState("");
 
-  // Estados para las opciones desde la API
   const [ubicaciones, setUbicaciones] = useState<string[]>([]);
   const [categorias, setCategorias] = useState<string[]>([]);
   const [laboratorios, setLaboratorios] = useState<string[]>([]);
@@ -515,33 +501,23 @@ export function ProductosView() {
 
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
-  // REF para controlar si ya se procesó la búsqueda desde sessionStorage
   const hasProcessedSessionStorage = useRef(false);
-  // REF para controlar si es la primera carga
   const isInitialMount = useRef(true);
-  // REF para controlar si se está ejecutando una búsqueda
-  const isSearchingRef = useRef(false);
-  // REF para el timeout de búsqueda - CORREGIDO: usar ReturnType<typeof setTimeout> en lugar de NodeJS.Timeout
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // NUEVO: Efecto para leer los valores de sessionStorage cuando se monta el componente
+  // ============================================
+  // LEER sessionStorage PARA BÚSQUEDA AUTOMÁTICA
+  // ============================================
   useEffect(() => {
-    // Solo procesar una vez
     if (hasProcessedSessionStorage.current) return;
     
-    // Verificar si hay un producto guardado en sessionStorage
     const storedProductName = sessionStorage.getItem('searchProductName');
     
     if (storedProductName) {
       console.log('ProductosView: Leyendo sessionStorage:', storedProductName);
-      
-      // Establecer el término de búsqueda
       setSearchTerm(storedProductName);
-      
-      // Marcar como procesado
       hasProcessedSessionStorage.current = true;
       
-      // Limpiar el sessionStorage DESPUÉS de establecer el valor
       setTimeout(() => {
         sessionStorage.removeItem('searchProductId');
         sessionStorage.removeItem('searchProductName');
@@ -550,7 +526,9 @@ export function ProductosView() {
     }
   }, []);
 
-  // Cargar datos básicos (opciones para selects)
+  // ============================================
+  // CARGAR DATOS BÁSICOS
+  // ============================================
   useEffect(() => {
     const loadBasicData = async () => {
       try {
@@ -581,11 +559,14 @@ export function ProductosView() {
     loadBasicData();
   }, [toast]);
 
-  // Cargar productos con paginación
+  // ============================================
+  // CARGAR PRODUCTOS
+  // ============================================
   const loadProducts = useCallback(async (page: number = 1) => {
     setLoadingAll(true);
     try {
       const response = await getAllProductos(page, 15);
+      console.log("Productos cargados:", response.productos);
       setProducts(response.productos);
       setTotalPages(response.totalPages);
       setTotalProducts(response.total);
@@ -602,9 +583,10 @@ export function ProductosView() {
     }
   }, [toast]);
 
-  // Búsqueda con paginación y filtros
+  // ============================================
+  // BUSCAR PRODUCTOS
+  // ============================================
   const performSearch = useCallback(async (query: string, page: number = 1) => {
-    // Si el query tiene menos de 2 caracteres y no hay filtros, cargar todos
     if (query.trim().length < 2 && !categoriaSeleccionada && !laboratorioSeleccionado) {
       await loadProducts(page);
       return;
@@ -620,6 +602,7 @@ export function ProductosView() {
         page,
         15
       );
+      console.log("Resultados de búsqueda:", response.productos);
       setProducts(response.productos);
       setTotalPages(response.totalPages);
       setTotalProducts(response.total);
@@ -639,43 +622,37 @@ export function ProductosView() {
     }
   }, [categoriaSeleccionada, laboratorioSeleccionado, loadProducts, toast]);
 
-  // Función para cargar productos con filtros aplicados
   const loadProductsWithFilters = useCallback(async (page: number = 1) => {
-    // Si hay término de búsqueda con al menos 2 caracteres, usar búsqueda
     if (searchTerm.trim().length >= 2) {
       await performSearch(searchTerm, page);
     } else {
-      // Si no hay búsqueda pero hay filtros, usar búsqueda con filtros
       if (categoriaSeleccionada || laboratorioSeleccionado) {
         await performSearch("", page);
       } else {
-        // Sin búsqueda ni filtros, cargar todos
         await loadProducts(page);
       }
     }
   }, [searchTerm, categoriaSeleccionada, laboratorioSeleccionado, performSearch, loadProducts]);
 
-  // Efecto para búsqueda con debounce - SOLO cuando cambia el searchTerm por input del usuario
+  // ============================================
+  // EFECTOS PARA BÚSQUEDA Y FILTROS
+  // ============================================
   useEffect(() => {
-    // Si es la primera carga, no ejecutar porque ya se maneja en el efecto de inicialización
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
     
-    // Limpiar timeout anterior
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
       searchTimeoutRef.current = null;
     }
 
-    // Si el término de búsqueda tiene menos de 2 caracteres y no hay filtros, cargar todos inmediatamente
     if (searchTerm.trim().length < 2 && !categoriaSeleccionada && !laboratorioSeleccionado) {
       loadProducts(1);
       return;
     }
 
-    // Si el término tiene 2 o más caracteres, hacer la búsqueda con debounce
     searchTimeoutRef.current = setTimeout(() => {
       loadProductsWithFilters(1);
     }, 500);
@@ -688,35 +665,36 @@ export function ProductosView() {
     };
   }, [searchTerm, loadProductsWithFilters, loadProducts, categoriaSeleccionada, laboratorioSeleccionado]);
 
-  // Efecto para filtros - cuando cambian los filtros, recargar
   useEffect(() => {
-    // No ejecutar en la primera carga
     if (isInitialMount.current) return;
     
     console.log("Filtros cambiados:", { categoriaSeleccionada, laboratorioSeleccionado });
     loadProductsWithFilters(1);
   }, [categoriaSeleccionada, laboratorioSeleccionado, loadProductsWithFilters]);
 
-  // Efecto para carga inicial - se ejecuta solo una vez
+  // Carga inicial con sessionStorage
   useEffect(() => {
-    // Verificar si hay un término de búsqueda desde sessionStorage
     const storedProductName = sessionStorage.getItem('searchProductName');
     
     if (storedProductName && storedProductName.trim().length >= 2) {
-      // Si hay búsqueda, ejecutarla
       performSearch(storedProductName, 1);
     } else {
-      // Si no, cargar todos los productos
       loadProducts(1);
     }
-  }, []); // Solo ejecutar al montar
+  }, []);
 
+  // ============================================
+  // PAGINACIÓN
+  // ============================================
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages && newPage !== currentPage) {
       loadProductsWithFilters(newPage);
     }
   };
 
+  // ============================================
+  // ACCIONES: EDITAR, STOCK, ELIMINAR
+  // ============================================
   const handleEdit = (product: Producto) => {
     if (isAssistant) return;
     setEditingProduct(product);
@@ -781,7 +759,6 @@ export function ProductosView() {
         description: `Stock de ${stockFormData.productoNombre} aumentado a ${newTotal} unidades.`,
       });
 
-      // Recargar productos para actualizar la vista
       await loadProductsWithFilters(currentPage);
 
       setIsStockFormOpen(false);
@@ -814,7 +791,6 @@ export function ProductosView() {
         variant: "destructive",
       });
 
-      // Recargar productos
       await loadProductsWithFilters(currentPage);
     } catch (error) {
       toast({
@@ -825,6 +801,9 @@ export function ProductosView() {
     }
   };
 
+  // ============================================
+  // FORMULARIO: SUBMIT Y CANCEL
+  // ============================================
   const handleFormSubmit = async (productData: any, isEditing: boolean) => {
     try {
       const action = isEditing ? "editado" : "agregado";
@@ -836,7 +815,6 @@ export function ProductosView() {
       setEditingProduct(null);
       setIsFormOpen(false);
 
-      // Recargar productos
       await loadProductsWithFilters(currentPage);
     } catch (error) {
       toast({
@@ -857,6 +835,9 @@ export function ProductosView() {
     setLaboratorioSeleccionado("");
   };
 
+  // ============================================
+  // RENDER
+  // ============================================
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -867,6 +848,7 @@ export function ProductosView() {
 
   return (
     <div className="space-y-4 md:space-y-6 p-2 md:p-0">
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h1 className="text-2xl md:text-3xl font-bold text-primary">
           {isAssistant ? "Visualización de Productos" : "Gestión de Productos"}
@@ -912,7 +894,7 @@ export function ProductosView() {
         )}
       </div>
 
-      {/* Dialog para aumentar stock - CORREGIDO */}
+      {/* Dialog para aumentar stock */}
       <Dialog open={isStockFormOpen} onOpenChange={setIsStockFormOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -1044,6 +1026,7 @@ export function ProductosView() {
         </DialogContent>
       </Dialog>
 
+      {/* Card Principal */}
       <Card>
         <CardHeader className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <CardTitle>
@@ -1107,6 +1090,11 @@ export function ProductosView() {
                                   {product.nombre}
                                 </h3>
                                 <div className="flex flex-wrap gap-1 mt-1">
+                                  <Badge variant="outline" className="text-xs px-1.5 py-0.5">
+                                    <span className="font-mono text-primary font-medium">
+                                      {product.codigoP || "—"}
+                                    </span>
+                                  </Badge>
                                   {product.categorias
                                     .slice(0, 2)
                                     .map((categoria, index) => (
@@ -1144,6 +1132,12 @@ export function ProductosView() {
 
                             <div className="grid grid-cols-2 gap-2 text-xs sm:text-sm">
                               <div>
+                                <span className="font-medium">Código:</span>
+                                <span className="text-primary ml-1 font-mono text-xs block sm:inline">
+                                  {product.codigoP || "—"}
+                                </span>
+                              </div>
+                              <div>
                                 <span className="font-medium">Ubicación:</span>
                                 <span className="text-muted-foreground ml-1 block sm:inline">
                                   {product.ubicacion}
@@ -1176,7 +1170,7 @@ export function ProductosView() {
                               </div>
                               {product.codigo_barras && (
                                 <div className="col-span-2">
-                                  <span className="font-medium">Código:</span>
+                                  <span className="font-medium">Código Barras:</span>
                                   <span className="text-muted-foreground ml-1 font-mono text-xs break-all">
                                     {product.codigo_barras}
                                   </span>
@@ -1184,7 +1178,6 @@ export function ProductosView() {
                               )}
                             </div>
 
-                            {/* Similares en móvil - con botón de ojo */}
                             <div className="flex items-center gap-2">
                               <span className="font-medium text-xs">Similares:</span>
                               <ProductosSimilaresDialog
@@ -1283,12 +1276,13 @@ export function ProductosView() {
                           <TableHeader>
                             <TableRow>
                               <TableHead className="w-[60px]">Imagen</TableHead>
+                              <TableHead className="w-[120px]">Código</TableHead>
                               <TableHead className="min-w-[150px]">N. Comercial</TableHead>
                               <TableHead className="min-w-[200px]">N. Genérico</TableHead>
                               <TableHead className="w-[120px]">Ubicación</TableHead>
                               <TableHead className="w-[130px]">Laboratorio</TableHead>
                               <TableHead className="w-[130px]">Forma Farm.</TableHead>
-                              <TableHead className="w-[140px]">Código</TableHead>
+                              <TableHead className="w-[140px]">Código Barras</TableHead>
                               <TableHead className="min-w-[180px]">Stock / Lotes</TableHead>
                               <TableHead className="w-[100px] text-center">Similares</TableHead>
                               <TableHead className="w-[110px]">Precio</TableHead>
@@ -1307,6 +1301,11 @@ export function ProductosView() {
                                         className="w-10 h-10"
                                       />
                                     </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <span className="text-xs font-mono font-medium text-primary">
+                                      {product.codigoP || "—"}
+                                    </span>
                                   </TableCell>
                                   <TableCell>
                                     <div>

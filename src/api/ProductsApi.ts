@@ -50,6 +50,7 @@ export interface ProductoLote {
 
 export interface Producto {
   idproducto: number;
+  codigoP: string | null;
   nombre: string;
   descripcion: string;
   idubicacion: number;
@@ -77,6 +78,7 @@ export interface Producto {
 }
 
 export interface ProductoRequest {
+  codigoP?: string | null;
   nombre: string;
   descripcion: string;
   idubicacion: number;
@@ -306,6 +308,19 @@ export const getTodosProductosParaSelect = async (): Promise<
   }
 };
 
+export const getProductoByCodigoP = async (codigoP: string): Promise<{ exists: boolean; producto?: Producto }> => {
+  try {
+    const response = await api.get(`/productos/codigo/${encodeURIComponent(codigoP.trim())}`);
+    return response.data;
+  } catch (error: any) {
+    if (error.response?.status === 404) {
+      return { exists: false };
+    }
+    console.error("Error buscando producto por código:", error);
+    throw new Error("No se pudo buscar el producto");
+  }
+};
+
 export const buscarProductos = async (
   termino: string,
   categoria?: string,
@@ -438,6 +453,7 @@ export const getAllProductos = async (
 export const getProductoById = async (id: number): Promise<Producto> => {
   try {
     const response = await api.get<any>(`/productos/${id}`);
+    console.log("Respuesta de getProductoById:", response.data);
     return mapBackendProducto(response.data);
   } catch (error) {
     console.error("Error fetching producto:", error);
@@ -455,7 +471,7 @@ export const createProducto = async (formData: FormData): Promise<Producto> => {
     return mapBackendProducto(response.data);
   } catch (error) {
     console.error("Error creating producto:", error);
-    throw new Error("No se pudo crear el producto");
+    throw error;
   }
 };
 
@@ -477,7 +493,7 @@ export const updateProducto = async (
     return mapBackendProducto(response.data);
   } catch (error) {
     console.error("Error updating producto:", error);
-    throw new Error("No se pudo actualizar el producto");
+    throw error;
   }
 };
 
@@ -523,22 +539,30 @@ export const updateStockProducto = async (
   }
 };
 
-// ============ FUNCIÓN DE MAPEO ============
+// ============ FUNCIÓN DE MAPEO CORREGIDA ============
 
 function mapBackendProducto(producto: any): Producto {
+  // Log para depuración
+  console.log("Mapeando producto - codigoP:", producto.codigoP);
+  console.log("Producto completo recibido:", producto);
+  
+  // Asegurar que codigoP se mapee correctamente (soporta codigoP o codigop)
+  const codigoP = producto.codigoP || producto.codigop || null;
+  
   return {
     idproducto: producto.idproducto,
+    codigoP: codigoP,
     nombre: producto.nombre,
     descripcion: producto.descripcion || '',
     idubicacion: producto.idubicacion,
-    ubicacion: producto.ubicacion_nombre || "Sin ubicación",
-    ubicacion_nombre: producto.ubicacion_nombre || "Sin ubicación",
+    ubicacion: producto.ubicacion_nombre || producto.ubicacion || "Sin ubicación",
+    ubicacion_nombre: producto.ubicacion_nombre || producto.ubicacion || "Sin ubicación",
     idlaboratorio: producto.idlaboratorio || 0,
-    laboratorio: producto.laboratorio_nombre || "Sin laboratorio",
-    laboratorio_nombre: producto.laboratorio_nombre || "Sin laboratorio",
+    laboratorio: producto.laboratorio_nombre || producto.laboratorio || "Sin laboratorio",
+    laboratorio_nombre: producto.laboratorio_nombre || producto.laboratorio || "Sin laboratorio",
     idforma_farmaceutica: producto.idforma_farmaceutica || 0,
-    forma_farmaceutica: producto.forma_farmaceutica_nombre || "Sin forma farmacéutica",
-    forma_farmaceutica_nombre: producto.forma_farmaceutica_nombre || "Sin forma farmacéutica",
+    forma_farmaceutica: producto.forma_farmaceutica_nombre || producto.forma_farmaceutica || "Sin forma farmacéutica",
+    forma_farmaceutica_nombre: producto.forma_farmaceutica_nombre || producto.forma_farmaceutica || "Sin forma farmacéutica",
     categorias: producto.categorias || [],
     estado: producto.estado || 1,
     imagen: producto.imagen || "https://static.vecteezy.com/system/resources/previews/011/781/801/non_2x/medicine-3d-render-icon-illustration-png.png",
@@ -550,7 +574,7 @@ function mapBackendProducto(producto: any): Producto {
     lotes: (producto.lotes || []).map((lote: any) => ({
       idlote: lote.idlote,
       stock: lote.stock,
-      fechaVencimiento: lote.fecha_vencimiento || lote.fechaVencimiento || '',
+      fechaVencimiento: lote.fechaVencimiento || lote.fecha_vencimiento || '',
     })),
     productos_similares: producto.productos_similares || [],
   };

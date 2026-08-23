@@ -23,7 +23,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, X, Search, Camera, Edit, Trash2, Loader2, ChevronDown } from "lucide-react";
+import { Plus, X, Search, Camera, Edit, Trash2, Loader2, ChevronDown, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import BarcodeScanner from "./BarcodeScanner";
@@ -49,10 +49,12 @@ import {
   createProducto,
   updateProducto,
   getTodosProductosParaSelect,
+  getProductoByCodigoP,
 } from "@/api/ProductsApi";
 
 interface ProductFormData {
   id?: string;
+  codigoP: string;
   nombre: string;
   categorias: string[];
   descripcion: string;
@@ -141,14 +143,12 @@ const SearchSelectWithDropdown = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Filtrar opciones que coinciden con la búsqueda Y que no están seleccionadas
   const filteredOptions = (options || []).filter(
     (option) =>
       option.toLowerCase().includes(searchTerm.toLowerCase()) &&
       !selectedValues.includes(option),
   );
 
-  // Cerrar dropdown al hacer clic fuera
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -238,7 +238,6 @@ const SearchSelectWithDropdown = ({
             />
           </div>
 
-          {/* DROPDOWN */}
           {isOpen && (
             <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-52 overflow-y-auto">
               {filteredOptions.length > 0 ? (
@@ -317,7 +316,6 @@ const SearchSelectWithDropdown = ({
           )}
         </div>
 
-        {/* Elementos seleccionados como badges */}
         {selectedValues.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-1">
             {selectedValues.map((value) => (
@@ -340,7 +338,6 @@ const SearchSelectWithDropdown = ({
         )}
       </div>
 
-      {/* AlertDialog de confirmación para eliminar */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -372,7 +369,7 @@ const SearchSelectWithDropdown = ({
 };
 
 // ============================================
-// COMPONENTE PARA SELECCIÓN ÚNICA CON DROPDOWN (UBICACIÓN, LABORATORIO Y FORMA FARMACÉUTICA)
+// COMPONENTE PARA SELECCIÓN ÚNICA CON DROPDOWN
 // ============================================
 const SingleSelectWithDropdown = ({
   options,
@@ -406,12 +403,10 @@ const SingleSelectWithDropdown = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Filtrar opciones que coinciden con la búsqueda
   const filteredOptions = (options || []).filter(
     (option) => option.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Cerrar dropdown al hacer clic fuera
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -497,7 +492,6 @@ const SingleSelectWithDropdown = ({
             />
           </div>
 
-          {/* DROPDOWN */}
           {isOpen && (
             <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-52 overflow-y-auto">
               {filteredOptions.length > 0 ? (
@@ -579,7 +573,6 @@ const SingleSelectWithDropdown = ({
           )}
         </div>
 
-        {/* Mostrar selección actual si existe */}
         {selectedValue && !searchTerm && (
           <div className="mt-1">
             <Badge variant="secondary" className="text-sm px-2 py-1 h-6">
@@ -596,7 +589,6 @@ const SingleSelectWithDropdown = ({
         )}
       </div>
 
-      {/* AlertDialog de confirmación para eliminar */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -838,6 +830,7 @@ export function FormularioProductos({
 
       return {
         id: product.idproducto?.toString(),
+        codigoP: product.codigoP || '',
         nombre: product.nombre || '',
         categorias: product.categorias || [],
         descripcion: product.descripcion || '',
@@ -857,6 +850,7 @@ export function FormularioProductos({
       };
     }
     return {
+      codigoP: "",
       nombre: "",
       categorias: [],
       descripcion: "",
@@ -888,6 +882,11 @@ export function FormularioProductos({
     { stock: 0, fechaVencimiento: "" }
   ]);
 
+  const [buscandoCodigo, setBuscandoCodigo] = useState(false);
+  const [productoEncontrado, setProductoEncontrado] = useState<any>(null);
+  const [mostrarMensajeExistente, setMostrarMensajeExistente] = useState(false);
+  const codeInputTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [localLists, setLocalLists] = useState({
     ubicaciones: ubicaciones || [],
     categorias: categorias || [],
@@ -914,7 +913,6 @@ export function FormularioProductos({
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
-  // Manejar historial del navegador para el escáner
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
       if (showScanner) {
@@ -1029,6 +1027,72 @@ export function FormularioProductos({
       })));
     }
   }, [product]);
+
+  // Efecto para buscar producto por código automáticamente
+  useEffect(() => {
+    if (codeInputTimeout.current) {
+      clearTimeout(codeInputTimeout.current);
+    }
+
+    if (product && formData.codigoP === product.codigoP) {
+      setProductoEncontrado(null);
+      setMostrarMensajeExistente(false);
+      return;
+    }
+
+    if (!formData.codigoP || formData.codigoP.trim().length < 2) {
+      setProductoEncontrado(null);
+      setMostrarMensajeExistente(false);
+      return;
+    }
+
+    codeInputTimeout.current = setTimeout(() => {
+      buscarProductoPorCodigo(formData.codigoP);
+    }, 800);
+
+    return () => {
+      if (codeInputTimeout.current) {
+        clearTimeout(codeInputTimeout.current);
+      }
+    };
+  }, [formData.codigoP]);
+
+  const buscarProductoPorCodigo = async (codigo: string) => {
+    if (!codigo || codigo.trim().length < 2) {
+      setProductoEncontrado(null);
+      setMostrarMensajeExistente(false);
+      return;
+    }
+
+    setBuscandoCodigo(true);
+    try {
+      const result = await getProductoByCodigoP(codigo.trim());
+      
+      if (result.exists && result.producto) {
+        if (product && result.producto.idproducto === product.idproducto) {
+          setProductoEncontrado(null);
+          setMostrarMensajeExistente(false);
+          return;
+        }
+        
+        setProductoEncontrado(result.producto);
+        setMostrarMensajeExistente(true);
+        
+        toast({
+          title: "Producto ya registrado",
+          description: `El código "${codigo}" ya pertenece al producto: ${result.producto.nombre}`,
+          variant: "destructive",
+        });
+      } else {
+        setProductoEncontrado(null);
+        setMostrarMensajeExistente(false);
+      }
+    } catch (error) {
+      console.error("Error buscando producto:", error);
+    } finally {
+      setBuscandoCodigo(false);
+    }
+  };
 
   const handleInputChange = (
     field: keyof ProductFormData,
@@ -1306,6 +1370,26 @@ export function FormularioProductos({
 
     if (isSubmittingProduct) return;
 
+    if (!formData.codigoP?.trim()) {
+      toast({ 
+        title: "Error", 
+        description: "El código de producto es obligatorio", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    if (!product || formData.codigoP !== product.codigoP) {
+      if (productoEncontrado && mostrarMensajeExistente) {
+        toast({ 
+          title: "Error", 
+          description: `El código "${formData.codigoP}" ya está registrado para el producto: ${productoEncontrado.nombre}`,
+          variant: "destructive" 
+        });
+        return;
+      }
+    }
+
     if (!formData.nombre?.trim()) {
       toast({ title: "Error", description: "El nombre del producto es obligatorio", variant: "destructive" });
       return;
@@ -1380,6 +1464,7 @@ export function FormularioProductos({
       const descripcionFormateada = formatDescriptionForProduction(formData.descripcion);
       const formDataToSend = new FormData();
 
+      formDataToSend.append("codigoP", formData.codigoP.trim());
       formDataToSend.append("nombre", formData.nombre);
       formDataToSend.append("descripcion", descripcionFormateada);
       formDataToSend.append("idubicacion", idubicacion.toString());
@@ -1430,11 +1515,20 @@ export function FormularioProductos({
       onSubmit(formData, isEditing);
     } catch (error: any) {
       console.error("Error al guardar el producto:", error);
-      toast({
-        title: "Error",
-        description: error.message || "No se pudo guardar el producto. Por favor, intenta nuevamente.",
-        variant: "destructive",
-      });
+      
+      if (error.response?.status === 409 && error.response?.data?.code === "DUPLICATE_CODE") {
+        toast({
+          title: "Código duplicado",
+          description: error.response?.data?.error || "Ya existe un producto con este código.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: error.message || "No se pudo guardar el producto. Por favor, intenta nuevamente.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsSubmittingProduct(false);
     }
@@ -1476,7 +1570,56 @@ export function FormularioProductos({
       )}
 
       <form onSubmit={handleSubmit} className="w-full space-y-3">
-        {/* Nombre */}
+        {/* Código de Producto */}
+        <div className="space-y-1.5">
+          <Label htmlFor="codigoP" className="text-sm font-medium">
+            Código de Producto <span className="text-red-500">*</span>
+          </Label>
+          <div className="relative">
+            <Input
+              id="codigoP"
+              value={formData.codigoP}
+              onChange={(e) => {
+                const value = e.target.value.toUpperCase();
+                setFormData((prev) => ({ ...prev, codigoP: value }));
+                setMostrarMensajeExistente(false);
+                setProductoEncontrado(null);
+              }}
+              placeholder="Ej: PROD-001"
+              className={`h-9 text-sm font-mono ${mostrarMensajeExistente && productoEncontrado ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+              required
+              disabled={buscandoCodigo}
+            />
+            {buscandoCodigo && (
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
+            )}
+          </div>
+          
+          {mostrarMensajeExistente && productoEncontrado && (
+            <div className="flex items-center p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-destructive flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
+                  Producto ya registrado
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  <strong>Código:</strong> {productoEncontrado.codigoP}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  <strong>Producto:</strong> {productoEncontrado.nombre}
+                </p>
+              </div>
+            </div>
+          )}
+          
+          <p className="text-xs text-muted-foreground">
+            El código debe ser único y se usará para identificar el producto.
+          </p>
+        </div>
+
+        {/* Nombre Comercial */}
         <div className="space-y-1.5">
           <Label htmlFor="nombre" className="text-sm font-medium">
             Nombre Comercial <span className="text-red-500">*</span>
@@ -1549,7 +1692,7 @@ export function FormularioProductos({
           />
         </div>
 
-        {/* Ubicación y Categorías lado a lado */}
+        {/* Ubicación y Categorías */}
         <div className="grid grid-cols-2 gap-3">
           <SingleSelectWithDropdown
             options={localLists.ubicaciones}
@@ -1582,7 +1725,7 @@ export function FormularioProductos({
           />
         </div>
 
-        {/* Laboratorio y Forma Farmacéutica lado a lado */}
+        {/* Laboratorio y Forma Farmacéutica */}
         <div className="grid grid-cols-2 gap-3">
           <SingleSelectWithDropdown
             options={localLists.laboratorios}
@@ -1632,7 +1775,7 @@ export function FormularioProductos({
           </div>
         </div>
 
-        {/* Precios lado a lado */}
+        {/* Precios */}
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="precioVenta" className="text-sm font-medium">

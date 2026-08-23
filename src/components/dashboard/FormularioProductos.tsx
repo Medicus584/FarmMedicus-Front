@@ -37,9 +37,13 @@ import {
   createLaboratorio,
   updateLaboratorio,
   deleteLaboratorio,
+  createFormaFarmaceutica,
+  updateFormaFarmaceutica,
+  deleteFormaFarmaceutica,
   getUbicaciones,
   getCategorias,
   getLaboratorios,
+  getFormasFarmaceuticas,
 } from "@/api/ProductsApi";
 import {
   createProducto,
@@ -54,6 +58,7 @@ interface ProductFormData {
   descripcion: string;
   ubicacion: string;
   laboratorio: string;
+  formaFarmaceutica: string;
   precioVenta: string | number;
   precioCompra?: string | number;
   stock: number | string;
@@ -76,6 +81,7 @@ interface FormularioProductosProps {
   ubicaciones: string[];
   categorias: string[];
   laboratorios: string[];
+  formasFarmaceuticas: string[];
   onSubmit: (productData: ProductFormData, isEditing: boolean) => void;
   onCancel: () => void;
   onRefreshData?: () => void;
@@ -83,13 +89,14 @@ interface FormularioProductosProps {
 
 interface AddDialogState {
   open: boolean;
-  type: "categoria" | "ubicacion" | "laboratorio" | null;
+  type: "categoria" | "ubicacion" | "laboratorio" | "formaFarmaceutica" | null;
 }
 
 interface ManagementItem {
   idubicacion?: number;
   idcategoria?: number;
   idlaboratorio?: number;
+  idforma_farmaceutica?: number;
   id?: number;
   nombre: string;
   estado: number;
@@ -135,7 +142,7 @@ const SearchSelectWithDropdown = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Filtrar opciones que coinciden con la búsqueda Y que no están seleccionadas
-  const filteredOptions = options.filter(
+  const filteredOptions = (options || []).filter(
     (option) =>
       option.toLowerCase().includes(searchTerm.toLowerCase()) &&
       !selectedValues.includes(option),
@@ -365,7 +372,7 @@ const SearchSelectWithDropdown = ({
 };
 
 // ============================================
-// COMPONENTE PARA SELECCIÓN ÚNICA CON DROPDOWN (UBICACIÓN Y LABORATORIO)
+// COMPONENTE PARA SELECCIÓN ÚNICA CON DROPDOWN (UBICACIÓN, LABORATORIO Y FORMA FARMACÉUTICA)
 // ============================================
 const SingleSelectWithDropdown = ({
   options,
@@ -400,7 +407,7 @@ const SingleSelectWithDropdown = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Filtrar opciones que coinciden con la búsqueda
-  const filteredOptions = options.filter(
+  const filteredOptions = (options || []).filter(
     (option) => option.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -644,7 +651,7 @@ const ProductoSimilarSelect = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const filteredOptions = productosDisponibles.filter(
+  const filteredOptions = (productosDisponibles || []).filter(
     (producto) =>
       producto.nombre.toLowerCase().includes(searchTerm.toLowerCase()) &&
       !selectedValues.includes(producto.idproducto) &&
@@ -678,7 +685,7 @@ const ProductoSimilarSelect = ({
   };
 
   const getProductoNombre = (id: number) => {
-    const producto = productosDisponibles.find((p) => p.idproducto === id);
+    const producto = (productosDisponibles || []).find((p) => p.idproducto === id);
     return producto ? producto.nombre : `Producto ${id}`;
   };
 
@@ -817,6 +824,7 @@ export function FormularioProductos({
   ubicaciones,
   categorias,
   laboratorios,
+  formasFarmaceuticas,
   onSubmit,
   onCancel,
   onRefreshData,
@@ -835,6 +843,7 @@ export function FormularioProductos({
         descripcion: product.descripcion || '',
         ubicacion: product.ubicacion || '',
         laboratorio: product.laboratorio || '',
+        formaFarmaceutica: product.forma_farmaceutica || '',
         precioVenta: product.precio_venta?.toString() || '',
         precioCompra: product.precio_compra?.toString() || '',
         stock: product.stock_total?.toString() || '',
@@ -853,6 +862,7 @@ export function FormularioProductos({
       descripcion: "",
       ubicacion: "",
       laboratorio: "",
+      formaFarmaceutica: "",
       precioVenta: "",
       precioCompra: "",
       stock: "",
@@ -879,19 +889,22 @@ export function FormularioProductos({
   ]);
 
   const [localLists, setLocalLists] = useState({
-    ubicaciones: ubicaciones,
-    categorias: categorias,
-    laboratorios: laboratorios,
+    ubicaciones: ubicaciones || [],
+    categorias: categorias || [],
+    laboratorios: laboratorios || [],
+    formasFarmaceuticas: formasFarmaceuticas || [],
   });
 
   const [managementItems, setManagementItems] = useState<{
     ubicaciones: ManagementItem[];
     categorias: ManagementItem[];
     laboratorios: ManagementItem[];
+    formasFarmaceuticas: ManagementItem[];
   }>({
     ubicaciones: [],
     categorias: [],
     laboratorios: [],
+    formasFarmaceuticas: [],
   });
 
   const [isSubmittingProduct, setIsSubmittingProduct] = useState(false);
@@ -934,37 +947,49 @@ export function FormularioProductos({
 
   const loadManagementItems = async () => {
     try {
-      const [ubicacionesData, categoriasData, laboratoriosData] = await Promise.all([
+      const [ubicacionesData, categoriasData, laboratoriosData, formasFarmaceuticasData] = await Promise.all([
         getUbicaciones(),
         getCategorias(),
         getLaboratorios(),
+        getFormasFarmaceuticas(),
       ]);
 
       const ubicacionesMapped = ubicacionesData.map(item => ({
         ...item,
-        id: item.idubicacion
+        id: item.idubicacion,
+        nombre: item.nombre
       }));
       
       const categoriasMapped = categoriasData.map(item => ({
         ...item,
-        id: item.idcategoria
+        id: item.idcategoria,
+        nombre: item.nombre
       }));
       
       const laboratoriosMapped = laboratoriosData.map(item => ({
         ...item,
-        id: item.idlaboratorio
+        id: item.idlaboratorio,
+        nombre: item.nombre
+      }));
+
+      const formasFarmaceuticasMapped = formasFarmaceuticasData.map(item => ({
+        ...item,
+        id: item.idforma_farmaceutica,
+        nombre: item.nombre_forma
       }));
 
       setManagementItems({
         ubicaciones: ubicacionesMapped,
         categorias: categoriasMapped,
         laboratorios: laboratoriosMapped,
+        formasFarmaceuticas: formasFarmaceuticasMapped,
       });
 
       setLocalLists({
         ubicaciones: ubicacionesData.map((item) => item.nombre),
         categorias: categoriasData.map((item) => item.nombre),
         laboratorios: laboratoriosData.map((item) => item.nombre),
+        formasFarmaceuticas: formasFarmaceuticasData.map((item) => item.nombre_forma),
       });
     } catch (error) {
       console.error("Error cargando elementos de gestión:", error);
@@ -989,11 +1014,12 @@ export function FormularioProductos({
 
   useEffect(() => {
     setLocalLists({
-      ubicaciones: ubicaciones,
-      categorias: categorias,
-      laboratorios: laboratorios,
+      ubicaciones: ubicaciones || [],
+      categorias: categorias || [],
+      laboratorios: laboratorios || [],
+      formasFarmaceuticas: formasFarmaceuticas || [],
     });
-  }, [ubicaciones, categorias, laboratorios]);
+  }, [ubicaciones, categorias, laboratorios, formasFarmaceuticas]);
 
   useEffect(() => {
     if (product && product.lotes && product.lotes.length > 0) {
@@ -1024,7 +1050,7 @@ export function FormularioProductos({
   const getItemIdByName = (items: ManagementItem[], name: string): number => {
     const item = items.find((item) => item.nombre === name);
     if (item) {
-      return (item as any).idubicacion || (item as any).idcategoria || (item as any).idlaboratorio || item.id || 0;
+      return (item as any).idubicacion || (item as any).idcategoria || (item as any).idlaboratorio || (item as any).idforma_farmaceutica || item.id || 0;
     }
     return 0;
   };
@@ -1163,6 +1189,44 @@ export function FormularioProductos({
     }
   };
 
+  const handleEditFormaFarmaceutica = (nombre: string) => {
+    const item = managementItems.formasFarmaceuticas.find(f => f.nombre === nombre);
+    if (!item) {
+      toast({ title: "Error", description: "Forma farmacéutica no encontrada", variant: "destructive" });
+      return;
+    }
+    setEditDialogData({ name: item.nombre, id: item.id || 0 });
+    setAddDialogState({ open: true, type: "formaFarmaceutica" });
+  };
+
+  const handleDeleteFormaFarmaceutica = async (nombre: string) => {
+    const item = managementItems.formasFarmaceuticas.find(f => f.nombre === nombre);
+    if (!item) {
+      toast({ title: "Error", description: "Forma farmacéutica no encontrada", variant: "destructive" });
+      return;
+    }
+
+    if (formData.formaFarmaceutica === nombre) {
+      toast({
+        title: "Error",
+        description: "No puedes eliminar la forma farmacéutica que está seleccionada",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsDeletingElement(true);
+    try {
+      await deleteFormaFarmaceutica(item.id || 0);
+      await loadManagementItems();
+      toast({ title: "Forma farmacéutica eliminada", description: `"${nombre}" ha sido eliminada.`, variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "No se pudo eliminar", variant: "destructive" });
+    } finally {
+      setIsDeletingElement(false);
+    }
+  };
+
   const handleAddNewElement = async (id: number, name: string) => {
     if (isAddingElement) return;
 
@@ -1172,7 +1236,7 @@ export function FormularioProductos({
     setIsAddingElement(true);
 
     try {
-      if (id) 
+      if (id) {
         switch (type) {
           case "categoria":
             await updateCategoria(id, { nombre: name });
@@ -1183,8 +1247,11 @@ export function FormularioProductos({
           case "laboratorio":
             await updateLaboratorio(id, { nombre: name });
             break;
+          case "formaFarmaceutica":
+            await updateFormaFarmaceutica(id, { nombre: name });
+            break;
         }
-      else
+      } else {
         switch (type) {
           case "categoria":
             await createCategoria({ nombre: name });
@@ -1195,12 +1262,16 @@ export function FormularioProductos({
           case "laboratorio":
             await createLaboratorio({ nombre: name });
             break;
+          case "formaFarmaceutica":
+            await createFormaFarmaceutica({ nombre: name });
+            break;
         }
+      }
 
       await loadManagementItems();
 
       toast({
-        title: `${type.charAt(0).toUpperCase() + type.slice(1)} agregado`,
+        title: `${type === "formaFarmaceutica" ? "Forma farmacéutica" : type.charAt(0).toUpperCase() + type.slice(1)} agregado`,
         description: `"${name}" ha sido agregado exitosamente.`,
       });
 
@@ -1214,7 +1285,7 @@ export function FormularioProductos({
       console.error(`Error agregando ${type}:`, error);
       toast({
         title: "Error",
-        description: `No se pudo agregar el ${type}`,
+        description: `No se pudo agregar el ${type === "formaFarmaceutica" ? "forma farmacéutica" : type}`,
         variant: "destructive",
       });
     } finally {
@@ -1222,7 +1293,7 @@ export function FormularioProductos({
     }
   };
 
-  const openAddDialog = (type: "categoria" | "ubicacion" | "laboratorio") => {
+  const openAddDialog = (type: "categoria" | "ubicacion" | "laboratorio" | "formaFarmaceutica") => {
     setAddDialogState({ open: true, type });
     setEditDialogData({ name: "", id: 0 });
   };
@@ -1247,6 +1318,11 @@ export function FormularioProductos({
 
     if (!formData.laboratorio) {
       toast({ title: "Error", description: "El laboratorio es obligatorio", variant: "destructive" });
+      return;
+    }
+
+    if (!formData.formaFarmaceutica) {
+      toast({ title: "Error", description: "La forma farmacéutica es obligatoria", variant: "destructive" });
       return;
     }
 
@@ -1281,6 +1357,7 @@ export function FormularioProductos({
     try {
       const idubicacion = getItemIdByName(managementItems.ubicaciones, formData.ubicacion);
       const idlaboratorio = getItemIdByName(managementItems.laboratorios, formData.laboratorio);
+      const idformaFarmaceutica = getItemIdByName(managementItems.formasFarmaceuticas, formData.formaFarmaceutica);
 
       if (idubicacion === 0) {
         toast({ title: "Error", description: "La ubicación seleccionada no es válida", variant: "destructive" });
@@ -1294,6 +1371,12 @@ export function FormularioProductos({
         return;
       }
 
+      if (idformaFarmaceutica === 0) {
+        toast({ title: "Error", description: "La forma farmacéutica seleccionada no es válida", variant: "destructive" });
+        setIsSubmittingProduct(false);
+        return;
+      }
+
       const descripcionFormateada = formatDescriptionForProduction(formData.descripcion);
       const formDataToSend = new FormData();
 
@@ -1301,6 +1384,7 @@ export function FormularioProductos({
       formDataToSend.append("descripcion", descripcionFormateada);
       formDataToSend.append("idubicacion", idubicacion.toString());
       formDataToSend.append("idlaboratorio", idlaboratorio.toString());
+      formDataToSend.append("idforma_farmaceutica", idformaFarmaceutica.toString());
 
       const categoriaIds = formData.categorias.map((cat) =>
         getItemIdByName(managementItems.categorias, cat)
@@ -1498,7 +1582,7 @@ export function FormularioProductos({
           />
         </div>
 
-        {/* Laboratorio y Stock Mínimo lado a lado */}
+        {/* Laboratorio y Forma Farmacéutica lado a lado */}
         <div className="grid grid-cols-2 gap-3">
           <SingleSelectWithDropdown
             options={localLists.laboratorios}
@@ -1514,6 +1598,23 @@ export function FormularioProductos({
             isDeleting={isDeletingElement}
           />
 
+          <SingleSelectWithDropdown
+            options={localLists.formasFarmaceuticas}
+            selectedValue={formData.formaFarmaceutica}
+            onSelectionChange={(value) => handleInputChange("formaFarmaceutica", value)}
+            placeholder="Buscar forma farmacéutica..."
+            label="Forma Farmacéutica"
+            required
+            onEdit={handleEditFormaFarmaceutica}
+            onDelete={handleDeleteFormaFarmaceutica}
+            onAddNew={() => openAddDialog("formaFarmaceutica")}
+            isAdding={isAddingElement}
+            isDeleting={isDeletingElement}
+          />
+        </div>
+
+        {/* Stock Mínimo */}
+        <div className="grid grid-cols-1 gap-3">
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">Stock Mínimo</Label>
             <Input
@@ -1746,6 +1847,8 @@ export function FormularioProductos({
                 ? "Ubicación"
                 : addDialogState.type === "laboratorio"
                 ? "Laboratorio"
+                : addDialogState.type === "formaFarmaceutica"
+                ? "Forma Farmacéutica"
                 : ""}
             </DialogTitle>
           </DialogHeader>
@@ -1755,7 +1858,7 @@ export function FormularioProductos({
                 Nombre <span className="text-red-500">*</span>
               </label>
               <Input
-                placeholder={`Ej: ${addDialogState.type === "categoria" ? "Medicamentos" : addDialogState.type === "ubicacion" ? "Pasillo A" : "Laboratorio ABC"}`}
+                placeholder={`Ej: ${addDialogState.type === "categoria" ? "Medicamentos" : addDialogState.type === "ubicacion" ? "Pasillo A" : addDialogState.type === "laboratorio" ? "Laboratorio ABC" : "Tabletas"}`}
                 value={editDialogData.name}
                 onChange={(e) => setEditDialogData({ ...editDialogData, name: e.target.value })}
                 autoFocus

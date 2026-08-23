@@ -41,6 +41,11 @@ CREATE TABLE laboratorios (
     nombre_laboratorio VARCHAR(200) NOT NULL,
     estado SMALLINT DEFAULT 0 CHECK (estado IN (0, 1)) -- 0 activo, 1 eliminado
 );
+CREATE TABLE forma_farmaceutica (
+    idforma_farmaceutica SERIAL PRIMARY KEY,
+    nombre_forma VARCHAR(200) NOT NULL,
+    estado SMALLINT DEFAULT 0 CHECK (estado IN (0, 1)) -- 0 activo, 1 eliminado
+);
 
 -- Tabla de productos (sin stock)
 CREATE TABLE productos (
@@ -49,6 +54,7 @@ CREATE TABLE productos (
     descripcion TEXT,
     idubicacion INTEGER REFERENCES ubicaciones(idubicacion),
     idlaboratorio INTEGER REFERENCES laboratorios(idlaboratorio),
+    idforma_farmaceutica INTEGER REFERENCES forma_farmaceutica(idforma_farmaceutica),
     estado SMALLINT DEFAULT 0,
     imagen bytea,
     precio_venta DOUBLE PRECISION NOT NULL DEFAULT 0.0,

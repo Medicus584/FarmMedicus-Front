@@ -52,6 +52,7 @@ import {
   getUbicaciones,
   getCategorias,
   getLaboratorios,
+  getFormasFarmaceuticas,
   buscarProductos,
   getAllProductos,
   deleteProducto,
@@ -495,6 +496,7 @@ export function ProductosView() {
   const [ubicaciones, setUbicaciones] = useState<string[]>([]);
   const [categorias, setCategorias] = useState<string[]>([]);
   const [laboratorios, setLaboratorios] = useState<string[]>([]);
+  const [formasFarmaceuticas, setFormasFarmaceuticas] = useState<string[]>([]);
 
   const userRole = localStorage.getItem("userRole") || "admin";
   const isAssistant = userRole === "Asistente";
@@ -549,15 +551,17 @@ export function ProductosView() {
     const loadBasicData = async () => {
       try {
         setLoading(true);
-        const [ubicacionesData, categoriasData, laboratoriosData] = await Promise.all([
+        const [ubicacionesData, categoriasData, laboratoriosData, formasFarmaceuticasData] = await Promise.all([
           getUbicaciones(),
           getCategorias(),
           getLaboratorios(),
+          getFormasFarmaceuticas(),
         ]);
 
         setUbicaciones(ubicacionesData.map((item) => item.nombre));
         setCategorias(categoriasData.map((item) => item.nombre));
         setLaboratorios(laboratoriosData.map((item) => item.nombre));
+        setFormasFarmaceuticas(formasFarmaceuticasData.map((item) => item.nombre_forma));
       } catch (error) {
         console.error("Error cargando datos básicos:", error);
         toast({
@@ -862,10 +866,11 @@ export function ProductosView() {
               </DialogHeader>
               <div className="px-6 pb-6">
                 <FormularioProductos
-                  product={editingProduct}
+                  product={editingProduct || undefined}
                   ubicaciones={ubicaciones}
                   categorias={categorias}
                   laboratorios={laboratorios}
+                  formasFarmaceuticas={formasFarmaceuticas}
                   onSubmit={handleFormSubmit}
                   onCancel={handleFormCancel}
                 />
@@ -1096,6 +1101,11 @@ export function ProductosView() {
                                       {product.laboratorio}
                                     </Badge>
                                   )}
+                                  {product.forma_farmaceutica && (
+                                    <Badge variant="outline" className="text-xs px-1.5 py-0.5">
+                                      {product.forma_farmaceutica}
+                                    </Badge>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -1111,6 +1121,12 @@ export function ProductosView() {
                                 <span className="font-medium">Laboratorio:</span>
                                 <span className="text-muted-foreground ml-1 block sm:inline">
                                   {product.laboratorio}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="font-medium">Forma Farm.:</span>
+                                <span className="text-muted-foreground ml-1 block sm:inline">
+                                  {product.forma_farmaceutica || "—"}
                                 </span>
                               </div>
                               <div className="col-span-2">
@@ -1239,6 +1255,7 @@ export function ProductosView() {
                               <TableHead className="min-w-[200px]">N. Genérico</TableHead>
                               <TableHead className="w-[120px]">Ubicación</TableHead>
                               <TableHead className="w-[130px]">Laboratorio</TableHead>
+                              <TableHead className="w-[130px]">Forma Farm.</TableHead>
                               <TableHead className="w-[140px]">Código</TableHead>
                               <TableHead className="min-w-[180px]">Stock / Lotes</TableHead>
                               <TableHead className="w-[100px] text-center">Similares</TableHead>
@@ -1294,6 +1311,9 @@ export function ProductosView() {
                                   </TableCell>
                                   <TableCell className="text-sm">
                                     {product.laboratorio}
+                                  </TableCell>
+                                  <TableCell className="text-sm">
+                                    {product.forma_farmaceutica || "—"}
                                   </TableCell>
                                   <TableCell>
                                     {product.codigo_barras ? (

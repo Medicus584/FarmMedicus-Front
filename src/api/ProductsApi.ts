@@ -22,6 +22,12 @@ export interface BackendLaboratorio {
   estado: number;
 }
 
+export interface BackendFormaFarmaceutica {
+  idforma_farmaceutica: number;
+  nombre_forma: string;
+  estado: number;
+}
+
 export interface BackendLote {
   idlote: number;
   idproducto: number;
@@ -52,6 +58,9 @@ export interface Producto {
   idlaboratorio: number;
   laboratorio_nombre: string;
   laboratorio: string;
+  idforma_farmaceutica: number;
+  forma_farmaceutica_nombre: string;
+  forma_farmaceutica: string;
   categorias: string[];
   estado: number;
   imagen: string;
@@ -72,6 +81,7 @@ export interface ProductoRequest {
   descripcion: string;
   idubicacion: number;
   idlaboratorio: number;
+  idforma_farmaceutica: number;
   categorias: number[];
   imagen?: File | string | null;
   precio_venta: string;
@@ -238,6 +248,47 @@ export const deleteLaboratorio = async (id: number): Promise<void> => {
   } catch (error) {
     console.error("Error deleting laboratorio:", error);
     throw new Error("No se pudo eliminar el laboratorio");
+  }
+};
+
+// ============ FUNCIONES PARA FORMAS FARMACÉUTICAS ============
+
+export const getFormasFarmaceuticas = async (): Promise<BackendFormaFarmaceutica[]> => {
+  try {
+    const response = await api.get<BackendFormaFarmaceutica[]>("/management/formas-farmaceuticas");
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching formas farmaceuticas:", error);
+    throw new Error("No se pudieron cargar las formas farmacéuticas");
+  }
+};
+
+export const createFormaFarmaceutica = async (data: { nombre: string }): Promise<BackendFormaFarmaceutica> => {
+  try {
+    const response = await api.post<BackendFormaFarmaceutica>("/management/formas-farmaceuticas", { nombre: data.nombre });
+    return response.data;
+  } catch (error) {
+    console.error("Error creating forma farmaceutica:", error);
+    throw new Error("No se pudo crear la forma farmacéutica");
+  }
+};
+
+export const updateFormaFarmaceutica = async (id: number, data: { nombre: string }): Promise<BackendFormaFarmaceutica> => {
+  try {
+    const response = await api.put<BackendFormaFarmaceutica>(`/management/formas-farmaceuticas/${id}`, { nombre: data.nombre });
+    return response.data;
+  } catch (error) {
+    console.error("Error updating forma farmaceutica:", error);
+    throw new Error("No se pudo actualizar la forma farmacéutica");
+  }
+};
+
+export const deleteFormaFarmaceutica = async (id: number): Promise<void> => {
+  try {
+    await api.delete(`/management/formas-farmaceuticas/${id}`);
+  } catch (error) {
+    console.error("Error deleting forma farmaceutica:", error);
+    throw new Error("No se pudo eliminar la forma farmacéutica");
   }
 };
 
@@ -485,6 +536,9 @@ function mapBackendProducto(producto: any): Producto {
     idlaboratorio: producto.idlaboratorio || 0,
     laboratorio: producto.laboratorio_nombre || "Sin laboratorio",
     laboratorio_nombre: producto.laboratorio_nombre || "Sin laboratorio",
+    idforma_farmaceutica: producto.idforma_farmaceutica || 0,
+    forma_farmaceutica: producto.forma_farmaceutica_nombre || "Sin forma farmacéutica",
+    forma_farmaceutica_nombre: producto.forma_farmaceutica_nombre || "Sin forma farmacéutica",
     categorias: producto.categorias || [],
     estado: producto.estado || 1,
     imagen: producto.imagen || "https://static.vecteezy.com/system/resources/previews/011/781/801/non_2x/medicine-3d-render-icon-illustration-png.png",

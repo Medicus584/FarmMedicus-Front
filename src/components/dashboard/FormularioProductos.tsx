@@ -1395,7 +1395,7 @@ export function FormularioProductos({
         {/* Nombre */}
         <div className="space-y-1.5">
           <Label htmlFor="nombre" className="text-sm font-medium">
-            Nombre <span className="text-red-500">*</span>
+            Nombre Comercial <span className="text-red-500">*</span>
           </Label>
           <Input
             id="nombre"
@@ -1452,7 +1452,7 @@ export function FormularioProductos({
         {/* Descripción */}
         <div className="space-y-1.5">
           <Label htmlFor="descripcion" className="text-sm font-medium">
-            Descripción <span className="text-red-500">*</span>
+            Nombre Genérico <span className="text-red-500">*</span>
           </Label>
           <Textarea
             id="descripcion"

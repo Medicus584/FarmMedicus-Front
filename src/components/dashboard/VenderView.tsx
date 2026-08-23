@@ -11,6 +11,7 @@ import {
   User,
   Pencil,
   X,
+  Percent,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -60,7 +61,7 @@ export function VenderView() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [ventaItems, setVentaItems] = useState<SaleItemWithLotes[]>([]);
-  const [descuento, setDescuento] = useState(0);
+  const [descuentoPorcentaje, setDescuentoPorcentaje] = useState(0);
   const [metodoPago, setMetodoPago] = useState<"Efectivo" | "QR">("Efectivo");
   const [montoPagado, setMontoPagado] = useState(0);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -73,24 +74,26 @@ export function VenderView() {
   const [loadingSimilars, setLoadingSimilars] = useState<Map<number, boolean>>(
     new Map(),
   );
-  const [showDiscountField, setShowDiscountField] = useState(false);
-  const [discountReason, setDiscountReason] = useState('');
+  const [discountReason, setDiscountReason] = useState("");
   const [showScanner, setShowScanner] = useState(false);
-  
+
   // Estados para Doctor
   const [isDoctorMode, setIsDoctorMode] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
-  
+
   // Estados para selección de lotes
   const [showLoteDialog, setShowLoteDialog] = useState(false);
   const [productoParaLote, setProductoParaLote] = useState<Product | null>(null);
-  const [cantidadInicialParaLote, setCantidadInicialParaLote] = useState<number | undefined>(undefined);
+  const [cantidadInicialParaLote, setCantidadInicialParaLote] = useState<
+    number | undefined
+  >(undefined);
   const [esEdicion, setEsEdicion] = useState(false);
   const [itemIndexParaLote, setItemIndexParaLote] = useState<number>(-1);
-  
+
   // Estado para ver lotes en carrito
   const [showLotesCarrito, setShowLotesCarrito] = useState(false);
-  const [productoParaVerLotes, setProductoParaVerLotes] = useState<SaleItemWithLotes | null>(null);
+  const [productoParaVerLotes, setProductoParaVerLotes] =
+    useState<SaleItemWithLotes | null>(null);
 
   const { toast } = useToast();
   const isMobile = useIsMobile();
@@ -147,19 +150,19 @@ export function VenderView() {
       if (showScanner) {
         event.preventDefault();
         setShowScanner(false);
-        window.history.pushState(null, '', window.location.pathname);
+        window.history.pushState(null, "", window.location.pathname);
       }
     };
 
-    window.addEventListener('popstate', handlePopState);
+    window.addEventListener("popstate", handlePopState);
     return () => {
-      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener("popstate", handlePopState);
     };
   }, [showScanner]);
 
   const openScanner = () => {
     setShowScanner(true);
-    window.history.pushState({ scanner: true }, '');
+    window.history.pushState({ scanner: true }, "");
   };
 
   const getStockTotal = (product: Product): number => {
@@ -168,35 +171,40 @@ export function VenderView() {
   };
 
   const getStockDisponible = (productId: number): number => {
-    const product = searchResults.find(p => p.idproducto === productId);
+    const product = searchResults.find((p) => p.idproducto === productId);
     if (!product) return 0;
-    
+
     const totalStock = getStockTotal(product);
     const enCarrito = ventaItems
-      .filter(item => item.idproducto === productId)
+      .filter((item) => item.idproducto === productId)
       .reduce((sum, item) => sum + item.cantidad, 0);
-    
+
     return totalStock - enCarrito;
   };
 
   const getLotesProducto = (productId: number): Lote[] => {
-    const product = searchResults.find(p => p.idproducto === productId);
+    const product = searchResults.find((p) => p.idproducto === productId);
     return product?.lotes || [];
   };
 
   const getCantidadEnCarrito = (productId: number): number => {
-    const item = ventaItems.find(item => item.idproducto === productId);
+    const item = ventaItems.find((item) => item.idproducto === productId);
     return item ? item.cantidad : 0;
   };
 
   const tieneLotesDisponibles = (product: Product): boolean => {
     if (!product.lotes || product.lotes.length === 0) return false;
-    return product.lotes.some(l => l.stock > 0);
+    return product.lotes.some((l) => l.stock > 0);
   };
 
-  const abrirDialogoLotes = (product: Product, cantidad: number, esEdicion: boolean = false, index: number = -1) => {
+  const abrirDialogoLotes = (
+    product: Product,
+    cantidad: number,
+    esEdicion: boolean = false,
+    index: number = -1,
+  ) => {
     const stockDisponible = getStockDisponible(product.idproducto);
-    
+
     if (stockDisponible <= 0 && !esEdicion) {
       toast({
         title: "Sin stock",
@@ -206,14 +214,24 @@ export function VenderView() {
       return;
     }
 
-    const stockDisponibleParaEdicion = stockDisponible + (index >= 0 ? ventaItems[index]?.cantidad || 0 : 0);
-
     const lotes = getLotesProducto(product.idproducto);
-    
+
+    // Si solo hay un lote, no abrir diálogo
     if (lotes.length === 1) {
       const lote = lotes[0];
+
+      // Verificar que el lote tenga suficiente stock
+      if (lote.stock < cantidad && !esEdicion) {
+        toast({
+          title: "Stock insuficiente",
+          description: `El lote #${lote.idlote} solo tiene ${lote.stock} unidades disponibles`,
+          variant: "destructive",
+        });
+        return;
+      }
+
       const selecciones = [{ idlote: lote.idlote, cantidad }];
-      const lotesInfo = selecciones.map(sel => ({
+      const lotesInfo = selecciones.map((sel) => ({
         ...sel,
         fechaVencimiento: lote.fechaVencimiento,
       }));
@@ -224,6 +242,7 @@ export function VenderView() {
           ...product,
           cantidad,
           lotesSeleccionados: lotesInfo,
+          descuentoProducto: ventaItems[index]?.descuentoProducto || 0,
         };
         setVentaItems(updatedItems);
       } else {
@@ -231,10 +250,11 @@ export function VenderView() {
           ...product,
           cantidad,
           lotesSeleccionados: lotesInfo,
+          descuentoProducto: 0,
         };
         setVentaItems([...ventaItems, nuevoItem]);
       }
-      
+
       toast({
         title: esEdicion ? "Cantidad actualizada" : "Producto agregado",
         description: `${product.nombre} (${cantidad} unidades del lote #${lote.idlote})`,
@@ -242,6 +262,7 @@ export function VenderView() {
       return;
     }
 
+    // Si hay múltiples lotes, abrir diálogo
     setProductoParaLote(product);
     setCantidadInicialParaLote(cantidad);
     setEsEdicion(esEdicion);
@@ -249,11 +270,27 @@ export function VenderView() {
     setShowLoteDialog(true);
   };
 
-  const confirmarSeleccionLotes = (cantidadTotal: number, selecciones: { idlote: number; cantidad: number }[]) => {
+  const confirmarSeleccionLotes = (
+    cantidadTotal: number,
+    selecciones: { idlote: number; cantidad: number }[],
+  ) => {
     if (!productoParaLote) return;
 
-    const lotesInfo = selecciones.map(sel => {
-      const lote = productoParaLote.lotes?.find(l => l.idlote === sel.idlote);
+    // Verificar que la suma de las cantidades de los lotes coincida con la cantidad total
+    const sumaSelecciones = selecciones.reduce((sum, sel) => sum + sel.cantidad, 0);
+    if (sumaSelecciones !== cantidadTotal) {
+      toast({
+        title: "Error",
+        description: `La suma de las cantidades de los lotes (${sumaSelecciones}) no coincide con la cantidad total (${cantidadTotal})`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const lotesInfo = selecciones.map((sel) => {
+      const lote = productoParaLote.lotes?.find(
+        (l) => l.idlote === sel.idlote,
+      );
       return {
         ...sel,
         fechaVencimiento: lote?.fechaVencimiento || new Date().toISOString(),
@@ -266,9 +303,10 @@ export function VenderView() {
         ...productoParaLote,
         cantidad: cantidadTotal,
         lotesSeleccionados: lotesInfo,
+        descuentoProducto: ventaItems[itemIndexParaLote]?.descuentoProducto || 0,
       };
       setVentaItems(updatedItems);
-      
+
       toast({
         title: "Cantidad actualizada",
         description: `${productoParaLote.nombre} actualizado a ${cantidadTotal} unidades`,
@@ -278,9 +316,10 @@ export function VenderView() {
         ...productoParaLote,
         cantidad: cantidadTotal,
         lotesSeleccionados: lotesInfo,
+        descuentoProducto: 0,
       };
       setVentaItems([...ventaItems, nuevoItem]);
-      
+
       toast({
         title: "Producto agregado",
         description: `${productoParaLote.nombre} agregado al carrito con ${cantidadTotal} unidades`,
@@ -291,11 +330,12 @@ export function VenderView() {
     setProductoParaLote(null);
     setCantidadInicialParaLote(undefined);
     setEsEdicion(false);
+    setItemIndexParaLote(-1);
   };
 
   const agregarProducto = (product: Product) => {
     const stockDisponible = getStockDisponible(product.idproducto);
-    
+
     if (stockDisponible <= 0) {
       toast({
         title: "Sin stock",
@@ -305,118 +345,30 @@ export function VenderView() {
       return;
     }
 
-    const existingIndex = ventaItems.findIndex(
-      (item) => item.idproducto === product.idproducto,
-    );
-
-    if (existingIndex !== -1) {
-      abrirDialogoLotes(product, 1, false, -1);
-    } else {
-      abrirDialogoLotes(product, 1, false, -1);
-    }
-  };
-
-  const actualizarCantidad = (index: number, nuevaCantidad: number) => {
-    if (nuevaCantidad < 1) {
-      eliminarItem(index);
-      return;
-    }
-
-    const item = ventaItems[index];
-    const stockDisponible = getStockDisponible(item.idproducto) + item.cantidad;
-    
-    if (nuevaCantidad > stockDisponible) {
-      toast({
-        title: "Stock insuficiente",
-        description: `Solo hay ${stockDisponible} unidades disponibles en total`,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (nuevaCantidad !== item.cantidad) {
-      const product = searchResults.find(p => p.idproducto === item.idproducto);
-      if (product) {
-        abrirDialogoLotes(product, nuevaCantidad, true, index);
-      }
-    }
-  };
-
-  const handleCantidadInputChange = (index: number, value: string) => {
-    if (value === "") {
-      const newItems = [...ventaItems];
-      newItems[index].cantidad = 0;
-      setVentaItems(newItems);
-      return;
-    }
-
-    const numericValue = parseInt(value);
-    if (isNaN(numericValue) || numericValue < 1) {
-      return;
-    }
-
-    const item = ventaItems[index];
-    const stockDisponible = getStockDisponible(item.idproducto) + item.cantidad;
-    
-    if (numericValue > stockDisponible) {
-      toast({
-        title: "Stock insuficiente",
-        description: `Solo hay ${stockDisponible} unidades disponibles en total`,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const newItems = [...ventaItems];
-    newItems[index].cantidad = numericValue;
-    setVentaItems(newItems);
-  };
-
-  const handleCantidadInputBlur = (index: number, value: string) => {
-    if (value === "" || parseInt(value) === 0) {
-      const item = ventaItems[index];
-      const product = searchResults.find(p => p.idproducto === item.idproducto);
-      if (product) {
-        abrirDialogoLotes(product, 1, true, index);
-      }
-      return;
-    }
-
-    const numericValue = parseInt(value);
-    if (isNaN(numericValue) || numericValue < 1) {
-      return;
-    }
-
-    const item = ventaItems[index];
-    if (numericValue !== item.cantidad) {
-      const product = searchResults.find(p => p.idproducto === item.idproducto);
-      if (product) {
-        abrirDialogoLotes(product, numericValue, true, index);
-      }
-    }
+    abrirDialogoLotes(product, 1, false, -1);
   };
 
   const handleBarcodeScanned = async (barcode: string) => {
     setShowScanner(false);
-    
+
     try {
       setLoading(true);
       isScanningRef.current = true;
-      
+
       setSearchQuery(barcode);
       setSearchResults([]);
       setExpandedProduct(null);
       setSimilarProductsData(new Map());
       lastSearchQueryRef.current = barcode;
-      
+
       const results = await searchProducts(barcode);
-      
+
       if (results.length > 0) {
         const product = results[0];
         const stockDisponible = getStockDisponible(product.idproducto);
-        
+
         setSearchResults(results);
-        
+
         if (stockDisponible > 0) {
           agregarProducto(product);
         } else {
@@ -426,11 +378,17 @@ export function VenderView() {
             variant: "destructive",
             duration: 3000,
           });
-          
+
           setExpandedProduct(product.idproducto);
-          
-          if (product.productos_similares && product.productos_similares.length > 0) {
-            await loadSimilarProducts(product.idproducto, product.productos_similares);
+
+          if (
+            product.productos_similares &&
+            product.productos_similares.length > 0
+          ) {
+            await loadSimilarProducts(
+              product.idproducto,
+              product.productos_similares,
+            );
           }
         }
       } else {
@@ -456,16 +414,6 @@ export function VenderView() {
         isScanningRef.current = false;
       }, 100);
     }
-  };
-
-  const handleDiscountChange = (discountValue: number) => {
-    if (discountValue > 0) {
-      setShowDiscountField(true);
-    } else {
-      setShowDiscountField(false);
-      setDiscountReason('');
-    }
-    setDescuento(discountValue);
   };
 
   const loadSimilarProducts = async (
@@ -599,15 +547,58 @@ export function VenderView() {
     setVentaItems(newItems);
   };
 
-  const subtotal = ventaItems.reduce(
+  // Función para manejar el cambio de cantidad desde el input
+  const handleCantidadChange = (index: number, nuevaCantidad: number) => {
+    if (nuevaCantidad < 1) {
+      eliminarItem(index);
+      return;
+    }
+
+    const item = ventaItems[index];
+    const stockDisponible = getStockDisponible(item.idproducto) + item.cantidad;
+
+    if (nuevaCantidad > stockDisponible) {
+      toast({
+        title: "Stock insuficiente",
+        description: `Solo hay ${stockDisponible} unidades disponibles en total`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Si la cantidad cambió, abrir diálogo para seleccionar lotes
+    const product = searchResults.find((p) => p.idproducto === item.idproducto);
+    if (product) {
+      abrirDialogoLotes(product, nuevaCantidad, true, index);
+    }
+  };
+
+  // Cálculo de subtotal con descuentos por producto (monto fijo)
+  const subtotalSinDescuentos = ventaItems.reduce(
     (total, item) => total + item.precio_venta * item.cantidad,
     0,
   );
-  const total = Math.max(0, subtotal - descuento);
+
+  const descuentosProducto = ventaItems.reduce(
+    (total, item) => total + (item.descuentoProducto || 0),
+    0,
+  );
+
+  const subtotalConDescuentosProducto = subtotalSinDescuentos - descuentosProducto;
+
+  // Descuento porcentual sobre el subtotal con descuentos de producto
+  const descuentoMonto = (subtotalConDescuentosProducto * (descuentoPorcentaje || 0)) / 100;
+  const total = Math.max(0, subtotalConDescuentosProducto - descuentoMonto);
+
   const cambio =
     metodoPago === "Efectivo" ? Math.max(0, montoPagado - total) : 0;
 
   const tieneItemsInvalidos = ventaItems.some((item) => item.cantidad < 1);
+
+  // Verificar si hay algún descuento aplicado (producto o porcentaje)
+  const tieneDescuentosProducto = ventaItems.some((item) => (item.descuentoProducto || 0) > 0);
+  const tieneDescuentoPorcentaje = descuentoPorcentaje > 0;
+  const tieneDescuentos = tieneDescuentosProducto || tieneDescuentoPorcentaje;
 
   const procesarVenta = async () => {
     if (!cajaAbierta) {
@@ -637,11 +628,25 @@ export function VenderView() {
       return;
     }
 
+    // Validar que la suma de lotes coincida con la cantidad de cada item
     for (const item of ventaItems) {
       if (!item.lotesSeleccionados || item.lotesSeleccionados.length === 0) {
         toast({
           title: "Error",
           description: `El producto "${item.nombre}" no tiene lotes asignados`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const totalLotes = item.lotesSeleccionados.reduce(
+        (sum, lote) => sum + lote.cantidad,
+        0,
+      );
+      if (totalLotes !== item.cantidad) {
+        toast({
+          title: "Error",
+          description: `La cantidad de lotes seleccionados para "${item.nombre}" (${totalLotes}) no coincide con la cantidad solicitada (${item.cantidad})`,
           variant: "destructive",
         });
         return;
@@ -657,7 +662,8 @@ export function VenderView() {
       return;
     }
 
-    if (descuento > 0 && !discountReason.trim()) {
+    // Validar justificación si hay descuentos
+    if (tieneDescuentos && !discountReason.trim()) {
       toast({
         title: "Error",
         description: "Proporcione una razón para el descuento",
@@ -695,15 +701,19 @@ export function VenderView() {
           idlote: lote.idlote,
           cantidad: lote.cantidad,
         })),
+        descuento_monto: item.descuentoProducto || 0,
       }));
+
+      // Calcular descuento total (productos + porcentaje)
+      const descuentoTotal = descuentosProducto + descuentoMonto;
 
       const saleRequest: SaleRequest = {
         descripcion:
           descripcion.length > 200
             ? descripcion.substring(0, 200) + "..."
             : descripcion,
-        sub_total: subtotal,
-        descuento: descuento,
+        sub_total: subtotalSinDescuentos,
+        descuento: descuentoTotal,
         descripcion_descuento: discountReason,
         total: total,
         metodo_pago: metodoPago,
@@ -714,11 +724,10 @@ export function VenderView() {
       await processSale(saleRequest, userId);
 
       setVentaItems([]);
-      setDescuento(0);
+      setDescuentoPorcentaje(0);
       setMontoPagado(0);
       setShowConfirm(false);
-      setDiscountReason('');
-      setShowDiscountField(false);
+      setDiscountReason("");
       setIsDoctorMode(false);
       setSelectedDoctor(null);
 
@@ -766,7 +775,8 @@ export function VenderView() {
           productName={productoParaLote.nombre}
           stockDisponible={
             esEdicion && itemIndexParaLote >= 0
-              ? getStockDisponible(productoParaLote.idproducto) + ventaItems[itemIndexParaLote]?.cantidad || 0
+              ? getStockDisponible(productoParaLote.idproducto) +
+                ventaItems[itemIndexParaLote]?.cantidad || 0
               : getStockDisponible(productoParaLote.idproducto)
           }
           cantidadInicial={cantidadInicialParaLote}
@@ -865,7 +875,9 @@ export function VenderView() {
                     similarProductsData.get(product.idproducto) || [];
                   const isLoadingSimilars =
                     loadingSimilars.get(product.idproducto) || false;
-                  const cantidadEnCarrito = getCantidadEnCarrito(product.idproducto);
+                  const cantidadEnCarrito = getCantidadEnCarrito(
+                    product.idproducto,
+                  );
                   const stockDisponible = getStockDisponible(product.idproducto);
                   const tieneLotes = tieneLotesDisponibles(product);
 
@@ -897,7 +909,9 @@ export function VenderView() {
                           })()}
                           <div className="flex-1 min-w-0">
                             <h4
-                              className={`font-semibold text-sm ${isMobile ? "break-words" : ""}`}
+                              className={`font-semibold text-sm ${
+                                isMobile ? "break-words" : ""
+                              }`}
                             >
                               {product.nombre}
                             </h4>
@@ -910,7 +924,8 @@ export function VenderView() {
                               </Badge>
                               {cantidadEnCarrito > 0 && (
                                 <Badge variant="secondary" className="text-xs">
-                                  En carrito: {cantidadEnCarrito} | Stock disponible: {stockDisponible}
+                                  En carrito: {cantidadEnCarrito} | Stock
+                                  disponible: {stockDisponible}
                                 </Badge>
                               )}
                               {product.lotes && product.lotes.length > 0 && (
@@ -920,8 +935,8 @@ export function VenderView() {
                               )}
                             </div>
                             <p className="text-xs font-medium">
-                              Bs {formatBs(product.precio_venta)} | Stock total:{" "}
-                              {getStockTotal(product)}
+                              Bs {formatBs(product.precio_venta)} | Stock
+                              total: {getStockTotal(product)}
                             </p>
                           </div>
                         </div>
@@ -934,7 +949,9 @@ export function VenderView() {
                           disabled={stockDisponible === 0 || !tieneLotes}
                           className="ml-2 flex-shrink-0"
                         >
-                          {stockDisponible === 0 || !tieneLotes ? "Sin Stock" : "Agregar"}
+                          {stockDisponible === 0 || !tieneLotes
+                            ? "Sin Stock"
+                            : "Agregar"}
                         </Button>
                       </div>
 
@@ -950,13 +967,14 @@ export function VenderView() {
                           >
                             {isExpanded ? (
                               <>
-                                <ChevronUp className="h-3 w-3 mr-1" /> Ver menos
+                                <ChevronUp className="h-3 w-3 mr-1" /> Ver
+                                menos
                               </>
                             ) : (
                               <>
                                 <ChevronDown className="h-3 w-3 mr-1" /> Ver
-                                similares ({product.productos_similares!.length}
-                                )
+                                similares (
+                                {product.productos_similares!.length})
                               </>
                             )}
                           </Button>
@@ -976,8 +994,10 @@ export function VenderView() {
                             </div>
                           ) : similarProducts.length > 0 ? (
                             similarProducts.map((similar) => {
-                              const stockDisponibleSimilar = getStockDisponible(similar.idproducto);
-                              const tieneLotesSimilar = tieneLotesDisponibles(similar);
+                              const stockDisponibleSimilar =
+                                getStockDisponible(similar.idproducto);
+                              const tieneLotesSimilar =
+                                tieneLotesDisponibles(similar);
                               return (
                                 <div
                                   key={similar.idproducto}
@@ -1012,7 +1032,10 @@ export function VenderView() {
                                           {similar.nombre}
                                         </p>
                                         <p className="text-xs text-muted-foreground line-clamp-1">
-                                          {similar.descripcion?.substring(0, 60)}
+                                          {similar.descripcion?.substring(
+                                            0,
+                                            60,
+                                          )}
                                           ...
                                         </p>
                                         <div className="flex items-center gap-2 mt-1">
@@ -1022,11 +1045,15 @@ export function VenderView() {
                                           >
                                             {similar.nombre_ubicacion}
                                           </Badge>
-                                          {similar.lotes && similar.lotes.length > 0 && (
-                                            <Badge variant="outline" className="text-xs">
-                                              {similar.lotes.length} lotes
-                                            </Badge>
-                                          )}
+                                          {similar.lotes &&
+                                            similar.lotes.length > 0 && (
+                                              <Badge
+                                                variant="outline"
+                                                className="text-xs"
+                                              >
+                                                {similar.lotes.length} lotes
+                                              </Badge>
+                                            )}
                                         </div>
                                         <p className="text-xs font-medium mt-1">
                                           Bs {formatBs(similar.precio_venta)} |
@@ -1041,10 +1068,14 @@ export function VenderView() {
                                         e.stopPropagation();
                                         agregarProducto(similar);
                                       }}
-                                      disabled={stockDisponibleSimilar === 0 || !tieneLotesSimilar}
+                                      disabled={
+                                        stockDisponibleSimilar === 0 ||
+                                        !tieneLotesSimilar
+                                      }
                                       className="ml-2 flex-shrink-0 h-8"
                                     >
-                                      {stockDisponibleSimilar === 0 || !tieneLotesSimilar
+                                      {stockDisponibleSimilar === 0 ||
+                                      !tieneLotesSimilar
                                         ? "Sin Stock"
                                         : "Agregar"}
                                     </Button>
@@ -1115,213 +1146,320 @@ export function VenderView() {
               </p>
             ) : (
               <div className="space-y-3 max-h-64 overflow-y-auto">
-                {ventaItems.map((item, index) => (
-                  <div
-                    key={item.idproducto}
-                    className="border rounded-lg p-3 bg-card"
-                  >
-                    <div className="flex items-start gap-3 mb-3">
-                      {(() => {
-                        const imageUrl = getImageUrl(item.imagen);
-                        return imageUrl ? (
-                          <img
-                            src={imageUrl}
-                            alt={item.nombre}
-                            className="w-12 h-12 rounded object-cover flex-shrink-0"
-                            onError={(e) => {
-                              e.currentTarget.style.display = "none";
-                            }}
-                          />
-                        ) : (
-                          <div className="w-12 h-12 rounded bg-muted flex items-center justify-center flex-shrink-0">
-                            <span className="text-xs text-muted-foreground">
-                              Sin img
-                            </span>
-                          </div>
-                        );
-                      })()}
-                      <div className="flex-1 min-w-0">
-                        <h5 className="font-medium text-sm break-words whitespace-normal leading-tight">
-                          {item.nombre}
-                        </h5>
-                        <p className="text-sm font-medium text-green-600 mt-1">
-                          Bs {formatBs(item.precio_venta)} c/u
-                        </p>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setProductoParaVerLotes(item);
-                            setShowLotesCarrito(true);
-                          }}
-                          className="h-6 px-2 text-xs mt-1"
-                        >
-                          <Package className="h-3 w-3 mr-1" />
-                          Ver lotes ({item.lotesSeleccionados.length})
-                        </Button>
-                      </div>
-                    </div>
+                {ventaItems.map((item, index) => {
+                  const subtotalItem = item.precio_venta * item.cantidad;
+                  const descuentoItem = item.descuentoProducto || 0;
+                  const totalItem = subtotalItem - descuentoItem;
 
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 w-8 p-0"
-                          onClick={() => {
-                            const nuevaCantidad = item.cantidad - 1;
-                            if (nuevaCantidad >= 1) {
-                              const product = searchResults.find(
-                                p => p.idproducto === item.idproducto
-                              );
-                              if (product) {
-                                abrirDialogoLotes(product, nuevaCantidad, true, index);
+                  return (
+                    <div
+                      key={item.idproducto + index}
+                      className="border rounded-lg p-3 bg-card"
+                    >
+                      <div className="flex items-start gap-3 mb-3">
+                        {(() => {
+                          const imageUrl = getImageUrl(item.imagen);
+                          return imageUrl ? (
+                            <img
+                              src={imageUrl}
+                              alt={item.nombre}
+                              className="w-12 h-12 rounded object-cover flex-shrink-0"
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                              }}
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                              <span className="text-xs text-muted-foreground">
+                                Sin img
+                              </span>
+                            </div>
+                          );
+                        })()}
+                        <div className="flex-1 min-w-0">
+                          <h5 className="font-medium text-sm break-words whitespace-normal leading-tight">
+                            {item.nombre}
+                          </h5>
+                          <p className="text-sm font-medium text-green-600 mt-1">
+                            Bs {formatBs(item.precio_venta)} c/u
+                          </p>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setProductoParaVerLotes(item);
+                              setShowLotesCarrito(true);
+                            }}
+                            className="h-6 px-2 text-xs mt-1"
+                          >
+                            <Package className="h-3 w-3 mr-1" />
+                            Ver lotes ({item.lotesSeleccionados.length})
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 w-8 p-0"
+                            onClick={() => {
+                              const nuevaCantidad = item.cantidad - 1;
+                              if (nuevaCantidad >= 1) {
+                                handleCantidadChange(index, nuevaCantidad);
+                              } else {
+                                eliminarItem(index);
                               }
-                            } else {
-                              eliminarItem(index);
+                            }}
+                          >
+                            <Minus className="h-3 w-3" />
+                          </Button>
+                          <Input
+                            type="number"
+                            min="1"
+                            max={
+                              getStockDisponible(item.idproducto) +
+                              item.cantidad
                             }
-                          }}
-                        >
-                          <Minus className="h-3 w-3" />
-                        </Button>
-                        <Input
-                          type="number"
-                          min="1"
-                          max={getStockDisponible(item.idproducto) + item.cantidad}
-                          value={item.cantidad === 0 ? "" : item.cantidad}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            if (val === "") {
-                              const newItems = [...ventaItems];
-                              newItems[index].cantidad = 0;
-                              setVentaItems(newItems);
-                              return;
-                            }
-                            const numericValue = parseInt(val);
-                            if (!isNaN(numericValue) && numericValue > 0) {
-                              const newItems = [...ventaItems];
-                              newItems[index].cantidad = numericValue;
-                              setVentaItems(newItems);
-                            }
-                          }}
-                          onBlur={(e) => {
-                            const val = e.target.value;
-                            if (val === "" || parseInt(val) === 0) {
-                              const product = searchResults.find(
-                                p => p.idproducto === item.idproducto
-                              );
-                              if (product) {
-                                abrirDialogoLotes(product, 1, true, index);
+                            value={item.cantidad === 0 ? "" : item.cantidad}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === "") {
+                                const newItems = [...ventaItems];
+                                newItems[index].cantidad = 0;
+                                setVentaItems(newItems);
+                                return;
                               }
-                            } else {
                               const numericValue = parseInt(val);
-                              const stockDisponible = getStockDisponible(item.idproducto) + item.cantidad;
-                              if (numericValue <= stockDisponible && numericValue !== item.cantidad) {
-                                const product = searchResults.find(
-                                  p => p.idproducto === item.idproducto
-                                );
-                                if (product) {
-                                  abrirDialogoLotes(product, numericValue, true, index);
+                              if (!isNaN(numericValue) && numericValue > 0) {
+                                const stockDisponible =
+                                  getStockDisponible(item.idproducto) +
+                                  item.cantidad;
+                                if (numericValue <= stockDisponible) {
+                                  const newItems = [...ventaItems];
+                                  newItems[index].cantidad = numericValue;
+                                  setVentaItems(newItems);
+                                } else {
+                                  toast({
+                                    title: "Stock insuficiente",
+                                    description: `Solo hay ${stockDisponible} unidades disponibles en total`,
+                                    variant: "destructive",
+                                  });
                                 }
                               }
-                            }
-                          }}
-                          className="w-12 h-8 text-center text-sm font-medium number-input-no-scroll"
-                          onWheel={(e) => e.currentTarget.blur()}
-                        />
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 w-8 p-0"
-                          onClick={() => {
-                            const nuevaCantidad = item.cantidad + 1;
-                            const product = searchResults.find(
-                              p => p.idproducto === item.idproducto
-                            );
-                            if (product) {
-                              abrirDialogoLotes(product, nuevaCantidad, true, index);
-                            }
-                          }}
-                          disabled={getStockDisponible(item.idproducto) === 0}
-                        >
-                          <Plus className="h-3 w-3" />
-                        </Button>
+                            }}
+                            onBlur={(e) => {
+                              const val = e.target.value;
+                              if (val === "" || parseInt(val) === 0) {
+                                const product = searchResults.find(
+                                  (p) => p.idproducto === item.idproducto,
+                                );
+                                if (product) {
+                                  abrirDialogoLotes(product, 1, true, index);
+                                }
+                                return;
+                              }
+
+                              const numericValue = parseInt(val);
+                              if (isNaN(numericValue) || numericValue < 1) {
+                                return;
+                              }
+
+                              const stockDisponible =
+                                getStockDisponible(item.idproducto) +
+                                item.cantidad;
+
+                              if (numericValue > stockDisponible) {
+                                toast({
+                                  title: "Stock insuficiente",
+                                  description: `Solo hay ${stockDisponible} unidades disponibles en total`,
+                                  variant: "destructive",
+                                });
+                                // Revertir al valor anterior
+                                const newItems = [...ventaItems];
+                                newItems[index].cantidad = item.cantidad;
+                                setVentaItems(newItems);
+                                return;
+                              }
+
+                              // Si la cantidad cambió, abrir diálogo para seleccionar lotes
+                              if (numericValue !== item.cantidad) {
+                                const product = searchResults.find(
+                                  (p) => p.idproducto === item.idproducto,
+                                );
+                                if (product) {
+                                  abrirDialogoLotes(
+                                    product,
+                                    numericValue,
+                                    true,
+                                    index,
+                                  );
+                                }
+                              }
+                            }}
+                            className="w-12 h-8 text-center text-sm font-medium number-input-no-scroll"
+                            onWheel={(e) => e.currentTarget.blur()}
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 w-8 p-0"
+                            onClick={() => {
+                              const nuevaCantidad = item.cantidad + 1;
+                              const stockDisponible =
+                                getStockDisponible(item.idproducto) +
+                                item.cantidad;
+                              if (nuevaCantidad <= stockDisponible) {
+                                handleCantidadChange(index, nuevaCantidad);
+                              } else {
+                                toast({
+                                  title: "Stock insuficiente",
+                                  description: `Solo hay ${stockDisponible} unidades disponibles en total`,
+                                  variant: "destructive",
+                                });
+                              }
+                            }}
+                            disabled={getStockDisponible(item.idproducto) === 0}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-bold whitespace-nowrap">
+                            Bs {formatBs(totalItem)}
+                          </p>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="h-8 w-8 p-0"
+                            onClick={() => eliminarItem(index)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-bold whitespace-nowrap">
-                          Bs {formatBs(item.precio_venta * item.cantidad)}
-                        </p>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          className="h-8 w-8 p-0"
-                          onClick={() => eliminarItem(index)}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
+                      {/* Descuento por producto - MONTO FIJO (Bs) */}
+                      <div className="flex items-center gap-2 border-t pt-2 mt-1">
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          Desc. (Bs):
+                        </span>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={item.descuentoProducto || ""}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            const descuento = isNaN(val)
+                              ? 0
+                              : Math.max(0, val);
+                            const newItems = [...ventaItems];
+                            newItems[index].descuentoProducto = descuento;
+                            setVentaItems(newItems);
+                          }}
+                          placeholder="0.00"
+                          className="w-20 h-7 text-xs number-input-no-scroll"
+                          onWheel={(e) => e.currentTarget.blur()}
+                        />
+                        {item.descuentoProducto > 0 && (
+                          <span className="text-xs text-green-600 whitespace-nowrap">
+                            -Bs {formatBs(descuentoItem)}
+                          </span>
+                        )}
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
             <div className="border-t pt-4 space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Subtotal:</span>
-                <span>Bs {formatBs(subtotal)}</span>
+                <span>Bs {formatBs(subtotalSinDescuentos)}</span>
               </div>
 
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Label htmlFor="descuento" className="text-sm whitespace-nowrap">
-                    Descuento (Bs):
-                  </Label>
+              {tieneDescuentosProducto && (
+                <>
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>Descuentos por producto:</span>
+                    <span>-Bs {formatBs(descuentosProducto)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm font-medium">
+                    <span>Subtotal con descuentos por producto:</span>
+                    <span>Bs {formatBs(subtotalConDescuentosProducto)}</span>
+                  </div>
+                </>
+              )}
+
+              <div className="flex justify-between items-center text-sm">
+                <span className="flex items-center gap-1">
+                  Descuento %:
+                </span>
+                <div className="flex items-center gap-2">
                   <Input
-                    id="descuento"
+                    id="descuentoPorcentaje"
                     type="number"
                     min="0"
-                    step="0.01"
-                    value={descuento || ""}
-                    onChange={(e) => handleDiscountChange(Number(e.target.value) || 0)}
+                    max="100"
+                    step="1"
+                    value={descuentoPorcentaje || ""}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value);
+                      if (val >= 0 && val <= 100) {
+                        setDescuentoPorcentaje(val || 0);
+                      } else if (e.target.value === "") {
+                        setDescuentoPorcentaje(0);
+                      }
+                    }}
                     placeholder="0"
                     className="w-20 h-8 number-input-no-scroll"
                     onWheel={(e) => e.currentTarget.blur()}
                   />
-                  <span className="text-sm whitespace-nowrap">
-                    -Bs {formatBs(descuento)}
+                  <span className="whitespace-nowrap">
+                    {descuentoPorcentaje > 0 &&
+                      `-Bs ${formatBs(descuentoMonto)}`}
                   </span>
-                  {isDoctorMode && selectedDoctor && (
-                    <Badge variant="secondary" className="text-xs">
-                      Doctor: {selectedDoctor.nombre}
-                    </Badge>
-                  )}
                 </div>
-
-                {showDiscountField && (
-                  <div className="mt-2">
-                    <Label htmlFor="discountReason">Justificación del descuento *</Label>
-                    <Textarea
-                      id="discountReason"
-                      value={discountReason}
-                      onChange={(e) => setDiscountReason(e.target.value)}
-                      placeholder="Explique el motivo del descuento..."
-                      rows={3}
-                    />
-                    {isDoctorMode && selectedDoctor && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Descuento aplicado por: {selectedDoctor.nombre}
-                      </p>
-                    )}
-                  </div>
-                )}
               </div>
+
+              {isDoctorMode && selectedDoctor && (
+                <div className="flex justify-end">
+                  <Badge variant="secondary" className="text-xs">
+                    Doctor: {selectedDoctor.nombre}
+                  </Badge>
+                </div>
+              )}
 
               <div className="flex justify-between text-lg font-bold border-t pt-2">
                 <span>Total:</span>
                 <span>Bs {formatBs(total)}</span>
               </div>
+
+              {/* Campo de justificación de descuento - visible si hay descuentos */}
+              {tieneDescuentos && (
+                <div className="mt-3">
+                  <Label htmlFor="discountReason" className="text-sm font-medium">
+                    Justificación del descuento *
+                  </Label>
+                  <Textarea
+                    id="discountReason"
+                    value={discountReason}
+                    onChange={(e) => setDiscountReason(e.target.value)}
+                    placeholder="Explique el motivo del descuento..."
+                    rows={2}
+                    className="mt-1"
+                  />
+                  {isDoctorMode && selectedDoctor && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Descuento aplicado por: {selectedDoctor.nombre}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="space-y-3">
@@ -1394,16 +1532,19 @@ export function VenderView() {
                     ventaItems.length === 0 ||
                     !cajaAbierta ||
                     tieneItemsInvalidos ||
-                    (isDoctorMode && !selectedDoctor)
+                    (isDoctorMode && !selectedDoctor) ||
+                    (tieneDescuentos && !discountReason.trim())
                   }
                 >
                   {!cajaAbierta
                     ? "Caja Cerrada"
                     : tieneItemsInvalidos
-                      ? "Cantidades inválidas"
-                      : isDoctorMode && !selectedDoctor
-                        ? "Seleccionar doctor"
-                        : "Procesar Venta"}
+                    ? "Cantidades inválidas"
+                    : isDoctorMode && !selectedDoctor
+                    ? "Seleccionar doctor"
+                    : tieneDescuentos && !discountReason.trim()
+                    ? "Justificar descuento"
+                    : "Procesar Venta"}
                 </Button>
               </DialogTrigger>
               <DialogContent>
@@ -1414,7 +1555,20 @@ export function VenderView() {
                     ?
                     {isDoctorMode && selectedDoctor && (
                       <span className="block mt-2 text-sm">
-                        Doctor asignado: <strong>{selectedDoctor.nombre}</strong>
+                        Doctor asignado:{" "}
+                        <strong>{selectedDoctor.nombre}</strong>
+                      </span>
+                    )}
+                    {tieneDescuentos && (
+                      <span className="block mt-2 text-sm text-amber-600">
+                        Descuento aplicado:{" "}
+                        <strong>
+                          Bs {formatBs(descuentosProducto + descuentoMonto)}
+                        </strong>
+                        <br />
+                        <span className="text-xs">
+                          Motivo: {discountReason}
+                        </span>
                       </span>
                     )}
                   </DialogDescription>

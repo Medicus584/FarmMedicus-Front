@@ -274,7 +274,7 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
             <Table>
               <TableHeader className="hidden md:table-header-group">
                 <TableRow>
-                  <TableHead className="px-4 py-3">Nombre</TableHead>
+                  <TableHead className="px-4 py-3">Nombre Comercial</TableHead>
                   <TableHead className="px-4 py-3">P. Compra</TableHead>
                   <TableHead className="px-4 py-3">P. Venta</TableHead>
                   <TableHead className="px-4 py-3">Cantidad</TableHead>

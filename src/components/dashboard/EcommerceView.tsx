@@ -49,7 +49,8 @@ export function EcommerceView() {
   const productSearchInputRef = useRef<HTMLInputElement>(null);
   const lastSearchQueryRef = useRef<string>("");
   const isSearchingRef = useRef<boolean>(false);
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // CORRECCIÓN: Reemplazar NodeJS.Timeout con ReturnType<typeof setTimeout>
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Debounce para búsqueda de productos
   const debouncedProductSearchTerm = useDebounce(productSearchTerm, 500);

@@ -565,6 +565,16 @@ export const SeleccionarLoteDialog = ({
     }
   }, [open]);
 
+  // Resetear el estado cuando se abre el diálogo
+  useEffect(() => {
+    if (open) {
+      setCantidadSolicitada(cantidadInicial);
+      setError("");
+      setPaso('cantidad');
+      setCantidades({});
+    }
+  }, [open, cantidadInicial]);
+
   const handleConfirmarCantidad = () => {
     if (!cantidadSolicitada || cantidadSolicitada <= 0) {
       setError("La cantidad debe ser mayor a 0");
@@ -585,8 +595,16 @@ export const SeleccionarLoteDialog = ({
     for (const lote of sorted) {
       if (restante <= 0) break;
       const tomar = Math.min(lote.stock, restante);
-      initial[lote.idlote] = tomar;
-      restante -= tomar;
+      if (tomar > 0) {
+        initial[lote.idlote] = tomar;
+        restante -= tomar;
+      }
+    }
+    
+    // Si no se pudo distribuir toda la cantidad
+    if (restante > 0) {
+      setError(`No hay suficiente stock en los lotes para cubrir ${cantidadSolicitada} unidades. Faltan ${restante} unidades.`);
+      return;
     }
     
     setCantidades(initial);

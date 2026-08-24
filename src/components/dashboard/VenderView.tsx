@@ -547,32 +547,6 @@ export function VenderView() {
     setVentaItems(newItems);
   };
 
-  // Función para manejar el cambio de cantidad desde el input
-  const handleCantidadChange = (index: number, nuevaCantidad: number) => {
-    if (nuevaCantidad < 1) {
-      eliminarItem(index);
-      return;
-    }
-
-    const item = ventaItems[index];
-    const stockDisponible = getStockDisponible(item.idproducto) + item.cantidad;
-
-    if (nuevaCantidad > stockDisponible) {
-      toast({
-        title: "Stock insuficiente",
-        description: `Solo hay ${stockDisponible} unidades disponibles en total`,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Si la cantidad cambió, abrir diálogo para seleccionar lotes
-    const product = searchResults.find((p) => p.idproducto === item.idproducto);
-    if (product) {
-      abrirDialogoLotes(product, nuevaCantidad, true, index);
-    }
-  };
-
   // Cálculo de subtotal con descuentos por producto (monto fijo)
   const subtotalSinDescuentos = ventaItems.reduce(
     (total, item) => total + item.precio_venta * item.cantidad,
@@ -1207,7 +1181,17 @@ export function VenderView() {
                             onClick={() => {
                               const nuevaCantidad = item.cantidad - 1;
                               if (nuevaCantidad >= 1) {
-                                handleCantidadChange(index, nuevaCantidad);
+                                const product = searchResults.find(
+                                  (p) => p.idproducto === item.idproducto,
+                                );
+                                if (product) {
+                                  abrirDialogoLotes(
+                                    product,
+                                    nuevaCantidad,
+                                    true,
+                                    index,
+                                  );
+                                }
                               } else {
                                 eliminarItem(index);
                               }
@@ -1215,92 +1199,9 @@ export function VenderView() {
                           >
                             <Minus className="h-3 w-3" />
                           </Button>
-                          <Input
-                            type="number"
-                            min="1"
-                            max={
-                              getStockDisponible(item.idproducto) +
-                              item.cantidad
-                            }
-                            value={item.cantidad === 0 ? "" : item.cantidad}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (val === "") {
-                                const newItems = [...ventaItems];
-                                newItems[index].cantidad = 0;
-                                setVentaItems(newItems);
-                                return;
-                              }
-                              const numericValue = parseInt(val);
-                              if (!isNaN(numericValue) && numericValue > 0) {
-                                const stockDisponible =
-                                  getStockDisponible(item.idproducto) +
-                                  item.cantidad;
-                                if (numericValue <= stockDisponible) {
-                                  const newItems = [...ventaItems];
-                                  newItems[index].cantidad = numericValue;
-                                  setVentaItems(newItems);
-                                } else {
-                                  toast({
-                                    title: "Stock insuficiente",
-                                    description: `Solo hay ${stockDisponible} unidades disponibles en total`,
-                                    variant: "destructive",
-                                  });
-                                }
-                              }
-                            }}
-                            onBlur={(e) => {
-                              const val = e.target.value;
-                              if (val === "" || parseInt(val) === 0) {
-                                const product = searchResults.find(
-                                  (p) => p.idproducto === item.idproducto,
-                                );
-                                if (product) {
-                                  abrirDialogoLotes(product, 1, true, index);
-                                }
-                                return;
-                              }
-
-                              const numericValue = parseInt(val);
-                              if (isNaN(numericValue) || numericValue < 1) {
-                                return;
-                              }
-
-                              const stockDisponible =
-                                getStockDisponible(item.idproducto) +
-                                item.cantidad;
-
-                              if (numericValue > stockDisponible) {
-                                toast({
-                                  title: "Stock insuficiente",
-                                  description: `Solo hay ${stockDisponible} unidades disponibles en total`,
-                                  variant: "destructive",
-                                });
-                                // Revertir al valor anterior
-                                const newItems = [...ventaItems];
-                                newItems[index].cantidad = item.cantidad;
-                                setVentaItems(newItems);
-                                return;
-                              }
-
-                              // Si la cantidad cambió, abrir diálogo para seleccionar lotes
-                              if (numericValue !== item.cantidad) {
-                                const product = searchResults.find(
-                                  (p) => p.idproducto === item.idproducto,
-                                );
-                                if (product) {
-                                  abrirDialogoLotes(
-                                    product,
-                                    numericValue,
-                                    true,
-                                    index,
-                                  );
-                                }
-                              }
-                            }}
-                            className="w-12 h-8 text-center text-sm font-medium number-input-no-scroll"
-                            onWheel={(e) => e.currentTarget.blur()}
-                          />
+                          <span className="w-12 text-center text-sm font-medium">
+                            {item.cantidad}
+                          </span>
                           <Button
                             size="sm"
                             variant="outline"
@@ -1311,7 +1212,17 @@ export function VenderView() {
                                 getStockDisponible(item.idproducto) +
                                 item.cantidad;
                               if (nuevaCantidad <= stockDisponible) {
-                                handleCantidadChange(index, nuevaCantidad);
+                                const product = searchResults.find(
+                                  (p) => p.idproducto === item.idproducto,
+                                );
+                                if (product) {
+                                  abrirDialogoLotes(
+                                    product,
+                                    nuevaCantidad,
+                                    true,
+                                    index,
+                                  );
+                                }
                               } else {
                                 toast({
                                   title: "Stock insuficiente",
@@ -1397,6 +1308,7 @@ export function VenderView() {
 
               <div className="flex justify-between items-center text-sm">
                 <span className="flex items-center gap-1">
+                  <Percent className="h-3 w-3" />
                   Descuento %:
                 </span>
                 <div className="flex items-center gap-2">

@@ -306,7 +306,14 @@ export const getTodosProductosParaSelect = async (searchTerm?: string): Promise<
   try {
     const params = searchTerm ? { search: searchTerm } : {};
     const response = await api.get("/todos-select", { params });
-    return response.data;
+    
+    // Asegurar que los datos tengan la estructura correcta
+    const productos = response.data || [];
+    return productos.map((p: any) => ({
+      idproducto: p.idproducto || 0,
+      nombre: p.nombre || 'Sin nombre',
+      descripcion: p.descripcion || ''
+    }));
   } catch (error) {
     console.error("Error fetching productos para select:", error);
     return [];

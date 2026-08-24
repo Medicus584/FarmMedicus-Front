@@ -106,6 +106,12 @@ export interface ProductoListResponse {
   totalPages: number;
 }
 
+export interface ProductoSelect {
+  idproducto: number;
+  nombre: string;
+  descripcion: string;
+}
+
 const api = axios.create({
   baseURL: API_URL,
   withCredentials: true,
@@ -296,11 +302,10 @@ export const deleteFormaFarmaceutica = async (id: number): Promise<void> => {
 
 // ============ FUNCIONES PARA PRODUCTOS ============
 
-export const getTodosProductosParaSelect = async (): Promise<
-  { idproducto: number; nombre: string }[]
-> => {
+export const getTodosProductosParaSelect = async (searchTerm?: string): Promise<ProductoSelect[]> => {
   try {
-    const response = await api.get("/todos-select");
+    const params = searchTerm ? { search: searchTerm } : {};
+    const response = await api.get("/todos-select", { params });
     return response.data;
   } catch (error) {
     console.error("Error fetching productos para select:", error);

@@ -1,5 +1,5 @@
 // components/FormularioProductos.tsx
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,11 +44,11 @@ import {
   getCategorias,
   getLaboratorios,
   getFormasFarmaceuticas,
+  getTodosProductosParaSelect,
 } from "@/api/ProductsApi";
 import {
   createProducto,
   updateProducto,
-  getTodosProductosParaSelect,
   getProductoByCodigoP,
 } from "@/api/ProductsApi";
 
@@ -102,6 +102,12 @@ interface ManagementItem {
   id?: number;
   nombre: string;
   estado: number;
+}
+
+interface ProductoSelect {
+  idproducto: number;
+  nombre: string;
+  descripcion: string;
 }
 
 // ============================================
@@ -620,36 +626,87 @@ const SingleSelectWithDropdown = ({
 };
 
 // ============================================
-// COMPONENTE PARA PRODUCTOS SIMILARES
+// COMPONENTE PARA PRODUCTOS SIMILARES CON BÚSQUEDA
 // ============================================
-interface ProductoSelect {
-  idproducto: number;
-  nombre: string;
-}
-
 const ProductoSimilarSelect = ({
-  productosDisponibles,
   selectedValues,
   onSelectionChange,
   currentProductId,
 }: {
-  productosDisponibles: ProductoSelect[];
   selectedValues: number[];
   onSelectionChange: (values: number[]) => void;
   currentProductId?: number;
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const [productosDisponibles, setProductosDisponibles] = useState<ProductoSelect[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const filteredOptions = (productosDisponibles || []).filter(
-    (producto) =>
-      producto.nombre.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      !selectedValues.includes(producto.idproducto) &&
-      producto.idproducto !== currentProductId,
-  );
+  // Cargar productos iniciales (sin búsqueda)
+  useEffect(() => {
+    const loadInitialProducts = async () => {
+      setLoading(true);
+      try {
+        const productos = await getTodosProductosParaSelect();
+        setProductosDisponibles(productos);
+      } catch (error) {
+        console.error("Error cargando productos:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadInitialProducts();
+  }, []);
 
+  // Buscar productos con debounce
+  const searchProducts = useCallback(async (term: string) => {
+    if (term.trim().length < 2) {
+      // Si el término es corto, cargar todos los productos
+      setLoading(true);
+      try {
+        const productos = await getTodosProductosParaSelect();
+        setProductosDisponibles(productos);
+      } catch (error) {
+        console.error("Error cargando productos:", error);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const productos = await getTodosProductosParaSelect(term);
+      setProductosDisponibles(productos);
+    } catch (error) {
+      console.error("Error buscando productos:", error);
+    } finally {
+      setIsSearching(false);
+    }
+  }, []);
+
+  // Efecto para búsqueda con debounce
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    searchTimeoutRef.current = setTimeout(() => {
+      searchProducts(searchTerm);
+    }, 400);
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchTerm, searchProducts]);
+
+  // Cerrar dropdown al hacer click fuera
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -665,6 +722,12 @@ const ProductoSimilarSelect = ({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const filteredOptions = (productosDisponibles || []).filter(
+    (producto) =>
+      !selectedValues.includes(producto.idproducto) &&
+      producto.idproducto !== currentProductId,
+  );
 
   const addSelection = (producto: ProductoSelect) => {
     onSelectionChange([...selectedValues, producto.idproducto]);
@@ -688,6 +751,11 @@ const ProductoSimilarSelect = ({
     }
   };
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+    setIsOpen(true);
+  };
+
   return (
     <div className="space-y-1.5 w-full">
       <Label className="text-sm font-medium">Productos Similares</Label>
@@ -696,36 +764,53 @@ const ProductoSimilarSelect = ({
           <Input
             ref={inputRef}
             value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              setIsOpen(true);
-            }}
+            onChange={handleInputChange}
             onClick={handleInputClick}
             onFocus={() => setIsOpen(true)}
-            placeholder="Buscar productos similares..."
+            placeholder="Buscar por n. comercial o n. generico..."
             className="h-9 text-sm pl-9 w-full pr-8 cursor-pointer"
           />
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <ChevronDown 
             className={`absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`}
           />
+          {(loading || isSearching) && (
+            <Loader2 className="absolute right-8 top-1/2 transform -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+          )}
         </div>
 
-        {isOpen && filteredOptions.length > 0 && (
-          <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-32 overflow-y-auto">
-            {filteredOptions.map((producto) => (
-              <button
-                key={producto.idproducto}
-                type="button"
-                className="w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground border-b last:border-0"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  addSelection(producto);
-                }}
-              >
-                {producto.nombre}
-              </button>
-            ))}
+        {isOpen && (
+          <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-52 overflow-y-auto">
+            {filteredOptions.length > 0 ? (
+              filteredOptions.map((producto) => (
+                <button
+                  key={producto.idproducto}
+                  type="button"
+                  className="w-full text-left px-3 py-2 hover:bg-accent hover:text-accent-foreground border-b last:border-0 transition-colors"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    addSelection(producto);
+                  }}
+                >
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium">{producto.nombre}</span>
+                    {producto.descripcion && (
+                      <span className="text-xs text-muted-foreground truncate max-w-full">
+                        {producto.descripcion}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              ))
+            ) : (
+              <div className="px-3 py-4 text-sm text-muted-foreground text-center">
+                {searchTerm.trim().length >= 2 ? (
+                  `No se encontraron productos con "${searchTerm}"`
+                ) : (
+                  "No hay productos disponibles"
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -994,18 +1079,20 @@ export function FormularioProductos({
     }
   };
 
+  // Cargar productos para similares con búsqueda
+  const loadTodosProductos = async (searchTerm?: string) => {
+    setLoadingProductos(true);
+    try {
+      const productos = await getTodosProductosParaSelect(searchTerm);
+      setTodosProductos(productos);
+    } catch (error) {
+      console.error("Error cargando productos para similares:", error);
+    } finally {
+      setLoadingProductos(false);
+    }
+  };
+
   useEffect(() => {
-    const loadTodosProductos = async () => {
-      setLoadingProductos(true);
-      try {
-        const productos = await getTodosProductosParaSelect();
-        setTodosProductos(productos);
-      } catch (error) {
-        console.error("Error cargando productos para similares:", error);
-      } finally {
-        setLoadingProductos(false);
-      }
-    };
     loadTodosProductos();
     loadManagementItems();
   }, []);
@@ -1906,7 +1993,6 @@ export function FormularioProductos({
         {/* Productos Similares */}
         <div className="space-y-1.5">
           <ProductoSimilarSelect
-            productosDisponibles={todosProductos}
             selectedValues={formData.productosSimilares || []}
             onSelectionChange={(values) => handleInputChange("productosSimilares", values)}
             currentProductId={formData.id ? parseInt(formData.id) : undefined}

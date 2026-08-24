@@ -239,7 +239,7 @@ const SearchSelectWithDropdown = ({
               placeholder={placeholder}
               className="h-9 text-sm w-full pr-8 cursor-pointer"
             />
-            <ChevronDown
+            <ChevronDown 
               className={`absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`}
             />
           </div>
@@ -493,7 +493,7 @@ const SingleSelectWithDropdown = ({
               placeholder={placeholder}
               className="h-9 text-sm w-full pr-8 cursor-pointer"
             />
-            <ChevronDown
+            <ChevronDown 
               className={`absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`}
             />
           </div>
@@ -504,8 +504,9 @@ const SingleSelectWithDropdown = ({
                 filteredOptions.map((option) => (
                   <div
                     key={option}
-                    className={`flex items-center justify-between px-3 py-2 hover:bg-accent hover:text-accent-foreground border-b last:border-0 ${selectedValue === option ? "bg-primary/5" : ""
-                      }`}
+                    className={`flex items-center justify-between px-3 py-2 hover:bg-accent hover:text-accent-foreground border-b last:border-0 ${
+                      selectedValue === option ? "bg-primary/5" : ""
+                    }`}
                   >
                     <button
                       type="button"
@@ -642,75 +643,80 @@ const ProductoSimilarSelect = ({
   const [productosMap, setProductosMap] = useState<Map<number, ProductoSelect>>(new Map());
   const [loading, setLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMounted = useRef(true);
 
-  // Cargar productos iniciales (sin búsqueda)
+  // Limpiar montaje
   useEffect(() => {
-    const loadInitialProducts = async () => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  // Cargar productos iniciales y los seleccionados
+  useEffect(() => {
+    const loadAllProducts = async () => {
+      if (initialLoadDone) return;
       setLoading(true);
       try {
         const productos = await getTodosProductosParaSelect();
+        
+        if (!isMounted.current) return;
+        
         setProductosDisponibles(productos);
-        // Construir mapa de productos
+        
         const map = new Map<number, ProductoSelect>();
         productos.forEach(p => map.set(p.idproducto, p));
+        
+        if (selectedValues.length > 0) {
+          const missingIds = selectedValues.filter(id => !map.has(id));
+          
+          if (missingIds.length > 0) {
+            try {
+              const allProductos = await getTodosProductosParaSelect();
+              allProductos.forEach(p => map.set(p.idproducto, p));
+            } catch (error) {
+              console.error("Error cargando productos seleccionados:", error);
+            }
+          }
+        }
+        
         setProductosMap(map);
+        setInitialLoadDone(true);
       } catch (error) {
         console.error("Error cargando productos:", error);
       } finally {
-        setLoading(false);
-      }
-    };
-    loadInitialProducts();
-  }, []);
-
-  // Cuando cambian los selectedValues, asegurar que estén en el mapa
-  useEffect(() => {
-    const loadSelectedProducts = async () => {
-      if (selectedValues.length === 0) return;
-
-      const missingIds = selectedValues.filter(id => !productosMap.has(id));
-      if (missingIds.length === 0) return;
-
-      // Cargar productos faltantes por nombre (usando búsqueda vacía)
-      try {
-        const allProductos = await getTodosProductosParaSelect();
-        const map = new Map(productosMap);
-        allProductos.forEach(p => map.set(p.idproducto, p));
-        setProductosMap(map);
-
-        // Si hay productos disponibles que no están en la lista, actualizar
-        const newProductos = allProductos.filter(p =>
-          !productosDisponibles.some(dp => dp.idproducto === p.idproducto)
-        );
-        if (newProductos.length > 0) {
-          setProductosDisponibles(prev => [...prev, ...newProductos]);
+        if (isMounted.current) {
+          setLoading(false);
         }
-      } catch (error) {
-        console.error("Error cargando productos seleccionados:", error);
       }
     };
 
-    loadSelectedProducts();
-  }, [selectedValues]);
+    loadAllProducts();
+  }, [selectedValues, initialLoadDone]);
 
   // Buscar productos con debounce
   const searchProducts = useCallback(async (term: string) => {
-    if (term.trim().length < 2) {
-      // Si el término es corto, cargar todos los productos
-      setLoading(true);
-      try {
-        const productos = await getTodosProductosParaSelect();
-        setProductosDisponibles(productos);
-        const map = new Map<number, ProductoSelect>();
-        productos.forEach(p => map.set(p.idproducto, p));
-        setProductosMap(map);
-      } catch (error) {
-        console.error("Error cargando productos:", error);
-      } finally {
-        setLoading(false);
+    if (!term || term.trim().length < 2) {
+      if (productosDisponibles.length === 0 && initialLoadDone) {
+        setLoading(true);
+        try {
+          const productos = await getTodosProductosParaSelect();
+          if (isMounted.current) {
+            setProductosDisponibles(productos);
+            const map = new Map(productosMap);
+            productos.forEach(p => map.set(p.idproducto, p));
+            setProductosMap(map);
+          }
+        } catch (error) {
+          console.error("Error cargando productos:", error);
+        } finally {
+          if (isMounted.current) setLoading(false);
+        }
       }
       return;
     }
@@ -718,17 +724,18 @@ const ProductoSimilarSelect = ({
     setIsSearching(true);
     try {
       const productos = await getTodosProductosParaSelect(term);
-      setProductosDisponibles(productos);
-      // Actualizar mapa con los productos encontrados
-      const map = new Map(productosMap);
-      productos.forEach(p => map.set(p.idproducto, p));
-      setProductosMap(map);
+      if (isMounted.current) {
+        setProductosDisponibles(productos);
+        const map = new Map(productosMap);
+        productos.forEach(p => map.set(p.idproducto, p));
+        setProductosMap(map);
+      }
     } catch (error) {
       console.error("Error buscando productos:", error);
     } finally {
-      setIsSearching(false);
+      if (isMounted.current) setIsSearching(false);
     }
-  }, [productosMap]);
+  }, [productosDisponibles.length, initialLoadDone, productosMap]);
 
   // Efecto para búsqueda con debounce
   useEffect(() => {
@@ -771,6 +778,10 @@ const ProductoSimilarSelect = ({
   );
 
   const addSelection = (producto: ProductoSelect) => {
+    const map = new Map(productosMap);
+    map.set(producto.idproducto, producto);
+    setProductosMap(map);
+    
     onSelectionChange([...selectedValues, producto.idproducto]);
     setSearchTerm("");
     setIsOpen(false);
@@ -782,10 +793,36 @@ const ProductoSimilarSelect = ({
 
   const getProductoNombre = (id: number) => {
     const producto = productosMap.get(id);
-    return producto ? producto.nombre : `Producto ${id}`;
+    if (producto) {
+      return producto.nombre;
+    }
+    const found = productosDisponibles.find(p => p.idproducto === id);
+    if (found) {
+      const map = new Map(productosMap);
+      map.set(id, found);
+      setProductosMap(map);
+      return found.nombre;
+    }
+    return `Producto ${id}`;
   };
 
   const handleInputClick = () => {
+    if (!initialLoadDone) {
+      setLoading(true);
+      getTodosProductosParaSelect().then(productos => {
+        if (isMounted.current) {
+          setProductosDisponibles(productos);
+          const map = new Map<number, ProductoSelect>();
+          productos.forEach(p => map.set(p.idproducto, p));
+          setProductosMap(map);
+          setInitialLoadDone(true);
+          setLoading(false);
+        }
+      }).catch(error => {
+        console.error("Error cargando productos:", error);
+        if (isMounted.current) setLoading(false);
+      });
+    }
     setIsOpen(true);
     if (inputRef.current) {
       inputRef.current.focus();
@@ -796,6 +833,18 @@ const ProductoSimilarSelect = ({
     setSearchTerm(e.target.value);
     setIsOpen(true);
   };
+
+  if (loading && !initialLoadDone) {
+    return (
+      <div className="space-y-1.5 w-full">
+        <Label className="text-sm font-medium">Productos Similares</Label>
+        <div className="flex items-center justify-center py-4">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-sm text-muted-foreground">Cargando productos...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-1.5 w-full">
@@ -812,10 +861,10 @@ const ProductoSimilarSelect = ({
             className="h-9 text-sm pl-9 w-full pr-8 cursor-pointer"
           />
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <ChevronDown
+          <ChevronDown 
             className={`absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`}
           />
-          {(loading || isSearching) && (
+          {isSearching && (
             <Loader2 className="absolute right-8 top-1/2 transform -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
           )}
         </div>
@@ -879,6 +928,7 @@ const ProductoSimilarSelect = ({
     </div>
   );
 };
+
 // ============================================
 // FUNCIONES UTILITARIAS
 // ============================================
@@ -921,15 +971,15 @@ const getImageUrl = (imagen: string | undefined): string => {
   if (!imagen) {
     return "https://static.vecteezy.com/system/resources/previews/011/781/801/non_2x/medicine-3d-render-icon-illustration-png.png";
   }
-
+  
   if (imagen.startsWith('http://') || imagen.startsWith('https://')) {
     return imagen;
   }
-
+  
   if (imagen.includes('data:image')) {
     return imagen;
   }
-
+  
   return imagen;
 };
 
@@ -1082,13 +1132,13 @@ export function FormularioProductos({
         id: item.idubicacion,
         nombre: item.nombre
       }));
-
+      
       const categoriasMapped = categoriasData.map(item => ({
         ...item,
         id: item.idcategoria,
         nombre: item.nombre
       }));
-
+      
       const laboratoriosMapped = laboratoriosData.map(item => ({
         ...item,
         id: item.idlaboratorio,
@@ -1194,17 +1244,17 @@ export function FormularioProductos({
     setBuscandoCodigo(true);
     try {
       const result = await getProductoByCodigoP(codigo.trim());
-
+      
       if (result.exists && result.producto) {
         if (product && result.producto.idproducto === product.idproducto) {
           setProductoEncontrado(null);
           setMostrarMensajeExistente(false);
           return;
         }
-
+        
         setProductoEncontrado(result.producto);
         setMostrarMensajeExistente(true);
-
+        
         toast({
           title: "Producto ya registrado",
           description: `El código "${codigo}" ya pertenece al producto: ${result.producto.nombre}`,
@@ -1498,20 +1548,20 @@ export function FormularioProductos({
     if (isSubmittingProduct) return;
 
     if (!formData.codigoP?.trim()) {
-      toast({
-        title: "Error",
-        description: "El código de producto es obligatorio",
-        variant: "destructive"
+      toast({ 
+        title: "Error", 
+        description: "El código de producto es obligatorio", 
+        variant: "destructive" 
       });
       return;
     }
 
     if (!product || formData.codigoP !== product.codigoP) {
       if (productoEncontrado && mostrarMensajeExistente) {
-        toast({
-          title: "Error",
+        toast({ 
+          title: "Error", 
           description: `El código "${formData.codigoP}" ya está registrado para el producto: ${productoEncontrado.nombre}`,
-          variant: "destructive"
+          variant: "destructive" 
         });
         return;
       }
@@ -1604,10 +1654,10 @@ export function FormularioProductos({
       formDataToSend.append("categorias", JSON.stringify(categoriaIds));
 
       formDataToSend.append("precio_venta", precioVentaNum.toString());
-
+      
       const precioCompraNum = Number(formData.precioCompra) || 0;
       formDataToSend.append("precio_compra", precioCompraNum.toString());
-
+      
       const stockMinimoNum = Number(formData.stockMinimo) || 0;
       formDataToSend.append("stock_minimo", stockMinimoNum.toString());
 
@@ -1642,7 +1692,7 @@ export function FormularioProductos({
       onSubmit(formData, isEditing);
     } catch (error: any) {
       console.error("Error al guardar el producto:", error);
-
+      
       if (error.response?.status === 409 && error.response?.data?.code === "DUPLICATE_CODE") {
         toast({
           title: "Código duplicado",
@@ -1722,7 +1772,7 @@ export function FormularioProductos({
               </div>
             )}
           </div>
-
+          
           {mostrarMensajeExistente && productoEncontrado && (
             <div className="flex items-center p-3 bg-destructive/10 border border-destructive/20 rounded-md">
               <div className="flex-1">
@@ -1739,7 +1789,7 @@ export function FormularioProductos({
               </div>
             </div>
           )}
-
+          
           <p className="text-xs text-muted-foreground">
             El código debe ser único y se usará para identificar el producto.
           </p>
@@ -2112,12 +2162,12 @@ export function FormularioProductos({
               {addDialogState.type === "categoria"
                 ? "Categoría"
                 : addDialogState.type === "ubicacion"
-                  ? "Ubicación"
-                  : addDialogState.type === "laboratorio"
-                    ? "Laboratorio"
-                    : addDialogState.type === "formaFarmaceutica"
-                      ? "Forma Farmacéutica"
-                      : ""}
+                ? "Ubicación"
+                : addDialogState.type === "laboratorio"
+                ? "Laboratorio"
+                : addDialogState.type === "formaFarmaceutica"
+                ? "Forma Farmacéutica"
+                : ""}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">

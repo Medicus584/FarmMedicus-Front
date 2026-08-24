@@ -708,16 +708,26 @@ const ProductoSimilarSelect = ({
           const productos = await getTodosProductosParaSelect();
           if (isMounted.current) {
             setProductosDisponibles(productos);
-            const map = new Map(productosMap);
-            productos.forEach(p => map.set(p.idproducto, p));
-            setProductosMap(map);
+
+            setProductosMap(prevMap => {
+              const map = new Map(prevMap);
+
+              productos.forEach(p => {
+                map.set(p.idproducto, p);
+              });
+
+              return map;
+            });
           }
         } catch (error) {
           console.error("Error cargando productos:", error);
         } finally {
-          if (isMounted.current) setLoading(false);
+          if (isMounted.current) {
+            setLoading(false);
+          }
         }
       }
+
       return;
     }
 
@@ -726,16 +736,25 @@ const ProductoSimilarSelect = ({
       const productos = await getTodosProductosParaSelect(term);
       if (isMounted.current) {
         setProductosDisponibles(productos);
-        const map = new Map(productosMap);
-        productos.forEach(p => map.set(p.idproducto, p));
-        setProductosMap(map);
+
+        setProductosMap(prevMap => {
+          const map = new Map(prevMap);
+
+          productos.forEach(p => {
+            map.set(p.idproducto, p);
+          });
+
+          return map;
+        });
       }
     } catch (error) {
       console.error("Error buscando productos:", error);
     } finally {
-      if (isMounted.current) setIsSearching(false);
+      if (isMounted.current) {
+        setIsSearching(false);
+      }
     }
-  }, [productosDisponibles.length, initialLoadDone, productosMap]);
+  }, [productosDisponibles.length, initialLoadDone]);
 
   // Efecto para búsqueda con debounce
   useEffect(() => {

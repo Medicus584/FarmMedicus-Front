@@ -95,6 +95,9 @@ export function VenderView() {
   const [productoParaVerLotes, setProductoParaVerLotes] =
     useState<SaleItemWithLotes | null>(null);
 
+  // Estado local para los valores de cantidad en el input
+  const [cantidadInputValues, setCantidadInputValues] = useState<Record<number, string>>({});
+
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const cartRef = useRef<HTMLDivElement>(null);
@@ -159,6 +162,18 @@ export function VenderView() {
       window.removeEventListener("popstate", handlePopState);
     };
   }, [showScanner]);
+
+  // Sincronizar los valores del input cuando cambia el carrito
+  useEffect(() => {
+    const newValues: Record<number, string> = {};
+    ventaItems.forEach((item, index) => {
+      const key = item.idproducto + index;
+      if (!(key in cantidadInputValues) || cantidadInputValues[key] === "") {
+        newValues[key] = String(item.cantidad);
+      }
+    });
+    setCantidadInputValues(prev => ({ ...prev, ...newValues }));
+  }, [ventaItems]);
 
   const openScanner = () => {
     setShowScanner(true);
@@ -343,6 +358,9 @@ export function VenderView() {
           descuentoProducto: ventaItems[index]?.descuentoProducto || 0,
         };
         setVentaItems(updatedItems);
+        // Actualizar el valor del input
+        const key = product.idproducto + index;
+        setCantidadInputValues(prev => ({ ...prev, [key]: String(cantidad) }));
       } else {
         // Verificar si el producto ya está en el carrito
         const existingIndex = ventaItems.findIndex(
@@ -364,6 +382,8 @@ export function VenderView() {
               ],
             };
             setVentaItems(updatedItems);
+            const key = product.idproducto + existingIndex;
+            setCantidadInputValues(prev => ({ ...prev, [key]: String(nuevaCantidad) }));
             toast({
               title: "Producto actualizado",
               description: `${product.nombre} ahora tiene ${nuevaCantidad} unidades en el carrito`,
@@ -383,7 +403,10 @@ export function VenderView() {
             lotesSeleccionados: lotesInfo,
             descuentoProducto: 0,
           };
+          const newIndex = ventaItems.length;
           setVentaItems([...ventaItems, nuevoItem]);
+          const key = product.idproducto + newIndex;
+          setCantidadInputValues(prev => ({ ...prev, [key]: String(cantidad) }));
           toast({
             title: "Producto agregado",
             description: `${product.nombre} (${cantidad} unidades del lote #${lote.idlote})`,
@@ -443,6 +466,9 @@ export function VenderView() {
         description: `Solo hay ${stockDisponible} unidades disponibles en total para ${product.nombre}`,
         variant: "destructive",
       });
+      // Restaurar el valor anterior en el input
+      const key = item.idproducto + index;
+      setCantidadInputValues(prev => ({ ...prev, [key]: String(item.cantidad) }));
       return;
     }
 
@@ -462,6 +488,9 @@ export function VenderView() {
         description: `No hay suficiente stock en los lotes para cubrir ${nuevaCantidad} unidades. Disponible: ${totalDistribuido}`,
         variant: "destructive",
       });
+      // Restaurar el valor anterior en el input
+      const key = item.idproducto + index;
+      setCantidadInputValues(prev => ({ ...prev, [key]: String(item.cantidad) }));
       return;
     }
 
@@ -473,6 +502,9 @@ export function VenderView() {
       lotesSeleccionados: nuevosLotes,
     };
     setVentaItems(updatedItems);
+    // Actualizar el valor del input
+    const key = item.idproducto + index;
+    setCantidadInputValues(prev => ({ ...prev, [key]: String(nuevaCantidad) }));
   };
 
   const confirmarSeleccionLotes = (
@@ -511,6 +543,8 @@ export function VenderView() {
         descuentoProducto: ventaItems[itemIndexParaLote]?.descuentoProducto || 0,
       };
       setVentaItems(updatedItems);
+      const key = productoParaLote.idproducto + itemIndexParaLote;
+      setCantidadInputValues(prev => ({ ...prev, [key]: String(cantidadTotal) }));
 
       toast({
         title: "Cantidad actualizada",
@@ -537,6 +571,8 @@ export function VenderView() {
             ],
           };
           setVentaItems(updatedItems);
+          const key = productoParaLote.idproducto + existingIndex;
+          setCantidadInputValues(prev => ({ ...prev, [key]: String(nuevaCantidad) }));
           toast({
             title: "Producto actualizado",
             description: `${productoParaLote.nombre} ahora tiene ${nuevaCantidad} unidades en el carrito`,
@@ -556,7 +592,10 @@ export function VenderView() {
           lotesSeleccionados: lotesInfo,
           descuentoProducto: 0,
         };
+        const newIndex = ventaItems.length;
         setVentaItems([...ventaItems, nuevoItem]);
+        const key = productoParaLote.idproducto + newIndex;
+        setCantidadInputValues(prev => ({ ...prev, [key]: String(cantidadTotal) }));
 
         toast({
           title: "Producto agregado",
@@ -794,6 +833,16 @@ export function VenderView() {
   const eliminarItem = (index: number) => {
     const newItems = ventaItems.filter((_, i) => i !== index);
     setVentaItems(newItems);
+    // Limpiar el valor del input para este item
+    const item = ventaItems[index];
+    if (item) {
+      const key = item.idproducto + index;
+      setCantidadInputValues(prev => {
+        const newValues = { ...prev };
+        delete newValues[key];
+        return newValues;
+      });
+    }
   };
 
   // Cálculo de subtotal con descuentos por producto (monto fijo)
@@ -953,6 +1002,7 @@ export function VenderView() {
       setDiscountReason("");
       setIsDoctorMode(false);
       setSelectedDoctor(null);
+      setCantidadInputValues({});
 
       toast({
         title: "¡Venta procesada!",
@@ -1373,10 +1423,12 @@ export function VenderView() {
                   const subtotalItem = item.precio_venta * item.cantidad;
                   const descuentoItem = item.descuentoProducto || 0;
                   const totalItem = subtotalItem - descuentoItem;
+                  const key = item.idproducto + index;
+                  const inputValue = cantidadInputValues[key] !== undefined ? cantidadInputValues[key] : String(item.cantidad);
 
                   return (
                     <div
-                      key={item.idproducto + index}
+                      key={key}
                       className="border rounded-lg p-3 bg-card"
                     >
                       <div className="flex items-start gap-3 mb-3">
@@ -1469,30 +1521,35 @@ export function VenderView() {
                           >
                             <Minus className="h-3 w-3" />
                           </Button>
-                          {/* Input para cantidad manual */}
+                          {/* Input para cantidad manual - PERMITE BORRAR TODO */}
                           <Input
                             type="number"
                             min="1"
                             step="1"
-                            value={item.cantidad}
+                            value={inputValue}
                             onChange={(e) => {
-                              const val = parseInt(e.target.value);
-                              if (!isNaN(val) && val >= 1) {
-                                actualizarCantidadManual(index, val);
-                              } else if (e.target.value === "") {
-                                // Si el campo está vacío, no hacer nada
-                              }
+                              const val = e.target.value;
+                              // Actualizar el valor local inmediatamente
+                              setCantidadInputValues(prev => ({ ...prev, [key]: val }));
                             }}
                             onBlur={(e) => {
-                              const val = parseInt(e.target.value);
-                              if (isNaN(val) || val < 1) {
-                                // Si el valor es inválido, restaurar el anterior
-                                const updatedItems = [...ventaItems];
-                                updatedItems[index] = {
-                                  ...item,
-                                  cantidad: item.cantidad,
-                                };
-                                setVentaItems(updatedItems);
+                              const val = e.target.value;
+                              if (val === "") {
+                                // Si el campo está vacío, restaurar la cantidad actual
+                                setCantidadInputValues(prev => ({ ...prev, [key]: String(item.cantidad) }));
+                                return;
+                              }
+                              const numVal = parseInt(val);
+                              if (!isNaN(numVal) && numVal >= 1) {
+                                actualizarCantidadManual(index, numVal);
+                              } else {
+                                // Si es inválido, restaurar la cantidad actual
+                                setCantidadInputValues(prev => ({ ...prev, [key]: String(item.cantidad) }));
+                              }
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.currentTarget.blur();
                               }
                             }}
                             className="w-16 h-8 text-center text-sm number-input-no-scroll"

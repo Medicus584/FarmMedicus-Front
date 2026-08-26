@@ -255,19 +255,52 @@ export function VenderView() {
         };
         setVentaItems(updatedItems);
       } else {
-        const nuevoItem: SaleItemWithLotes = {
-          ...product,
-          cantidad,
-          lotesSeleccionados: lotesInfo,
-          descuentoProducto: 0,
-        };
-        setVentaItems([...ventaItems, nuevoItem]);
-      }
+        // Verificar si el producto ya está en el carrito
+        const existingIndex = ventaItems.findIndex(
+          (item) => item.idproducto === product.idproducto
+        );
 
-      toast({
-        title: esEdicion ? "Cantidad actualizada" : "Producto agregado",
-        description: `${product.nombre} (${cantidad} unidades del lote #${lote.idlote})`,
-      });
+        if (existingIndex >= 0) {
+          // Si ya existe, actualizar la cantidad sumando
+          const updatedItems = [...ventaItems];
+          const nuevaCantidad = updatedItems[existingIndex].cantidad + cantidad;
+          // Verificar que no exceda el stock disponible
+          if (nuevaCantidad <= getStockDisponiblePorProducto(product) + updatedItems[existingIndex].cantidad) {
+            updatedItems[existingIndex] = {
+              ...updatedItems[existingIndex],
+              cantidad: nuevaCantidad,
+              lotesSeleccionados: [
+                ...updatedItems[existingIndex].lotesSeleccionados,
+                ...lotesInfo
+              ],
+            };
+            setVentaItems(updatedItems);
+            toast({
+              title: "Producto actualizado",
+              description: `${product.nombre} ahora tiene ${nuevaCantidad} unidades en el carrito`,
+            });
+          } else {
+            toast({
+              title: "Stock insuficiente",
+              description: `No hay suficiente stock para agregar más ${product.nombre}`,
+              variant: "destructive",
+            });
+          }
+        } else {
+          // Si no existe, agregar nuevo
+          const nuevoItem: SaleItemWithLotes = {
+            ...product,
+            cantidad,
+            lotesSeleccionados: lotesInfo,
+            descuentoProducto: 0,
+          };
+          setVentaItems([...ventaItems, nuevoItem]);
+          toast({
+            title: "Producto agregado",
+            description: `${product.nombre} (${cantidad} unidades del lote #${lote.idlote})`,
+          });
+        }
+      }
       return;
     }
 
@@ -321,18 +354,52 @@ export function VenderView() {
         description: `${productoParaLote.nombre} actualizado a ${cantidadTotal} unidades`,
       });
     } else {
-      const nuevoItem: SaleItemWithLotes = {
-        ...productoParaLote,
-        cantidad: cantidadTotal,
-        lotesSeleccionados: lotesInfo,
-        descuentoProducto: 0,
-      };
-      setVentaItems([...ventaItems, nuevoItem]);
+      // Verificar si el producto ya está en el carrito
+      const existingIndex = ventaItems.findIndex(
+        (item) => item.idproducto === productoParaLote.idproducto
+      );
 
-      toast({
-        title: "Producto agregado",
-        description: `${productoParaLote.nombre} agregado al carrito con ${cantidadTotal} unidades`,
-      });
+      if (existingIndex >= 0) {
+        // Si ya existe, actualizar la cantidad sumando
+        const updatedItems = [...ventaItems];
+        const nuevaCantidad = updatedItems[existingIndex].cantidad + cantidadTotal;
+        // Verificar que no exceda el stock disponible
+        if (nuevaCantidad <= getStockDisponiblePorProducto(productoParaLote) + updatedItems[existingIndex].cantidad) {
+          updatedItems[existingIndex] = {
+            ...updatedItems[existingIndex],
+            cantidad: nuevaCantidad,
+            lotesSeleccionados: [
+              ...updatedItems[existingIndex].lotesSeleccionados,
+              ...lotesInfo
+            ],
+          };
+          setVentaItems(updatedItems);
+          toast({
+            title: "Producto actualizado",
+            description: `${productoParaLote.nombre} ahora tiene ${nuevaCantidad} unidades en el carrito`,
+          });
+        } else {
+          toast({
+            title: "Stock insuficiente",
+            description: `No hay suficiente stock para agregar más ${productoParaLote.nombre}`,
+            variant: "destructive",
+          });
+        }
+      } else {
+        // Si no existe, agregar nuevo
+        const nuevoItem: SaleItemWithLotes = {
+          ...productoParaLote,
+          cantidad: cantidadTotal,
+          lotesSeleccionados: lotesInfo,
+          descuentoProducto: 0,
+        };
+        setVentaItems([...ventaItems, nuevoItem]);
+
+        toast({
+          title: "Producto agregado",
+          description: `${productoParaLote.nombre} agregado al carrito con ${cantidadTotal} unidades`,
+        });
+      }
     }
 
     setShowLoteDialog(false);
@@ -374,7 +441,6 @@ export function VenderView() {
 
       if (results.length > 0) {
         const product = results[0];
-        // USAR getStockDisponiblePorProducto en lugar de getStockDisponible
         const stockDisponible = getStockDisponiblePorProducto(product);
 
         setSearchResults(results);
@@ -1213,8 +1279,6 @@ export function VenderView() {
                                   );
                                 } else {
                                   // Si no está en searchResults, usar el item mismo
-                                  // Pero necesitamos un producto completo para abrir el diálogo
-                                  // Buscar en todos los resultados o usar el item directamente
                                   const productData: Product = {
                                     idproducto: item.idproducto,
                                     nombre: item.nombre,

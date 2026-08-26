@@ -206,6 +206,95 @@ export function VenderView() {
     return product.lotes.some((l) => l.stock > 0);
   };
 
+  // Función para distribuir cantidad entre lotes de manera óptima
+  const distribuirCantidadEnLotes = (
+    lotes: Lote[],
+    cantidad: number,
+    existingLotes: { idlote: number; cantidad: number; fechaVencimiento: string }[] = []
+  ): { idlote: number; cantidad: number; fechaVencimiento: string }[] => {
+    // Crear un mapa de los lotes existentes para preservar la distribución anterior
+    const existingMap = new Map<number, number>();
+    existingLotes.forEach(l => {
+      existingMap.set(l.idlote, l.cantidad);
+    });
+
+    // Ordenar lotes por fecha de vencimiento (los que vencen primero primero)
+    const sortedLotes = [...lotes].sort((a, b) => 
+      new Date(a.fechaVencimiento).getTime() - new Date(b.fechaVencimiento).getTime()
+    );
+
+    // Si no hay lotes existentes o la cantidad es 0, distribuir desde cero
+    if (existingLotes.length === 0 || cantidad === 0) {
+      const result: { idlote: number; cantidad: number; fechaVencimiento: string }[] = [];
+      let restante = cantidad;
+
+      for (const lote of sortedLotes) {
+        if (restante <= 0) break;
+        const tomar = Math.min(lote.stock, restante);
+        if (tomar > 0) {
+          result.push({
+            idlote: lote.idlote,
+            cantidad: tomar,
+            fechaVencimiento: lote.fechaVencimiento,
+          });
+          restante -= tomar;
+        }
+      }
+
+      // Si no se pudo distribuir toda la cantidad, devolver lo que se pudo
+      return result;
+    }
+
+    // Si hay lotes existentes, intentar mantener la distribución y ajustar
+    const result: { idlote: number; cantidad: number; fechaVencimiento: string }[] = [];
+    let restante = cantidad;
+
+    // Primero, mantener los lotes existentes
+    for (const lote of sortedLotes) {
+      const existingCantidad = existingMap.get(lote.idlote) || 0;
+      if (existingCantidad > 0 && restante > 0) {
+        // Mantener la cantidad existente, pero no exceder el stock
+        const mantener = Math.min(existingCantidad, lote.stock, restante);
+        if (mantener > 0) {
+          result.push({
+            idlote: lote.idlote,
+            cantidad: mantener,
+            fechaVencimiento: lote.fechaVencimiento,
+          });
+          restante -= mantener;
+        }
+      }
+    }
+
+    // Si aún falta cantidad, distribuir entre lotes con stock disponible
+    if (restante > 0) {
+      for (const lote of sortedLotes) {
+        if (restante <= 0) break;
+        // Verificar si este lote ya fue agregado
+        const existing = result.find(r => r.idlote === lote.idlote);
+        const currentCantidad = existing ? existing.cantidad : 0;
+        const disponible = lote.stock - currentCantidad;
+        
+        if (disponible > 0) {
+          const tomar = Math.min(disponible, restante);
+          if (existing) {
+            existing.cantidad += tomar;
+          } else {
+            result.push({
+              idlote: lote.idlote,
+              cantidad: tomar,
+              fechaVencimiento: lote.fechaVencimiento,
+            });
+          }
+          restante -= tomar;
+        }
+      }
+    }
+
+    // Si después de todo no se pudo cubrir toda la cantidad, devolver lo que se pudo
+    return result;
+  };
+
   const abrirDialogoLotes = (
     product: Product,
     cantidad: number,
@@ -310,6 +399,80 @@ export function VenderView() {
     setEsEdicion(esEdicion);
     setItemIndexParaLote(index);
     setShowLoteDialog(true);
+  };
+
+  // Función para actualizar cantidad manualmente desde el input
+  const actualizarCantidadManual = (index: number, nuevaCantidad: number) => {
+    const item = ventaItems[index];
+    if (!item) return;
+
+    // Validar que la cantidad sea válida
+    if (nuevaCantidad < 1) {
+      toast({
+        title: "Cantidad inválida",
+        description: "La cantidad debe ser al menos 1",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Obtener el producto completo (de searchResults o del item)
+    let product = searchResults.find(p => p.idproducto === item.idproducto);
+    if (!product) {
+      // Si no está en searchResults, construir uno
+      product = {
+        idproducto: item.idproducto,
+        nombre: item.nombre,
+        descripcion: item.descripcion || "",
+        estado: item.estado || 0,
+        idubicacion: item.idubicacion || 0,
+        nombre_ubicacion: item.nombre_ubicacion || "",
+        imagen: item.imagen || "",
+        precio_venta: item.precio_venta,
+        stock: getStockTotal(item),
+        lotes: item.lotes || [],
+        productos_similares: item.productos_similares || [],
+      };
+    }
+
+    const stockDisponible = getStockDisponiblePorProducto(product) + item.cantidad;
+
+    if (nuevaCantidad > stockDisponible) {
+      toast({
+        title: "Stock insuficiente",
+        description: `Solo hay ${stockDisponible} unidades disponibles en total para ${product.nombre}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Distribuir la nueva cantidad entre los lotes
+    const lotesDisponibles = product.lotes || [];
+    const nuevosLotes = distribuirCantidadEnLotes(
+      lotesDisponibles,
+      nuevaCantidad,
+      item.lotesSeleccionados
+    );
+
+    // Verificar que se haya podido distribuir toda la cantidad
+    const totalDistribuido = nuevosLotes.reduce((sum, l) => sum + l.cantidad, 0);
+    if (totalDistribuido < nuevaCantidad) {
+      toast({
+        title: "Stock insuficiente",
+        description: `No hay suficiente stock en los lotes para cubrir ${nuevaCantidad} unidades. Disponible: ${totalDistribuido}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Actualizar el item
+    const updatedItems = [...ventaItems];
+    updatedItems[index] = {
+      ...item,
+      cantidad: nuevaCantidad,
+      lotesSeleccionados: nuevosLotes,
+    };
+    setVentaItems(updatedItems);
   };
 
   const confirmarSeleccionLotes = (
@@ -1306,9 +1469,35 @@ export function VenderView() {
                           >
                             <Minus className="h-3 w-3" />
                           </Button>
-                          <span className="w-12 text-center text-sm font-medium">
-                            {item.cantidad}
-                          </span>
+                          {/* Input para cantidad manual */}
+                          <Input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={item.cantidad}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value);
+                              if (!isNaN(val) && val >= 1) {
+                                actualizarCantidadManual(index, val);
+                              } else if (e.target.value === "") {
+                                // Si el campo está vacío, no hacer nada
+                              }
+                            }}
+                            onBlur={(e) => {
+                              const val = parseInt(e.target.value);
+                              if (isNaN(val) || val < 1) {
+                                // Si el valor es inválido, restaurar el anterior
+                                const updatedItems = [...ventaItems];
+                                updatedItems[index] = {
+                                  ...item,
+                                  cantidad: item.cantidad,
+                                };
+                                setVentaItems(updatedItems);
+                              }
+                            }}
+                            className="w-16 h-8 text-center text-sm number-input-no-scroll"
+                            onWheel={(e) => e.currentTarget.blur()}
+                          />
                           <Button
                             size="sm"
                             variant="outline"

@@ -182,6 +182,15 @@ export function VenderView() {
     return totalStock - enCarrito;
   };
 
+  // Función para obtener stock disponible de un producto específico (incluso si no está en searchResults)
+  const getStockDisponiblePorProducto = (product: Product): number => {
+    const totalStock = getStockTotal(product);
+    const enCarrito = ventaItems
+      .filter((item) => item.idproducto === product.idproducto)
+      .reduce((sum, item) => sum + item.cantidad, 0);
+    return totalStock - enCarrito;
+  };
+
   const getLotesProducto = (productId: number): Lote[] => {
     const product = searchResults.find((p) => p.idproducto === productId);
     return product?.lotes || [];
@@ -203,7 +212,7 @@ export function VenderView() {
     esEdicion: boolean = false,
     index: number = -1,
   ) => {
-    const stockDisponible = getStockDisponible(product.idproducto);
+    const stockDisponible = getStockDisponiblePorProducto(product);
 
     if (stockDisponible <= 0 && !esEdicion) {
       toast({
@@ -214,7 +223,7 @@ export function VenderView() {
       return;
     }
 
-    const lotes = getLotesProducto(product.idproducto);
+    const lotes = product.lotes || [];
 
     // Si solo hay un lote, no abrir diálogo
     if (lotes.length === 1) {
@@ -334,7 +343,7 @@ export function VenderView() {
   };
 
   const agregarProducto = (product: Product) => {
-    const stockDisponible = getStockDisponible(product.idproducto);
+    const stockDisponible = getStockDisponiblePorProducto(product);
 
     if (stockDisponible <= 0) {
       toast({
@@ -365,13 +374,24 @@ export function VenderView() {
 
       if (results.length > 0) {
         const product = results[0];
-        const stockDisponible = getStockDisponible(product.idproducto);
+        // USAR getStockDisponiblePorProducto en lugar de getStockDisponible
+        const stockDisponible = getStockDisponiblePorProducto(product);
 
         setSearchResults(results);
 
-        if (stockDisponible > 0) {
+        if (stockDisponible > 0 && tieneLotesDisponibles(product)) {
+          // Tiene stock y lotes disponibles, agregar directamente
           agregarProducto(product);
+        } else if (stockDisponible > 0 && !tieneLotesDisponibles(product)) {
+          // Tiene stock pero no hay lotes disponibles (caso raro)
+          toast({
+            title: "Sin lotes disponibles",
+            description: `${product.nombre} tiene stock pero no hay lotes disponibles para vender.`,
+            variant: "destructive",
+            duration: 3000,
+          });
         } else {
+          // No tiene stock disponible, mostrar similares
           toast({
             title: "Stock agotado",
             description: `${product.nombre} no tiene más stock disponible. Mostrando productos similares...`,
@@ -745,13 +765,13 @@ export function VenderView() {
         <SeleccionarLoteDialog
           open={showLoteDialog}
           onOpenChange={setShowLoteDialog}
-          lotes={getLotesProducto(productoParaLote.idproducto)}
+          lotes={productoParaLote.lotes || []}
           productName={productoParaLote.nombre}
           stockDisponible={
             esEdicion && itemIndexParaLote >= 0
-              ? getStockDisponible(productoParaLote.idproducto) +
+              ? getStockDisponiblePorProducto(productoParaLote) +
                 ventaItems[itemIndexParaLote]?.cantidad || 0
-              : getStockDisponible(productoParaLote.idproducto)
+              : getStockDisponiblePorProducto(productoParaLote)
           }
           cantidadInicial={cantidadInicialParaLote}
           esEdicion={esEdicion}
@@ -852,7 +872,7 @@ export function VenderView() {
                   const cantidadEnCarrito = getCantidadEnCarrito(
                     product.idproducto,
                   );
-                  const stockDisponible = getStockDisponible(product.idproducto);
+                  const stockDisponible = getStockDisponiblePorProducto(product);
                   const tieneLotes = tieneLotesDisponibles(product);
 
                   return (
@@ -969,7 +989,7 @@ export function VenderView() {
                           ) : similarProducts.length > 0 ? (
                             similarProducts.map((similar) => {
                               const stockDisponibleSimilar =
-                                getStockDisponible(similar.idproducto);
+                                getStockDisponiblePorProducto(similar);
                               const tieneLotesSimilar =
                                 tieneLotesDisponibles(similar);
                               return (
@@ -1191,6 +1211,29 @@ export function VenderView() {
                                     true,
                                     index,
                                   );
+                                } else {
+                                  // Si no está en searchResults, usar el item mismo
+                                  // Pero necesitamos un producto completo para abrir el diálogo
+                                  // Buscar en todos los resultados o usar el item directamente
+                                  const productData: Product = {
+                                    idproducto: item.idproducto,
+                                    nombre: item.nombre,
+                                    descripcion: item.descripcion || "",
+                                    estado: item.estado || 0,
+                                    idubicacion: item.idubicacion || 0,
+                                    nombre_ubicacion: item.nombre_ubicacion || "",
+                                    imagen: item.imagen || "",
+                                    precio_venta: item.precio_venta,
+                                    stock: getStockTotal(item),
+                                    lotes: item.lotes || [],
+                                    productos_similares: item.productos_similares || [],
+                                  };
+                                  abrirDialogoLotes(
+                                    productData,
+                                    nuevaCantidad,
+                                    true,
+                                    index,
+                                  );
                                 }
                               } else {
                                 eliminarItem(index);
@@ -1209,7 +1252,7 @@ export function VenderView() {
                             onClick={() => {
                               const nuevaCantidad = item.cantidad + 1;
                               const stockDisponible =
-                                getStockDisponible(item.idproducto) +
+                                getStockDisponiblePorProducto(item) +
                                 item.cantidad;
                               if (nuevaCantidad <= stockDisponible) {
                                 const product = searchResults.find(
@@ -1218,6 +1261,27 @@ export function VenderView() {
                                 if (product) {
                                   abrirDialogoLotes(
                                     product,
+                                    nuevaCantidad,
+                                    true,
+                                    index,
+                                  );
+                                } else {
+                                  // Si no está en searchResults, usar el item mismo
+                                  const productData: Product = {
+                                    idproducto: item.idproducto,
+                                    nombre: item.nombre,
+                                    descripcion: item.descripcion || "",
+                                    estado: item.estado || 0,
+                                    idubicacion: item.idubicacion || 0,
+                                    nombre_ubicacion: item.nombre_ubicacion || "",
+                                    imagen: item.imagen || "",
+                                    precio_venta: item.precio_venta,
+                                    stock: getStockTotal(item),
+                                    lotes: item.lotes || [],
+                                    productos_similares: item.productos_similares || [],
+                                  };
+                                  abrirDialogoLotes(
+                                    productData,
                                     nuevaCantidad,
                                     true,
                                     index,
@@ -1231,7 +1295,7 @@ export function VenderView() {
                                 });
                               }
                             }}
-                            disabled={getStockDisponible(item.idproducto) === 0}
+                            disabled={getStockDisponiblePorProducto(item) === 0}
                           >
                             <Plus className="h-3 w-3" />
                           </Button>

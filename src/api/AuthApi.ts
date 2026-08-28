@@ -42,14 +42,15 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  console.log(`Solicitud a: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
   return config;
 });
 
-// Interceptor para manejar errores de autenticación - SOLO para rutas protegidas
+// Interceptor para manejar errores de autenticación
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Solo redirigir si es un error 401 y NO estamos en la página de login
+    console.error("Error en respuesta:", error.response?.status, error.response?.data);
     if (error.response?.status === 401 && !window.location.pathname.includes('/login')) {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
@@ -68,8 +69,6 @@ export const login = async (credentials: LoginRequest): Promise<LoginResponse> =
     if (response.data.success && response.data.token && response.data.user) {
       localStorage.setItem("token", response.data.token);
       localStorage.setItem("user", JSON.stringify(response.data.user));
-      
-      // Guardar ID del usuario y rol por separado para fácil acceso
       localStorage.setItem("userId", response.data.user.idUsuario.toString());
       localStorage.setItem("userRole", response.data.user.rol);
     }
@@ -77,12 +76,9 @@ export const login = async (credentials: LoginRequest): Promise<LoginResponse> =
     return response.data;
   } catch (error: any) {
     console.error("Error during login:", error);
-    
-    // Manejar específicamente errores de autenticación en login
     if (error.response?.status === 401) {
       throw new Error(error.response?.data?.message || "Usuario o contraseña incorrectos");
     }
-    
     throw new Error(error.response?.data?.message || "Error al iniciar sesión");
   }
 };
@@ -103,7 +99,6 @@ export const logout = async (): Promise<void> => {
 export const verifyToken = async (): Promise<AuthStatus> => {
   try {
     const token = localStorage.getItem("token");
-    
     if (!token) {
       return { isAuthenticated: false, user: null };
     }
@@ -111,10 +106,8 @@ export const verifyToken = async (): Promise<AuthStatus> => {
     const response = await api.get<{ success: boolean; user: User }>("/auth/verify");
     
     if (response.data.success) {
-      // Actualizar también los valores individuales en localStorage
       localStorage.setItem("userId", response.data.user.idUsuario.toString());
       localStorage.setItem("userRole", response.data.user.rol);
-      
       return { isAuthenticated: true, user: response.data.user };
     }
     
@@ -160,4 +153,42 @@ export const getUserRole = (): string | null => {
 
 export const isAuthenticated = (): boolean => {
   return localStorage.getItem("token") !== null;
+};
+
+// NUEVA FUNCIÓN: Cambiar contraseña
+export const changePassword = async (currentPassword: string, newPassword: string): Promise<{ success: boolean; error?: string }> => {
+  try {
+    console.log("Enviando solicitud a:", `${API_URL}/users/change-password`);
+    
+    const response = await api.post<{ success: boolean; message: string }>(
+      "/users/change-password",
+      { currentPassword, newPassword }
+    );
+    
+    console.log("Respuesta recibida:", response.data);
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error al cambiar contraseña - Detalles completos:", error);
+    console.error("Status:", error.response?.status);
+    console.error("Data:", error.response?.data);
+    
+    if (error.response?.status === 401) {
+      return { 
+        success: false, 
+        error: error.response?.data?.error || "Contraseña actual incorrecta" 
+      };
+    }
+    
+    if (error.response?.status === 404) {
+      return { 
+        success: false, 
+        error: "La ruta no existe. Verifica la configuración del servidor." 
+      };
+    }
+    
+    return { 
+      success: false, 
+      error: error.response?.data?.error || "Error al cambiar la contraseña" 
+    };
+  }
 };

@@ -37,7 +37,6 @@ import {
   Edit,
   Package,
   Trash2,
-  Eye,
   ChevronLeft,
   ChevronRight,
   Loader2,
@@ -45,6 +44,7 @@ import {
   ChevronUp,
   Filter,
   X,
+  Info,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { FormularioProductos } from "./FormularioProductos";
@@ -102,6 +102,7 @@ export function ImageCarousel({
   className = "",
 }: ImageCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
     if (images.length <= 1) return;
@@ -115,10 +116,20 @@ export function ImageCarousel({
     return () => clearInterval(interval);
   }, [images.length]);
 
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+  };
+
   if (!images || images.length === 0) {
     return (
       <div
         className={`flex items-center justify-center bg-gray-100 rounded ${className}`}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
       >
         <Package className="h-8 w-8 text-gray-400" />
       </div>
@@ -138,12 +149,16 @@ export function ImageCarousel({
   };
 
   return (
-    <div className={`relative overflow-hidden rounded ${className}`}>
+    <div 
+      className={`relative overflow-hidden rounded ${className}`}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
       <div className="relative aspect-square w-full">
         <img
           src={images[currentIndex]}
           alt={`${productName} - Imagen ${currentIndex + 1}`}
-          className="w-full h-full object-cover"
+          className={`w-full h-full object-cover transition-all duration-300 ${isHovered ? 'scale-125' : 'scale-100'}`}
           onError={(e) => {
             (e.target as HTMLImageElement).src =
               "https://static.vecteezy.com/system/resources/previews/011/781/801/non_2x/medicine-3d-render-icon-illustration-png.png";
@@ -154,14 +169,14 @@ export function ImageCarousel({
           <>
             <button
               onClick={goToPrevious}
-              className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1 transition-all"
+              className="absolute left-1 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1 transition-all"
               aria-label="Imagen anterior"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button
               onClick={goToNext}
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1 transition-all"
+              className="absolute right-1 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1 transition-all"
               aria-label="Siguiente imagen"
             >
               <ChevronRight className="h-4 w-4" />
@@ -171,12 +186,12 @@ export function ImageCarousel({
       </div>
 
       {images.length > 1 && (
-        <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex space-x-1">
+        <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 flex space-x-1">
           {images.map((_, index) => (
             <button
               key={index}
               onClick={() => goToSlide(index)}
-              className={`w-2 h-2 rounded-full transition-all ${
+              className={`w-1.5 h-1.5 rounded-full transition-all ${
                 index === currentIndex ? "bg-white" : "bg-white/50"
               }`}
               aria-label={`Ir a imagen ${index + 1}`}
@@ -186,7 +201,7 @@ export function ImageCarousel({
       )}
 
       {images.length > 1 && (
-        <div className="absolute top-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
+        <div className="absolute top-1 right-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded">
           {currentIndex + 1} / {images.length}
         </div>
       )}
@@ -194,7 +209,7 @@ export function ImageCarousel({
   );
 }
 
-function LotesDesglose({ lotes, productName }: { lotes: ProductoLote[], productName: string }) {
+function LotesDesglose({ lotes }: { lotes: ProductoLote[], productName: string }) {
   const [expanded, setExpanded] = useState(false);
 
   if (!lotes || lotes.length === 0) {
@@ -207,27 +222,27 @@ function LotesDesglose({ lotes, productName }: { lotes: ProductoLote[], productN
     <div className="space-y-1">
       <div className="flex items-center gap-2">
         <span className="text-sm font-semibold text-primary">{totalStock}</span>
-        <span className="text-xs text-muted-foreground">unidades totales</span>
+        <span className="text-xs text-muted-foreground">u.</span>
         <Button
           variant="ghost"
           size="sm"
           onClick={() => setExpanded(!expanded)}
-          className="h-6 px-1"
+          className="h-5 px-1"
         >
           {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-          <span className="text-xs ml-1">{lotes.length} lotes</span>
+          <span className="text-[10px] ml-0.5">{lotes.length}</span>
         </Button>
       </div>
       {expanded && (
-        <div className="space-y-1 pl-2 border-l-2 border-primary/30">
+        <div className="space-y-0.5 pl-2 border-l-2 border-primary/30">
           {lotes.map((lote, idx) => (
-            <div key={idx} className="flex items-center gap-2 text-xs">
-              <Badge variant="outline" className="text-xs">
-                Lote {idx + 1}
+            <div key={idx} className="flex items-center gap-1 text-[10px]">
+              <Badge variant="outline" className="text-[10px] px-1 py-0">
+                L{idx + 1}
               </Badge>
-              <span className="font-medium">{lote.stock} u.</span>
+              <span className="font-medium">{lote.stock}</span>
               <span className="text-muted-foreground">
-                Vence: {formatDateToLocal(lote.fechaVencimiento)}
+                {formatDateToLocal(lote.fechaVencimiento)}
               </span>
             </div>
           ))}
@@ -237,20 +252,14 @@ function LotesDesglose({ lotes, productName }: { lotes: ProductoLote[], productN
   );
 }
 
-function ProductosSimilaresDialog({ 
-  similares, 
-  productName,
+function DetallesProductoDialog({ 
+  product,
   children
 }: { 
-  similares: Array<{ idproducto: number; nombre: string }>;
-  productName: string;
+  product: Producto;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-
-  if (!similares || similares.length === 0) {
-    return <span className="text-xs text-muted-foreground">—</span>;
-  }
 
   return (
     <>
@@ -260,24 +269,54 @@ function ProductosSimilaresDialog({
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              Productos similares a "{productName}"
-            </DialogTitle>
+            <DialogTitle>Detalles del Producto</DialogTitle>
           </DialogHeader>
-          <div className="max-h-96 overflow-y-auto py-4">
-            {similares.map((similar) => (
-              <div
-                key={similar.idproducto}
-                className="py-2 px-3 hover:bg-accent rounded-md text-sm border-b last:border-0"
-              >
-                {similar.nombre}
+          <div className="py-4 space-y-4">
+            {/* Fila 1: Laboratorio | Forma Farm. */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="text-xs font-medium text-muted-foreground">Laboratorio</div>
+                <div className="text-sm font-medium mt-0.5 break-words">{product.laboratorio || "—"}</div>
               </div>
-            ))}
+              <div>
+                <div className="text-xs font-medium text-muted-foreground">Forma Farm.</div>
+                <div className="text-sm font-medium mt-0.5 break-words">{product.forma_farmaceutica || "—"}</div>
+              </div>
+            </div>
+            {/* Fila 2: Productos Similares | Categorías */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="text-xs font-medium text-muted-foreground">Productos Similares</div>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {product.productos_similares && product.productos_similares.length > 0 ? (
+                    product.productos_similares.map((sim, index) => (
+                      <Badge key={index} variant="outline" className="text-xs">
+                        {sim.nombre}
+                      </Badge>
+                    ))
+                  ) : (
+                    <span className="text-sm text-muted-foreground">—</span>
+                  )}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs font-medium text-muted-foreground">Categorías</div>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {product.categorias && product.categorias.length > 0 ? (
+                    product.categorias.map((cat, index) => (
+                      <Badge key={index} variant="secondary" className="text-xs">
+                        {cat}
+                      </Badge>
+                    ))
+                  ) : (
+                    <span className="text-sm text-muted-foreground">—</span>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
           <DialogFooter>
-            <div className="text-xs text-muted-foreground w-full text-center">
-              Total: {similares.length} productos similares
-            </div>
+            <Button onClick={() => setOpen(false)}>Cerrar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -328,10 +367,10 @@ function FiltrosProductos({
         variant="outline"
         size="sm"
         onClick={() => setShowFilters(!showFilters)}
-        className="flex items-center gap-2"
+        className="flex items-center gap-2 h-9"
       >
         <Filter className="h-4 w-4" />
-        Filtros
+        <span className="hidden sm:inline">Filtros</span>
         {hasFilters && (
           <Badge variant="secondary" className="ml-1 text-xs">
             Activos
@@ -340,7 +379,7 @@ function FiltrosProductos({
       </Button>
 
       {showFilters && (
-        <div className="p-3 border rounded-md space-y-3">
+        <div className="p-3 border rounded-md space-y-3 bg-background">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">Filtros</span>
             {hasFilters && (
@@ -351,7 +390,7 @@ function FiltrosProductos({
                 className="h-6 text-xs"
               >
                 <X className="h-3 w-3 mr-1" />
-                Limpiar filtros
+                Limpiar
               </Button>
             )}
           </div>
@@ -364,7 +403,7 @@ function FiltrosProductos({
                 onChange={(e) => onCategoriaChange(e.target.value)}
                 className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-xs"
               >
-                <option value="">Todas las categorías</option>
+                <option value="">Todas</option>
                 {categorias.map((cat) => (
                   <option key={cat} value={cat}>
                     {cat}
@@ -380,7 +419,7 @@ function FiltrosProductos({
                 onChange={(e) => onLaboratorioChange(e.target.value)}
                 className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-xs"
               >
-                <option value="">Todos los laboratorios</option>
+                <option value="">Todos</option>
                 {laboratorios.map((lab) => (
                   <option key={lab} value={lab}>
                     {lab}
@@ -406,7 +445,7 @@ function DescripcionCell({ descripcion }: { descripcion: string }) {
     return <span className="text-xs text-muted-foreground">—</span>;
   }
 
-  const maxLength = 60;
+  const maxLength = 50;
   const isLong = descripcion.length > maxLength;
   const displayText = isLong && !showFull 
     ? descripcion.substring(0, maxLength) + '...' 
@@ -414,7 +453,7 @@ function DescripcionCell({ descripcion }: { descripcion: string }) {
 
   return (
     <div className="relative">
-      <div className="text-xs max-w-[200px] break-words">
+      <div className="text-xs max-w-[150px] break-words">
         {displayText}
         {isLong && (
           <button
@@ -460,6 +499,61 @@ function DescripcionMobile({ descripcion }: { descripcion: string }) {
   );
 }
 
+// Capturar código de barras automáticamente
+function useBarcodeCapture(onBarcodeScanned: (barcode: string) => void) {
+  const bufferRef = useRef<string>("");
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      if (event.ctrlKey || event.altKey || event.metaKey) {
+        return;
+      }
+
+      if (event.key === "Enter") {
+        if (bufferRef.current.length > 0) {
+          event.preventDefault();
+          const barcode = bufferRef.current;
+          bufferRef.current = "";
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+          }
+          onBarcodeScanned(barcode);
+        }
+        return;
+      }
+
+      if (event.key.length === 1) {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+        }
+
+        bufferRef.current += event.key;
+
+        timeoutRef.current = setTimeout(() => {
+          bufferRef.current = "";
+          timeoutRef.current = null;
+        }, 100);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyPress);
+    return () => {
+      window.removeEventListener("keydown", handleKeyPress);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [onBarcodeScanned]);
+}
+
+const ITEMS_PER_PAGE = 15;
+
 export function ProductosView() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isStockFormOpen, setIsStockFormOpen] = useState(false);
@@ -504,32 +598,30 @@ export function ProductosView() {
   const isInitialMount = useRef(true);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isPerformingSearch = useRef(false);
-  const isFilterChange = useRef(false);
 
-  // ============================================
-  // LEER sessionStorage PARA BÚSQUEDA AUTOMÁTICA
-  // ============================================
+  useBarcodeCapture((barcode) => {
+    setSearchTerm(barcode);
+    if (barcode.trim().length >= 2) {
+      performSearch(barcode, 1);
+    }
+  });
+
   useEffect(() => {
     if (hasProcessedSessionStorage.current) return;
     
     const storedProductName = sessionStorage.getItem('searchProductName');
     
     if (storedProductName) {
-      console.log('ProductosView: Leyendo sessionStorage:', storedProductName);
       setSearchTerm(storedProductName);
       hasProcessedSessionStorage.current = true;
       
       setTimeout(() => {
         sessionStorage.removeItem('searchProductId');
         sessionStorage.removeItem('searchProductName');
-        console.log('ProductosView: sessionStorage limpiado');
       }, 300);
     }
   }, []);
 
-  // ============================================
-  // CARGAR DATOS BÁSICOS
-  // ============================================
   useEffect(() => {
     const loadBasicData = async () => {
       try {
@@ -560,14 +652,10 @@ export function ProductosView() {
     loadBasicData();
   }, [toast]);
 
-  // ============================================
-  // FUNCIÓN PRINCIPAL PARA CARGAR PRODUCTOS
-  // ============================================
   const loadProducts = useCallback(async (page: number = 1) => {
     setLoadingAll(true);
     try {
       const response = await getAllProductos(page, 15);
-      console.log("Productos cargados:", response.productos);
       setProducts(response.productos);
       setTotalPages(response.totalPages);
       setTotalProducts(response.total);
@@ -584,11 +672,7 @@ export function ProductosView() {
     }
   }, [toast]);
 
-  // ============================================
-  // FUNCIÓN PARA BUSCAR PRODUCTOS
-  // ============================================
   const performSearch = useCallback(async (query: string, page: number = 1) => {
-    // Si no hay término de búsqueda y no hay filtros, cargar todos
     const hasFilters = categoriaSeleccionada || laboratorioSeleccionado;
     
     if ((!query || query.trim().length < 2) && !hasFilters) {
@@ -596,13 +680,11 @@ export function ProductosView() {
       return;
     }
 
-    // Evitar búsquedas duplicadas
     if (isPerformingSearch.current) return;
     isPerformingSearch.current = true;
 
     setSearching(true);
     try {
-      console.log("Buscando con filtros:", { query, categoriaSeleccionada, laboratorioSeleccionado });
       const response = await buscarProductos(
         query && query.trim().length >= 2 ? query : "",
         categoriaSeleccionada || undefined,
@@ -610,7 +692,6 @@ export function ProductosView() {
         page,
         15
       );
-      console.log("Resultados de búsqueda:", response.productos);
       setProducts(response.productos);
       setTotalPages(response.totalPages);
       setTotalProducts(response.total);
@@ -631,11 +712,7 @@ export function ProductosView() {
     }
   }, [categoriaSeleccionada, laboratorioSeleccionado, loadProducts, toast]);
 
-  // ============================================
-  // UNIFICAR CARGA CON FILTROS
-  // ============================================
   const loadProductsWithFilters = useCallback(async (page: number = 1) => {
-    // Si hay término de búsqueda (>= 2 caracteres) O hay filtros activos
     const hasFilters = categoriaSeleccionada || laboratorioSeleccionado;
     
     if (searchTerm.trim().length >= 2 || hasFilters) {
@@ -645,29 +722,22 @@ export function ProductosView() {
     }
   }, [searchTerm, categoriaSeleccionada, laboratorioSeleccionado, performSearch, loadProducts]);
 
-  // ============================================
-  // EFECTO: CUANDO CAMBIA EL TÉRMINO DE BÚSQUEDA
-  // ============================================
   useEffect(() => {
-    // Ignorar el primer renderizado
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
     
-    // Limpiar timeout anterior
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
       searchTimeoutRef.current = null;
     }
 
-    // Si no hay término y no hay filtros, cargar todos los productos
     if (searchTerm.trim().length < 2 && !categoriaSeleccionada && !laboratorioSeleccionado) {
       loadProducts(1);
       return;
     }
 
-    // Debounce para búsqueda (solo para el término de búsqueda)
     searchTimeoutRef.current = setTimeout(() => {
       loadProductsWithFilters(1);
     }, 500);
@@ -678,54 +748,34 @@ export function ProductosView() {
         searchTimeoutRef.current = null;
       }
     };
-  }, [searchTerm]); // Solo depende de searchTerm
+  }, [searchTerm]);
 
-  // ============================================
-  // EFECTO: CUANDO CAMBIAN LOS FILTROS
-  // ============================================
   useEffect(() => {
-    // Ignorar el primer renderizado
     if (isInitialMount.current) return;
     
-    console.log("Filtros cambiados:", { categoriaSeleccionada, laboratorioSeleccionado });
-    
-    // Cargar con los filtros actuales (sin debounce para respuesta inmediata)
     loadProductsWithFilters(1);
     
-  }, [categoriaSeleccionada, laboratorioSeleccionado]); // Solo depende de los filtros
+  }, [categoriaSeleccionada, laboratorioSeleccionado]);
 
-  // ============================================
-  // CARGA INICIAL CON sessionStorage
-  // ============================================
   useEffect(() => {
     const storedProductName = sessionStorage.getItem('searchProductName');
     
     if (storedProductName && storedProductName.trim().length >= 2) {
-      // Si hay sessionStorage, buscar directamente
       const searchQuery = storedProductName;
-      // Limpiar sessionStorage inmediatamente
       sessionStorage.removeItem('searchProductName');
-      // Establecer el término de búsqueda
       setSearchTerm(searchQuery);
-      // Ejecutar búsqueda directa (sin debounce)
       performSearch(searchQuery, 1);
     } else {
       loadProducts(1);
     }
-  }, []); // Solo se ejecuta una vez
+  }, []);
 
-  // ============================================
-  // PAGINACIÓN
-  // ============================================
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages && newPage !== currentPage) {
       loadProductsWithFilters(newPage);
     }
   };
 
-  // ============================================
-  // ACCIONES: EDITAR, STOCK, ELIMINAR
-  // ============================================
   const handleEdit = (product: Producto) => {
     if (isAssistant) return;
     setEditingProduct(product);
@@ -784,10 +834,9 @@ export function ProductosView() {
         stockFormData.modoNuevoLote ? stockFormData.fechaVencimiento : undefined
       );
 
-      const newTotal = stockFormData.stockActual + cantidad;
       toast({
         title: "Stock actualizado",
-        description: `Stock de ${stockFormData.productoNombre} aumentado a ${newTotal} unidades.`,
+        description: `Stock de ${stockFormData.productoNombre} aumentado.`,
       });
 
       await loadProductsWithFilters(currentPage);
@@ -832,9 +881,6 @@ export function ProductosView() {
     }
   };
 
-  // ============================================
-  // FORMULARIO: SUBMIT Y CANCEL
-  // ============================================
   const handleFormSubmit = async (productData: any, isEditing: boolean) => {
     try {
       const action = isEditing ? "editado" : "agregado";
@@ -864,18 +910,13 @@ export function ProductosView() {
   const clearFilters = () => {
     setCategoriaSeleccionada("");
     setLaboratorioSeleccionado("");
-    // Si no hay término de búsqueda, recargar todos
     if (!searchTerm || searchTerm.trim().length < 2) {
       loadProducts(1);
     } else {
-      // Si hay término, buscar con ese término
       performSearch(searchTerm, 1);
     }
   };
 
-  // ============================================
-  // RENDER
-  // ============================================
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -885,51 +926,88 @@ export function ProductosView() {
   }
 
   return (
-    <div className="space-y-4 md:space-y-6 p-2 md:p-0">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <h1 className="text-2xl md:text-3xl font-bold text-primary">
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <h1 className="text-2xl sm:text-3xl font-bold text-primary">
           {isAssistant ? "Visualización de Productos" : "Gestión de Productos"}
         </h1>
-        {!isAssistant && (
-          <Dialog
-            open={isFormOpen}
-            onOpenChange={(open) => {
-              setIsFormOpen(open);
-              if (!open) {
-                handleFormCancel();
-              }
-            }}
-          >
-            <DialogTrigger asChild>
-              <Button className="bg-primary hover:bg-primary/90 w-full md:w-auto flex-shrink-0">
-                <Plus className="mr-2 h-4 w-4" />
-                <span className="hidden sm:inline">Agregar Producto</span>
-                <span className="sm:hidden">Agregar</span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto p-0">
-              <DialogHeader className="px-6 pt-6">
-                <DialogTitle>
-                  {editingProduct
-                    ? "Editar Producto"
-                    : "Agregar Nuevo Producto"}
-                </DialogTitle>
-              </DialogHeader>
-              <div className="px-6 pb-6">
-                <FormularioProductos
-                  product={editingProduct || undefined}
-                  ubicaciones={ubicaciones}
-                  categorias={categorias}
-                  laboratorios={laboratorios}
-                  formasFarmaceuticas={formasFarmaceuticas}
-                  onSubmit={handleFormSubmit}
-                  onCancel={handleFormCancel}
-                />
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <div className="relative flex-1 sm:min-w-[350px] md:min-w-[500px]">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              placeholder="Buscar por nombre, código o escanear..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 h-10"
+            />
+            {searching && (
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
               </div>
-            </DialogContent>
-          </Dialog>
-        )}
+            )}
+          </div>
+          
+          <FiltrosProductos
+            categorias={categorias}
+            laboratorios={laboratorios}
+            categoriaSeleccionada={categoriaSeleccionada}
+            laboratorioSeleccionado={laboratorioSeleccionado}
+            onCategoriaChange={setCategoriaSeleccionada}
+            onLaboratorioChange={setLaboratorioSeleccionado}
+            onClearFilters={clearFilters}
+          />
+
+          {(categoriaSeleccionada || laboratorioSeleccionado || searchTerm) && (
+            <Button
+              variant="outline"
+              onClick={clearFilters}
+              className="w-full sm:w-auto"
+            >
+              <X className="mr-2 h-4 w-4" />
+              Limpiar Filtros
+            </Button>
+          )}
+
+          {!isAssistant && (
+            <Dialog
+              open={isFormOpen}
+              onOpenChange={(open) => {
+                setIsFormOpen(open);
+                if (!open) {
+                  handleFormCancel();
+                }
+              }}
+            >
+              <DialogTrigger asChild>
+                <Button className="bg-primary hover:bg-primary/90 whitespace-nowrap w-full sm:w-auto">
+                  <Plus className="mr-2 h-4 w-4" />
+                  <span className="hidden sm:inline">Agregar Producto</span>
+                  <span className="sm:hidden">Agregar</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto p-0">
+                <DialogHeader className="px-6 pt-6">
+                  <DialogTitle>
+                    {editingProduct
+                      ? "Editar Producto"
+                      : "Agregar Nuevo Producto"}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="px-6 pb-6">
+                  <FormularioProductos
+                    product={editingProduct || undefined}
+                    ubicaciones={ubicaciones}
+                    categorias={categorias}
+                    laboratorios={laboratorios}
+                    formasFarmaceuticas={formasFarmaceuticas}
+                    onSubmit={handleFormSubmit}
+                    onCancel={handleFormCancel}
+                  />
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
       </div>
 
       {/* Dialog para aumentar stock */}
@@ -1064,499 +1142,351 @@ export function ProductosView() {
         </DialogContent>
       </Dialog>
 
-      {/* Card Principal */}
+      {/* Tabla de productos */}
       <Card>
-        <CardHeader className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <CardHeader>
           <CardTitle>
-            {searchTerm.trim().length >= 2 || categoriaSeleccionada || laboratorioSeleccionado
-              ? `Resultados de búsqueda (${totalProducts})`
-              : `Todos los Productos (${totalProducts})`}
+            Productos ({totalProducts})
+            {loadingAll && <span className="text-sm font-normal text-muted-foreground ml-2">Cargando...</span>}
           </CardTitle>
-          <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
-            <div className="relative flex-1 sm:min-w-[200px]">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar productos..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 h-9"
-              />
-              {searching && (
-                <div className="absolute right-3 top-2.5">
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                </div>
-              )}
-            </div>
-            <FiltrosProductos
-              categorias={categorias}
-              laboratorios={laboratorios}
-              categoriaSeleccionada={categoriaSeleccionada}
-              laboratorioSeleccionado={laboratorioSeleccionado}
-              onCategoriaChange={setCategoriaSeleccionada}
-              onLaboratorioChange={setLaboratorioSeleccionado}
-              onClearFilters={clearFilters}
-            />
-          </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {loadingAll ? (
-            <div className="text-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-              <p className="text-muted-foreground mt-2">Cargando productos...</p>
-            </div>
-          ) : (
-            <>
-              {products.length > 0 ? (
-                <>
-                  {/* Vista móvil y tablet - Cards */}
-                  <div className="block xl:hidden space-y-3 w-full">
-                    {products.map((product) => {
-                      return (
-                        <Card key={product.idproducto} className="p-3 w-full">
-                          <div className="space-y-3 w-full">
-                            <div className="flex items-start gap-3 w-full">
-                              <div className="flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20">
-                                <ImageCarousel
-                                  images={[getImageUrl(product.imagen)]}
-                                  productName={product.nombre}
-                                  className="w-16 h-16 sm:w-20 sm:h-20"
-                                />
-                              </div>
+        <CardContent>
+          <div className="rounded-md border overflow-x-auto">
+            <Table>
+              <TableHeader className="hidden md:table-header-group">
+                <TableRow>
+                  <TableHead className="px-4 py-3 w-[70px]">Imagen</TableHead>
+                  <TableHead className="px-4 py-3 w-[90px]">Código</TableHead>
+                  <TableHead className="px-4 py-3 w-[120px]">N. Comercial</TableHead>
+                  <TableHead className="px-4 py-3 w-[160px]">N. Genérico</TableHead>
+                  <TableHead className="px-4 py-3 w-[100px]">Ubicación</TableHead>
+                  <TableHead className="px-4 py-3 w-[140px]">Stock</TableHead>
+                  <TableHead className="px-4 py-3 w-[90px]">Precio</TableHead>
+                  <TableHead className="px-4 py-3 w-[90px] text-center">Detalles</TableHead>
+                  {!isAssistant && (
+                    <TableHead className="px-4 py-3 w-[90px] text-right">Acciones</TableHead>
+                  )}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loadingAll ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center py-8">
+                      <div className="flex justify-center">
+                        <Loader2 className="h-6 w-6 animate-spin" />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : products.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                      {categoriaSeleccionada || laboratorioSeleccionado || searchTerm
+                        ? "No se encontraron productos que coincidan con la búsqueda"
+                        : "No hay productos registrados"
+                      }
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  products.map((product) => (
+                    <TableRow key={product.idproducto} className="border-b transition-colors hover:bg-muted/50">
+                      {/* Desktop View */}
+                      <TableCell className="hidden md:table-cell px-4 py-3">
+                        <div className="w-12 h-12">
+                          <ImageCarousel
+                            images={[getImageUrl(product.imagen)]}
+                            productName={product.nombre}
+                            className="w-12 h-12"
+                          />
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell px-4 py-3">
+                        <span className="text-xs font-mono font-medium text-primary">
+                          {product.codigoP || "—"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell px-4 py-3 font-medium truncate max-w-[110px]" title={product.nombre}>
+                        {product.nombre}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell px-4 py-3">
+                        <DescripcionCell descripcion={product.descripcion} />
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell px-4 py-3 truncate max-w-[90px]" title={product.ubicacion}>
+                        {product.ubicacion}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell px-4 py-3">
+                        <LotesDesglose lotes={product.lotes || []} productName={product.nombre} />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleIncreaseStock(product)}
+                          className="h-6 text-xs px-2 mt-1"
+                        >
+                          <Package className="h-2.5 w-2.5 mr-1" />
+                          Añadir
+                        </Button>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell px-4 py-3">
+                        <div className="text-sm font-semibold">
+                          Bs {Number(product.precio_venta).toFixed(2)}
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell px-4 py-3 text-center">
+                        <DetallesProductoDialog product={product}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 px-3"
+                          >
+                            <Info className="h-4 w-4 mr-1" />
+                            Ver
+                          </Button>
+                        </DetallesProductoDialog>
+                      </TableCell>
+                      {!isAssistant && (
+                        <TableCell className="hidden md:table-cell px-4 py-3 text-right">
+                          <div className="flex justify-end space-x-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEdit(product)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>
+                                    ¿Estás seguro?
+                                  </AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Esta acción no se puede deshacer.
+                                    Esto eliminará permanentemente el
+                                    producto "{product.nombre}".
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>
+                                    Cancelar
+                                  </AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() =>
+                                      handleDelete(
+                                        product.idproducto,
+                                        product.nombre,
+                                      )
+                                    }
+                                  >
+                                    Eliminar
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        </TableCell>
+                      )}
 
-                              <div className="flex-1 min-w-0">
-                                <h3 className="font-semibold text-sm sm:text-base leading-tight line-clamp-2 break-words">
-                                  {product.nombre}
-                                </h3>
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  <Badge variant="outline" className="text-xs px-1.5 py-0.5">
-                                    <span className="font-mono text-primary font-medium">
-                                      {product.codigoP || "—"}
-                                    </span>
-                                  </Badge>
-                                  {product.categorias
-                                    .slice(0, 2)
-                                    .map((categoria, index) => (
-                                      <Badge
-                                        key={index}
-                                        variant="secondary"
-                                        className="text-xs px-1.5 py-0.5"
-                                      >
-                                        {categoria.length > 15
-                                          ? categoria.substring(0, 12) + "..."
-                                          : categoria}
-                                      </Badge>
-                                    ))}
-                                  {product.categorias.length > 2 && (
-                                    <Badge
-                                      variant="secondary"
-                                      className="text-xs px-1.5 py-0.5"
-                                    >
-                                      +{product.categorias.length - 2}
-                                    </Badge>
-                                  )}
-                                  {product.laboratorio && (
-                                    <Badge variant="outline" className="text-xs px-1.5 py-0.5">
-                                      {product.laboratorio}
-                                    </Badge>
-                                  )}
-                                  {product.forma_farmaceutica && (
-                                    <Badge variant="outline" className="text-xs px-1.5 py-0.5">
-                                      {product.forma_farmaceutica}
-                                    </Badge>
-                                  )}
-                                </div>
-                              </div>
+                      {/* Mobile View */}
+                      <TableCell className="md:hidden px-4 py-3">
+                        <div className="space-y-3">
+                          <div className="flex items-start gap-3">
+                            <div className="w-16 h-16 flex-shrink-0">
+                              <ImageCarousel
+                                images={[getImageUrl(product.imagen)]}
+                                productName={product.nombre}
+                                className="w-16 h-16"
+                              />
                             </div>
-
-                            <div className="grid grid-cols-2 gap-2 text-xs sm:text-sm">
-                              <div>
-                                <span className="font-medium">Código:</span>
-                                <span className="text-primary ml-1 font-mono text-xs block sm:inline">
-                                  {product.codigoP || "—"}
-                                </span>
-                              </div>
-                              <div>
-                                <span className="font-medium">Ubicación:</span>
-                                <span className="text-muted-foreground ml-1 block sm:inline">
-                                  {product.ubicacion}
-                                </span>
-                              </div>
-                              <div>
-                                <span className="font-medium">Laboratorio:</span>
-                                <span className="text-muted-foreground ml-1 block sm:inline">
-                                  {product.laboratorio}
-                                </span>
-                              </div>
-                              <div>
-                                <span className="font-medium">Forma Farm.:</span>
-                                <span className="text-muted-foreground ml-1 block sm:inline">
-                                  {product.forma_farmaceutica || "—"}
-                                </span>
-                              </div>
-                              <div className="col-span-2">
-                                <DescripcionMobile descripcion={product.descripcion} />
-                              </div>
-                              <div className="col-span-2">
-                                <span className="font-medium">Stock:</span>
-                                <LotesDesglose lotes={product.lotes || []} productName={product.nombre} />
-                              </div>
-                              <div>
-                                <span className="font-medium">Precio:</span>
-                                <span className="text-primary ml-1 font-semibold">
-                                  Bs {Number(product.precio_venta).toFixed(2)}
-                                </span>
-                              </div>
-                              {product.codigo_barras && (
-                                <div className="col-span-2">
-                                  <span className="font-medium">Código Barras:</span>
-                                  <span className="text-muted-foreground ml-1 font-mono text-xs break-all">
-                                    {product.codigo_barras}
-                                  </span>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium">{product.nombre}</div>
+                              {product.codigoP && (
+                                <div className="text-xs font-mono text-primary mt-0.5">
+                                  Código: {product.codigoP}
                                 </div>
                               )}
+                              <div className="mt-1">
+                                <DetallesProductoDialog product={product}>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 px-2 text-xs"
+                                  >
+                                    <Info className="h-3 w-3 mr-1" />
+                                    Ver detalles
+                                  </Button>
+                                </DetallesProductoDialog>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <DescripcionMobile descripcion={product.descripcion} />
+                            
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div>
+                                <div className="text-xs font-medium text-muted-foreground mb-1">UBICACIÓN</div>
+                                <div>{product.ubicacion}</div>
+                              </div>
+                              <div>
+                                <div className="text-xs font-medium text-muted-foreground mb-1">PRECIO</div>
+                                <div className="font-semibold">Bs {Number(product.precio_venta).toFixed(2)}</div>
+                              </div>
                             </div>
 
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium text-xs">Similares:</span>
-                              <ProductosSimilaresDialog
-                                similares={product.productos_similares || []}
-                                productName={product.nombre}
-                              >
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 w-7 p-0 relative"
-                                >
-                                  <Eye className="h-4 w-4" />
-                                  {product.productos_similares && product.productos_similares.length > 0 && (
-                                    <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-[10px] text-white flex items-center justify-center">
-                                      {product.productos_similares.length}
-                                    </span>
-                                  )}
-                                </Button>
-                              </ProductosSimilaresDialog>
-                            </div>
-
-                            <div className="flex flex-wrap gap-2 pt-2">
+                            <div>
+                              <div className="text-xs font-medium text-muted-foreground mb-1">STOCK</div>
+                              <LotesDesglose lotes={product.lotes || []} productName={product.nombre} />
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleIncreaseStock(product)}
-                                className="flex-1 h-8 text-xs"
+                                className="h-6 text-xs px-2 mt-1"
                               >
-                                <Package className="h-3 w-3 mr-1" />
-                                Añadir Stock
+                                <Package className="h-2.5 w-2.5 mr-1" />
+                                Añadir
                               </Button>
-                              {!isAssistant && (
-                                <>
+                            </div>
+                          </div>
+
+                          {!isAssistant && (
+                            <div className="flex gap-2 pt-2 border-t">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEdit(product)}
+                                className="flex-1"
+                              >
+                                <Edit className="h-3.5 w-3.5 mr-1" />
+                                Editar
+                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => handleEdit(product)}
-                                    className="flex-1 h-8 text-xs"
+                                    className="flex-1"
                                   >
-                                    <Edit className="h-3 w-3 mr-1" />
-                                    Editar
+                                    <Trash2 className="h-3.5 w-3.5 mr-1 text-destructive" />
+                                    Eliminar
                                   </Button>
-                                  <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="flex-1 h-8 text-xs"
-                                      >
-                                        <Trash2 className="h-3 w-3 mr-1 text-destructive" />
-                                        Eliminar
-                                      </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                      <AlertDialogHeader>
-                                        <AlertDialogTitle>
-                                          ¿Estás seguro?
-                                        </AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                          Esta acción no se puede deshacer.
-                                          Esto eliminará permanentemente el
-                                          producto "{product.nombre}".
-                                        </AlertDialogDescription>
-                                      </AlertDialogHeader>
-                                      <AlertDialogFooter>
-                                        <AlertDialogCancel>
-                                          Cancelar
-                                        </AlertDialogCancel>
-                                        <AlertDialogAction
-                                          onClick={() =>
-                                            handleDelete(
-                                              product.idproducto,
-                                              product.nombre,
-                                            )
-                                          }
-                                        >
-                                          Eliminar
-                                        </AlertDialogAction>
-                                      </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                  </AlertDialog>
-                                </>
-                              )}
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>
+                                      ¿Estás seguro?
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Esta acción no se puede deshacer.
+                                      Esto eliminará permanentemente el
+                                      producto "{product.nombre}".
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>
+                                      Cancelar
+                                    </AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() =>
+                                        handleDelete(
+                                          product.idproducto,
+                                          product.nombre,
+                                        )
+                                      }
+                                    >
+                                      Eliminar
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
                             </div>
-                          </div>
-                        </Card>
-                      );
-                    })}
-                  </div>
-
-                  {/* Vista desktop - Tabla */}
-                  <div className="hidden xl:block">
-                    <div className="w-full border rounded-lg">
-                      <div className="overflow-x-auto">
-                        <Table className="min-w-full">
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead className="w-[60px]">Imagen</TableHead>
-                              <TableHead className="w-[120px]">Código</TableHead>
-                              <TableHead className="min-w-[150px]">N. Comercial</TableHead>
-                              <TableHead className="min-w-[200px]">N. Genérico</TableHead>
-                              <TableHead className="w-[120px]">Ubicación</TableHead>
-                              <TableHead className="w-[130px]">Laboratorio</TableHead>
-                              <TableHead className="w-[130px]">Forma Farm.</TableHead>
-                              <TableHead className="w-[140px]">Código Barras</TableHead>
-                              <TableHead className="min-w-[180px]">Stock / Lotes</TableHead>
-                              <TableHead className="w-[100px] text-center">Similares</TableHead>
-                              <TableHead className="w-[110px]">Precio</TableHead>
-                              <TableHead className="w-[100px] text-right">Acciones</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {products.map((product) => {
-                              return (
-                                <TableRow key={product.idproducto}>
-                                  <TableCell>
-                                    <div className="w-10 h-10">
-                                      <ImageCarousel
-                                        images={[getImageUrl(product.imagen)]}
-                                        productName={product.nombre}
-                                        className="w-10 h-10"
-                                      />
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <span className="text-xs font-mono font-medium text-primary">
-                                      {product.codigoP || "—"}
-                                    </span>
-                                  </TableCell>
-                                  <TableCell>
-                                    <div>
-                                      <div className="font-medium text-sm">
-                                        {product.nombre}
-                                      </div>
-                                      <div className="flex flex-wrap gap-1 mt-1">
-                                        {product.categorias
-                                          .slice(0, 2)
-                                          .map((categoria, index) => (
-                                            <Badge
-                                              key={index}
-                                              variant="secondary"
-                                              className="text-xs"
-                                            >
-                                              {categoria.length > 15
-                                                ? categoria.substring(0, 12) + "..."
-                                                : categoria}
-                                            </Badge>
-                                          ))}
-                                        {product.categorias.length > 2 && (
-                                          <Badge variant="secondary" className="text-xs">
-                                            +{product.categorias.length - 2}
-                                          </Badge>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <DescripcionCell descripcion={product.descripcion} />
-                                  </TableCell>
-                                  <TableCell className="text-sm">
-                                    {product.ubicacion}
-                                  </TableCell>
-                                  <TableCell className="text-sm">
-                                    {product.laboratorio}
-                                  </TableCell>
-                                  <TableCell className="text-sm">
-                                    {product.forma_farmaceutica || "—"}
-                                  </TableCell>
-                                  <TableCell>
-                                    {product.codigo_barras ? (
-                                      <span className="text-xs font-mono">
-                                        {product.codigo_barras.length > 12
-                                          ? product.codigo_barras.substring(0, 10) + "..."
-                                          : product.codigo_barras}
-                                      </span>
-                                    ) : (
-                                      <span className="text-xs text-muted-foreground">—</span>
-                                    )}
-                                  </TableCell>
-                                  <TableCell>
-                                    <LotesDesglose lotes={product.lotes || []} productName={product.nombre} />
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleIncreaseStock(product)}
-                                      className="h-6 text-xs px-2 mt-1"
-                                    >
-                                      <Package className="h-2.5 w-2.5 mr-1" />
-                                      Añadir
-                                    </Button>
-                                  </TableCell>
-                                  <TableCell className="text-center">
-                                    <ProductosSimilaresDialog
-                                      similares={product.productos_similares || []}
-                                      productName={product.nombre}
-                                    >
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-7 w-7 p-0 relative mx-auto"
-                                      >
-                                        <Eye className="h-4 w-4" />
-                                        {product.productos_similares && product.productos_similares.length > 0 && (
-                                          <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-[10px] text-white flex items-center justify-center">
-                                            {product.productos_similares.length}
-                                          </span>
-                                        )}
-                                      </Button>
-                                    </ProductosSimilaresDialog>
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="text-sm font-semibold">
-                                      Bs {Number(product.precio_venta).toFixed(2)}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    <div className="flex justify-end space-x-1">
-                                      {!isAssistant && (
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() => handleEdit(product)}
-                                          className="h-8 w-8 p-0"
-                                        >
-                                          <Edit className="h-3.5 w-3.5" />
-                                        </Button>
-                                      )}
-                                      {!isAssistant && (
-                                        <AlertDialog>
-                                          <AlertDialogTrigger asChild>
-                                            <Button
-                                              variant="outline"
-                                              size="sm"
-                                              className="h-8 w-8 p-0"
-                                            >
-                                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                                            </Button>
-                                          </AlertDialogTrigger>
-                                          <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                              <AlertDialogTitle>
-                                                ¿Estás seguro?
-                                              </AlertDialogTitle>
-                                              <AlertDialogDescription>
-                                                Esta acción no se puede deshacer.
-                                                Esto eliminará permanentemente el
-                                                producto "{product.nombre}".
-                                              </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                              <AlertDialogCancel>
-                                                Cancelar
-                                              </AlertDialogCancel>
-                                              <AlertDialogAction
-                                                onClick={() =>
-                                                  handleDelete(
-                                                    product.idproducto,
-                                                    product.nombre,
-                                                  )
-                                                }
-                                              >
-                                                Eliminar
-                                              </AlertDialogAction>
-                                            </AlertDialogFooter>
-                                          </AlertDialogContent>
-                                        </AlertDialog>
-                                      )}
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Paginación */}
-                  {totalPages > 1 && (
-                    <div className="flex items-center justify-between gap-2 pt-2">
-                      <div className="text-sm text-muted-foreground">
-                        Mostrando {((currentPage - 1) * 15) + 1} - {Math.min(currentPage * 15, totalProducts)} de {totalProducts} productos
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handlePageChange(currentPage - 1)}
-                          disabled={currentPage === 1 || loadingAll}
-                          className="h-8 px-2"
-                        >
-                          <ChevronLeft className="h-4 w-4" />
-                        </Button>
-                        <div className="flex items-center gap-1">
-                          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                            let pageNum;
-                            if (totalPages <= 5) {
-                              pageNum = i + 1;
-                            } else if (currentPage <= 3) {
-                              pageNum = i + 1;
-                            } else if (currentPage >= totalPages - 2) {
-                              pageNum = totalPages - 4 + i;
-                            } else {
-                              pageNum = currentPage - 2 + i;
-                            }
-                            return (
-                              <Button
-                                key={pageNum}
-                                variant={currentPage === pageNum ? "default" : "outline"}
-                                size="sm"
-                                onClick={() => handlePageChange(pageNum)}
-                                disabled={loadingAll}
-                                className="h-8 w-8 p-0"
-                              >
-                                {pageNum}
-                              </Button>
-                            );
-                          })}
+                          )}
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handlePageChange(currentPage + 1)}
-                          disabled={currentPage === totalPages || loadingAll}
-                          className="h-8 px-2"
-                        >
-                          <ChevronRight className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Paginación */}
+          {products.length > 0 && !loadingAll && totalPages > 1 && (
+            <div className="flex items-center justify-between px-2 py-4 border-t mt-4">
+              <div className="text-sm text-muted-foreground">
+                Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, totalProducts)} de {totalProducts} productos
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  <span className="sr-only">Página anterior</span>
+                </Button>
+                
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                    let pageNumber;
+                    if (totalPages <= 5) {
+                      pageNumber = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNumber = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNumber = totalPages - 4 + i;
+                    } else {
+                      pageNumber = currentPage - 2 + i;
+                    }
+                    
+                    return (
+                      <Button
+                        key={pageNumber}
+                        variant={currentPage === pageNumber ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handlePageChange(pageNumber)}
+                        className="w-8 h-8"
+                      >
+                        {pageNumber}
+                      </Button>
+                    );
+                  })}
+                  
+                  {totalPages > 5 && currentPage < totalPages - 2 && (
+                    <>
+                      <span className="text-muted-foreground">...</span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePageChange(totalPages)}
+                        className="w-8 h-8"
+                      >
+                        {totalPages}
+                      </Button>
+                    </>
                   )}
-                </>
-              ) : (
-                <div className="text-center text-muted-foreground py-8">
-                  {searchTerm.trim().length >= 2 || categoriaSeleccionada || laboratorioSeleccionado
-                    ? "No se encontraron productos que coincidan con la búsqueda."
-                    : "No hay productos registrados."}
                 </div>
-              )}
-            </>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                  <span className="sr-only">Página siguiente</span>
+                </Button>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>

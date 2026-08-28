@@ -1073,37 +1073,13 @@ export function VenderView() {
         />
       )}
 
-      <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-2xl font-bold text-primary">
-              ¡Bienvenido, {username}!
-            </h2>
-            <p className="text-muted-foreground">
-              Sistema de Farmacia LUMYRA
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-sm text-muted-foreground">Fecha</p>
-            <p className="font-medium">{currentDate}</p>
-          </div>
-        </div>
-        <div className="mt-2">
-          <Badge variant={cajaAbierta ? "default" : "destructive"}>
-            Caja: {cajaAbierta ? "Abierta" : "Cerrada"}
-          </Badge>
-          {currentUser && (
-            <Badge variant="outline" className="ml-2">
-              {currentUser.rol}
-            </Badge>
-          )}
-        </div>
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="lg:col-span-1">
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Buscar Productos</CardTitle>
+            <Badge variant={cajaAbierta ? "default" : "destructive"} className="text-xs">
+              Caja: {cajaAbierta ? "Abierta" : "Cerrada"}
+            </Badge>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="relative">

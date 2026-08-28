@@ -12,6 +12,8 @@ import {
   Pencil,
   X,
   Percent,
+  CreditCard,
+  DollarSign,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -1029,7 +1031,7 @@ export function VenderView() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {showScanner && (
         <BarcodeScanner
           onScanSuccess={handleBarcodeScanned}
@@ -1073,24 +1075,24 @@ export function VenderView() {
         />
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         <Card className="lg:col-span-1">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Buscar Productos</CardTitle>
-            <Badge variant={cajaAbierta ? "default" : "destructive"} className="text-xs">
+          <CardHeader className="flex flex-row items-center justify-between py-3 md:py-4 px-3 md:px-6">
+            <CardTitle className="text-base md:text-lg">Buscar Productos</CardTitle>
+            <Badge variant={cajaAbierta ? "default" : "destructive"} className="text-[10px] md:text-xs">
               Caja: {cajaAbierta ? "Abierta" : "Cerrada"}
             </Badge>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="p-3 md:p-6 space-y-3 md:space-y-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-3 w-3 md:h-4 md:w-4" />
               <Input
                 ref={searchInputRef}
-                placeholder="Buscar por nombre o código de barras"
+                placeholder="Buscar por nombre o código"
                 value={searchQuery}
                 onChange={handleSearchChange}
                 onKeyDown={handleSearchKeyDown}
-                className="pl-10"
+                className="pl-8 md:pl-10 text-sm md:text-base h-9 md:h-10"
                 disabled={loading}
                 autoFocus={true}
               />
@@ -1100,21 +1102,21 @@ export function VenderView() {
                   variant="outline"
                   size="sm"
                   onClick={openScanner}
-                  className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0"
+                  className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 md:h-8 md:w-8 p-0"
                 >
-                  <Camera className="h-4 w-4" />
+                  <Camera className="h-3 w-3 md:h-4 md:w-4" />
                 </Button>
               )}
             </div>
 
             {loading && (
-              <div className="text-center py-4">
-                <p className="text-muted-foreground">Buscando productos...</p>
+              <div className="text-center py-3 md:py-4">
+                <p className="text-xs md:text-sm text-muted-foreground">Buscando productos...</p>
               </div>
             )}
 
             {!loading && searchResults.length > 0 && (
-              <div className="space-y-3 max-h-96 overflow-y-auto">
+              <div className="space-y-2 md:space-y-3 max-h-[300px] md:max-h-96 overflow-y-auto">
                 {searchResults.map((product) => {
                   const hasSimilares =
                     product.productos_similares &&
@@ -1133,59 +1135,53 @@ export function VenderView() {
                   return (
                     <div
                       key={product.idproducto}
-                      className="border rounded-lg p-4 space-y-3"
+                      className="border rounded-lg p-3 md:p-4 space-y-2 md:space-y-3"
                     >
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start gap-3 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-start gap-2 md:gap-3 flex-1 min-w-0">
                           {(() => {
                             const imageUrl = getImageUrl(product.imagen);
                             return imageUrl ? (
                               <img
                                 src={imageUrl}
                                 alt={product.nombre}
-                                className="w-16 h-16 rounded-md object-cover"
+                                className="w-12 h-12 md:w-16 md:h-16 rounded-md object-cover flex-shrink-0"
                                 onError={(e) => {
                                   e.currentTarget.style.display = "none";
                                 }}
                               />
                             ) : (
-                              <div className="w-16 h-16 rounded-md bg-muted flex items-center justify-center">
-                                <span className="text-xs text-muted-foreground">
+                              <div className="w-12 h-12 md:w-16 md:h-16 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
+                                <span className="text-[10px] md:text-xs text-muted-foreground">
                                   Sin imagen
                                 </span>
                               </div>
                             );
                           })()}
                           <div className="flex-1 min-w-0">
-                            <h4
-                              className={`font-semibold text-sm ${
-                                isMobile ? "break-words" : ""
-                              }`}
-                            >
+                            <h4 className="font-semibold text-xs md:text-sm break-words">
                               {product.nombre}
                             </h4>
-                            <p className="text-xs text-muted-foreground line-clamp-2">
+                            <p className="text-[10px] md:text-xs text-muted-foreground line-clamp-1 md:line-clamp-2">
                               {product.descripcion}
                             </p>
-                            <div className="flex items-center gap-2 mt-1 flex-wrap">
-                              <Badge variant="outline" className="text-xs">
+                            <div className="flex flex-wrap items-center gap-1 md:gap-2 mt-1">
+                              <Badge variant="outline" className="text-[9px] md:text-xs px-1 md:px-2">
                                 {product.nombre_ubicacion}
                               </Badge>
                               {cantidadEnCarrito > 0 && (
-                                <Badge variant="secondary" className="text-xs">
-                                  En carrito: {cantidadEnCarrito} | Stock
-                                  disponible: {stockDisponible}
+                                <Badge variant="secondary" className="text-[9px] md:text-xs px-1 md:px-2">
+                                  En carrito: {cantidadEnCarrito}
                                 </Badge>
                               )}
                               {product.lotes && product.lotes.length > 0 && (
-                                <Badge variant="outline" className="text-xs">
+                                <Badge variant="outline" className="text-[9px] md:text-xs px-1 md:px-2">
                                   {product.lotes.length} lotes
                                 </Badge>
                               )}
                             </div>
-                            <p className="text-xs font-medium">
-                              Bs {formatBs(product.precio_venta)} | Stock
-                              total: {getStockTotal(product)}
+                            <p className="text-[10px] md:text-xs font-medium mt-0.5 md:mt-1">
+                              Bs {formatBs(product.precio_venta)} | Stock: {getStockTotal(product)}
                             </p>
                           </div>
                         </div>
@@ -1196,7 +1192,7 @@ export function VenderView() {
                             agregarProducto(product);
                           }}
                           disabled={stockDisponible === 0 || !tieneLotes}
-                          className="ml-2 flex-shrink-0"
+                          className="ml-1 md:ml-2 flex-shrink-0 h-7 md:h-9 text-[10px] md:text-xs px-2 md:px-3"
                         >
                           {stockDisponible === 0 || !tieneLotes
                             ? "Sin Stock"
@@ -1212,18 +1208,17 @@ export function VenderView() {
                             onClick={() =>
                               toggleProductExpansion(product.idproducto)
                             }
-                            className="h-7 px-2 text-xs"
+                            className="h-6 md:h-7 px-1.5 md:px-2 text-[10px] md:text-xs"
                           >
                             {isExpanded ? (
                               <>
-                                <ChevronUp className="h-3 w-3 mr-1" /> Ver
+                                <ChevronUp className="h-2.5 w-2.5 md:h-3 md:w-3 mr-1" /> Ver
                                 menos
                               </>
                             ) : (
                               <>
-                                <ChevronDown className="h-3 w-3 mr-1" /> Ver
-                                similares (
-                                {product.productos_similares!.length})
+                                <ChevronDown className="h-2.5 w-2.5 md:h-3 md:w-3 mr-1" /> Ver
+                                similares ({product.productos_similares!.length})
                               </>
                             )}
                           </Button>
@@ -1231,14 +1226,14 @@ export function VenderView() {
                       )}
 
                       {hasSimilares && isExpanded && (
-                        <div className="pl-4 border-l-2 border-primary/30 space-y-2 mt-2">
-                          <p className="text-xs font-medium text-muted-foreground">
+                        <div className="pl-2 md:pl-4 border-l-2 border-primary/30 space-y-2 mt-2">
+                          <p className="text-[10px] md:text-xs font-medium text-muted-foreground">
                             Productos similares:
                           </p>
                           {isLoadingSimilars ? (
-                            <div className="text-center py-4">
-                              <p className="text-xs text-muted-foreground">
-                                Cargando productos similares...
+                            <div className="text-center py-2 md:py-4">
+                              <p className="text-[10px] md:text-xs text-muted-foreground">
+                                Cargando...
                               </p>
                             </div>
                           ) : similarProducts.length > 0 ? (
@@ -1250,10 +1245,10 @@ export function VenderView() {
                               return (
                                 <div
                                   key={similar.idproducto}
-                                  className="bg-muted/30 rounded-lg p-3"
+                                  className="bg-muted/30 rounded-lg p-2 md:p-3"
                                 >
-                                  <div className="flex items-start justify-between">
-                                    <div className="flex items-start gap-3 flex-1">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex items-start gap-2 md:gap-3 flex-1 min-w-0">
                                       {(() => {
                                         const imageUrl = getImageUrl(
                                           similar.imagen,
@@ -1262,51 +1257,41 @@ export function VenderView() {
                                           <img
                                             src={imageUrl}
                                             alt={similar.nombre}
-                                            className="w-12 h-12 rounded-md object-cover"
+                                            className="w-8 h-8 md:w-10 md:h-10 rounded-md object-cover flex-shrink-0"
                                             onError={(e) => {
                                               e.currentTarget.style.display =
                                                 "none";
                                             }}
                                           />
                                         ) : (
-                                          <div className="w-12 h-12 rounded-md bg-muted flex items-center justify-center">
-                                            <span className="text-xs text-muted-foreground">
+                                          <div className="w-8 h-8 md:w-10 md:h-10 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
+                                            <span className="text-[8px] md:text-[10px] text-muted-foreground">
                                               Sin img
                                             </span>
                                           </div>
                                         );
                                       })()}
                                       <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium truncate">
+                                        <p className="text-[11px] md:text-sm font-medium truncate">
                                           {similar.nombre}
                                         </p>
-                                        <p className="text-xs text-muted-foreground line-clamp-1">
-                                          {similar.descripcion?.substring(
-                                            0,
-                                            60,
-                                          )}
+                                        <p className="text-[9px] md:text-xs text-muted-foreground line-clamp-1">
+                                          {similar.descripcion?.substring(0, 40)}
                                           ...
                                         </p>
-                                        <div className="flex items-center gap-2 mt-1">
-                                          <Badge
-                                            variant="outline"
-                                            className="text-xs"
-                                          >
+                                        <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                                          <Badge variant="outline" className="text-[8px] md:text-[10px] px-1">
                                             {similar.nombre_ubicacion}
                                           </Badge>
                                           {similar.lotes &&
                                             similar.lotes.length > 0 && (
-                                              <Badge
-                                                variant="outline"
-                                                className="text-xs"
-                                              >
+                                              <Badge variant="outline" className="text-[8px] md:text-[10px] px-1">
                                                 {similar.lotes.length} lotes
                                               </Badge>
                                             )}
                                         </div>
-                                        <p className="text-xs font-medium mt-1">
-                                          Bs {formatBs(similar.precio_venta)} |
-                                          Stock: {getStockTotal(similar)}
+                                        <p className="text-[9px] md:text-xs font-medium mt-0.5">
+                                          Bs {formatBs(similar.precio_venta)} | Stock: {getStockTotal(similar)}
                                         </p>
                                       </div>
                                     </div>
@@ -1321,7 +1306,7 @@ export function VenderView() {
                                         stockDisponibleSimilar === 0 ||
                                         !tieneLotesSimilar
                                       }
-                                      className="ml-2 flex-shrink-0 h-8"
+                                      className="ml-1 md:ml-2 flex-shrink-0 h-6 md:h-8 text-[9px] md:text-xs px-1.5 md:px-2"
                                     >
                                       {stockDisponibleSimilar === 0 ||
                                       !tieneLotesSimilar
@@ -1333,8 +1318,8 @@ export function VenderView() {
                               );
                             })
                           ) : (
-                            <div className="text-center py-4">
-                              <p className="text-xs text-muted-foreground">
+                            <div className="text-center py-2 md:py-4">
+                              <p className="text-[10px] md:text-xs text-muted-foreground">
                                 No se pudieron cargar los productos similares
                               </p>
                             </div>
@@ -1350,8 +1335,8 @@ export function VenderView() {
             {!loading &&
               searchQuery.length >= 2 &&
               searchResults.length === 0 && (
-                <div className="text-center py-4">
-                  <p className="text-muted-foreground">
+                <div className="text-center py-3 md:py-4">
+                  <p className="text-xs md:text-sm text-muted-foreground">
                     No se encontraron productos
                   </p>
                 </div>
@@ -1360,16 +1345,16 @@ export function VenderView() {
         </Card>
 
         <Card className="lg:col-span-1" ref={cartRef}>
-          <CardHeader>
-            <CardTitle>Detalle de Venta</CardTitle>
+          <CardHeader className="py-3 md:py-4 px-3 md:px-6">
+            <CardTitle className="text-base md:text-lg">Detalle de Venta</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="p-3 md:p-6 space-y-3 md:space-y-4">
             {/* Doctor Switch y Selector */}
-            <div className="border rounded-lg p-4 space-y-3">
+            <div className="border rounded-lg p-3 md:p-4 space-y-2 md:space-y-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-primary" />
-                  <Label htmlFor="doctor-switch" className="font-medium">
+                <div className="flex items-center gap-1.5 md:gap-2">
+                  <User className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
+                  <Label htmlFor="doctor-switch" className="text-xs md:text-sm font-medium">
                     Doctor
                   </Label>
                 </div>
@@ -1377,6 +1362,7 @@ export function VenderView() {
                   id="doctor-switch"
                   checked={isDoctorMode}
                   onCheckedChange={setIsDoctorMode}
+                  className="scale-75 md:scale-100"
                 />
               </div>
 
@@ -1390,11 +1376,11 @@ export function VenderView() {
             </div>
 
             {ventaItems.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">
+              <p className="text-muted-foreground text-center py-6 md:py-8 text-sm md:text-base">
                 No hay productos agregados
               </p>
             ) : (
-              <div className="space-y-3 max-h-64 overflow-y-auto">
+              <div className="space-y-2 md:space-y-3 max-h-48 md:max-h-64 overflow-y-auto">
                 {ventaItems.map((item, index) => {
                   const subtotalItem = item.precio_venta * item.cantidad;
                   const descuentoItem = item.descuentoProducto || 0;
@@ -1405,33 +1391,33 @@ export function VenderView() {
                   return (
                     <div
                       key={key}
-                      className="border rounded-lg p-3 bg-card"
+                      className="border rounded-lg p-2 md:p-3 bg-card"
                     >
-                      <div className="flex items-start gap-3 mb-3">
+                      <div className="flex items-start gap-2 md:gap-3 mb-2 md:mb-3">
                         {(() => {
                           const imageUrl = getImageUrl(item.imagen);
                           return imageUrl ? (
                             <img
                               src={imageUrl}
                               alt={item.nombre}
-                              className="w-12 h-12 rounded object-cover flex-shrink-0"
+                              className="w-10 h-10 md:w-12 md:h-12 rounded object-cover flex-shrink-0"
                               onError={(e) => {
                                 e.currentTarget.style.display = "none";
                               }}
                             />
                           ) : (
-                            <div className="w-12 h-12 rounded bg-muted flex items-center justify-center flex-shrink-0">
-                              <span className="text-xs text-muted-foreground">
+                            <div className="w-10 h-10 md:w-12 md:h-12 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                              <span className="text-[8px] md:text-xs text-muted-foreground">
                                 Sin img
                               </span>
                             </div>
                           );
                         })()}
                         <div className="flex-1 min-w-0">
-                          <h5 className="font-medium text-sm break-words whitespace-normal leading-tight">
+                          <h5 className="font-medium text-xs md:text-sm break-words whitespace-normal leading-tight">
                             {item.nombre}
                           </h5>
-                          <p className="text-sm font-medium text-green-600 mt-1">
+                          <p className="text-xs md:text-sm font-medium text-green-600 mt-0.5 md:mt-1">
                             Bs {formatBs(item.precio_venta)} c/u
                           </p>
                           <Button
@@ -1441,20 +1427,20 @@ export function VenderView() {
                               setProductoParaVerLotes(item);
                               setShowLotesCarrito(true);
                             }}
-                            className="h-6 px-2 text-xs mt-1"
+                            className="h-5 md:h-6 px-1.5 md:px-2 text-[9px] md:text-xs mt-0.5 md:mt-1"
                           >
-                            <Package className="h-3 w-3 mr-1" />
+                            <Package className="h-2.5 w-2.5 md:h-3 md:w-3 mr-1" />
                             Ver lotes ({item.lotesSeleccionados.length})
                           </Button>
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-between mb-1 md:mb-2">
+                        <div className="flex items-center gap-1 md:gap-2">
                           <Button
                             size="sm"
                             variant="outline"
-                            className="h-8 w-8 p-0"
+                            className="h-7 w-7 md:h-8 md:w-8 p-0"
                             onClick={() => {
                               const nuevaCantidad = item.cantidad - 1;
                               if (nuevaCantidad >= 1) {
@@ -1469,7 +1455,6 @@ export function VenderView() {
                                     index,
                                   );
                                 } else {
-                                  // Si no está en searchResults, usar el item mismo
                                   const productData: Product = {
                                     idproducto: item.idproducto,
                                     nombre: item.nombre,
@@ -1495,9 +1480,8 @@ export function VenderView() {
                               }
                             }}
                           >
-                            <Minus className="h-3 w-3" />
+                            <Minus className="h-3 w-3 md:h-3.5 md:w-3.5" />
                           </Button>
-                          {/* Input para cantidad manual - PERMITE BORRAR TODO */}
                           <Input
                             type="number"
                             min="1"
@@ -1505,13 +1489,11 @@ export function VenderView() {
                             value={inputValue}
                             onChange={(e) => {
                               const val = e.target.value;
-                              // Actualizar el valor local inmediatamente
                               setCantidadInputValues(prev => ({ ...prev, [key]: val }));
                             }}
                             onBlur={(e) => {
                               const val = e.target.value;
                               if (val === "") {
-                                // Si el campo está vacío, restaurar la cantidad actual
                                 setCantidadInputValues(prev => ({ ...prev, [key]: String(item.cantidad) }));
                                 return;
                               }
@@ -1519,7 +1501,6 @@ export function VenderView() {
                               if (!isNaN(numVal) && numVal >= 1) {
                                 actualizarCantidadManual(index, numVal);
                               } else {
-                                // Si es inválido, restaurar la cantidad actual
                                 setCantidadInputValues(prev => ({ ...prev, [key]: String(item.cantidad) }));
                               }
                             }}
@@ -1528,13 +1509,13 @@ export function VenderView() {
                                 e.currentTarget.blur();
                               }
                             }}
-                            className="w-16 h-8 text-center text-sm number-input-no-scroll"
+                            className="w-12 md:w-16 h-7 md:h-8 text-center text-xs md:text-sm number-input-no-scroll"
                             onWheel={(e) => e.currentTarget.blur()}
                           />
                           <Button
                             size="sm"
                             variant="outline"
-                            className="h-8 w-8 p-0"
+                            className="h-7 w-7 md:h-8 md:w-8 p-0"
                             onClick={() => {
                               const nuevaCantidad = item.cantidad + 1;
                               const stockDisponible =
@@ -1552,7 +1533,6 @@ export function VenderView() {
                                     index,
                                   );
                                 } else {
-                                  // Si no está en searchResults, usar el item mismo
                                   const productData: Product = {
                                     idproducto: item.idproducto,
                                     nombre: item.nombre,
@@ -1576,35 +1556,34 @@ export function VenderView() {
                               } else {
                                 toast({
                                   title: "Stock insuficiente",
-                                  description: `Solo hay ${stockDisponible} unidades disponibles en total`,
+                                  description: `Solo hay ${stockDisponible} unidades disponibles`,
                                   variant: "destructive",
                                 });
                               }
                             }}
                             disabled={getStockDisponiblePorProducto(item) === 0}
                           >
-                            <Plus className="h-3 w-3" />
+                            <Plus className="h-3 w-3 md:h-3.5 md:w-3.5" />
                           </Button>
                         </div>
 
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-bold whitespace-nowrap">
+                        <div className="flex items-center gap-1 md:gap-2">
+                          <p className="text-xs md:text-sm font-bold whitespace-nowrap">
                             Bs {formatBs(totalItem)}
                           </p>
                           <Button
                             size="sm"
                             variant="destructive"
-                            className="h-8 w-8 p-0"
+                            className="h-7 w-7 md:h-8 md:w-8 p-0"
                             onClick={() => eliminarItem(index)}
                           >
-                            <Trash2 className="h-3 w-3" />
+                            <Trash2 className="h-3 w-3 md:h-3.5 md:w-3.5" />
                           </Button>
                         </div>
                       </div>
 
-                      {/* Descuento por producto - MONTO FIJO (Bs) */}
-                      <div className="flex items-center gap-2 border-t pt-2 mt-1">
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      <div className="flex items-center gap-1 md:gap-2 border-t pt-1.5 md:pt-2 mt-1">
+                        <span className="text-[9px] md:text-xs text-muted-foreground whitespace-nowrap">
                           Desc. (Bs):
                         </span>
                         <Input
@@ -1622,11 +1601,11 @@ export function VenderView() {
                             setVentaItems(newItems);
                           }}
                           placeholder="0.00"
-                          className="w-20 h-7 text-xs number-input-no-scroll"
+                          className="w-16 md:w-20 h-6 md:h-7 text-[10px] md:text-xs number-input-no-scroll"
                           onWheel={(e) => e.currentTarget.blur()}
                         />
                         {item.descuentoProducto > 0 && (
-                          <span className="text-xs text-green-600 whitespace-nowrap">
+                          <span className="text-[9px] md:text-xs text-green-600 whitespace-nowrap">
                             -Bs {formatBs(descuentoItem)}
                           </span>
                         )}
@@ -1637,31 +1616,31 @@ export function VenderView() {
               </div>
             )}
 
-            <div className="border-t pt-4 space-y-2">
-              <div className="flex justify-between text-sm">
+            <div className="border-t pt-3 md:pt-4 space-y-1.5 md:space-y-2">
+              <div className="flex justify-between text-xs md:text-sm">
                 <span>Subtotal:</span>
                 <span>Bs {formatBs(subtotalSinDescuentos)}</span>
               </div>
 
               {tieneDescuentosProducto && (
                 <>
-                  <div className="flex justify-between text-sm text-green-600">
+                  <div className="flex justify-between text-xs md:text-sm text-green-600">
                     <span>Descuentos por producto:</span>
                     <span>-Bs {formatBs(descuentosProducto)}</span>
                   </div>
-                  <div className="flex justify-between text-sm font-medium">
-                    <span>Subtotal con descuentos por producto:</span>
+                  <div className="flex justify-between text-xs md:text-sm font-medium">
+                    <span>Subtotal con descuentos:</span>
                     <span>Bs {formatBs(subtotalConDescuentosProducto)}</span>
                   </div>
                 </>
               )}
 
-              <div className="flex justify-between items-center text-sm">
+              <div className="flex justify-between items-center text-xs md:text-sm">
                 <span className="flex items-center gap-1">
-                  <Percent className="h-3 w-3" />
+                  <Percent className="h-3 w-3 md:h-3.5 md:w-3.5" />
                   Descuento %:
                 </span>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 md:gap-2">
                   <Input
                     id="descuentoPorcentaje"
                     type="number"
@@ -1678,10 +1657,10 @@ export function VenderView() {
                       }
                     }}
                     placeholder="0"
-                    className="w-20 h-8 number-input-no-scroll"
+                    className="w-16 md:w-20 h-7 md:h-8 text-xs md:text-sm number-input-no-scroll"
                     onWheel={(e) => e.currentTarget.blur()}
                   />
-                  <span className="whitespace-nowrap">
+                  <span className="text-xs md:text-sm whitespace-nowrap">
                     {descuentoPorcentaje > 0 &&
                       `-Bs ${formatBs(descuentoMonto)}`}
                   </span>
@@ -1690,21 +1669,20 @@ export function VenderView() {
 
               {isDoctorMode && selectedDoctor && (
                 <div className="flex justify-end">
-                  <Badge variant="secondary" className="text-xs">
+                  <Badge variant="secondary" className="text-[9px] md:text-xs">
                     Doctor: {selectedDoctor.nombre}
                   </Badge>
                 </div>
               )}
 
-              <div className="flex justify-between text-lg font-bold border-t pt-2">
+              <div className="flex justify-between text-base md:text-lg font-bold border-t pt-2">
                 <span>Total:</span>
                 <span>Bs {formatBs(total)}</span>
               </div>
 
-              {/* Campo de justificación de descuento - visible si hay descuentos */}
               {tieneDescuentos && (
-                <div className="mt-3">
-                  <Label htmlFor="discountReason" className="text-sm font-medium">
+                <div className="mt-2 md:mt-3">
+                  <Label htmlFor="discountReason" className="text-xs md:text-sm font-medium">
                     Justificación del descuento *
                   </Label>
                   <Textarea
@@ -1713,10 +1691,10 @@ export function VenderView() {
                     onChange={(e) => setDiscountReason(e.target.value)}
                     placeholder="Explique el motivo del descuento..."
                     rows={2}
-                    className="mt-1"
+                    className="mt-1 text-xs md:text-sm"
                   />
                   {isDoctorMode && selectedDoctor && (
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <p className="text-[9px] md:text-xs text-muted-foreground mt-1">
                       Descuento aplicado por: {selectedDoctor.nombre}
                     </p>
                   )}
@@ -1724,46 +1702,57 @@ export function VenderView() {
               )}
             </div>
 
-            <div className="space-y-3">
-              <Label>Método de Pago:</Label>
-              <RadioGroup
-                value={metodoPago}
-                onValueChange={(value: "Efectivo" | "QR") =>
-                  setMetodoPago(value)
-                }
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="Efectivo" id="efectivo" />
-                  <Label htmlFor="efectivo">Efectivo</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="QR" id="qr" />
-                  <Label htmlFor="qr">QR</Label>
-                </div>
-              </RadioGroup>
+            <div className="space-y-3 md:space-y-4">
+              <Label className="text-xs md:text-sm font-medium">Método de Pago:</Label>
+              <div className="grid grid-cols-2 gap-2 md:gap-3">
+                <Button
+                  type="button"
+                  variant={metodoPago === "Efectivo" ? "default" : "outline"}
+                  className="h-10 md:h-12 text-sm md:text-base font-semibold flex items-center gap-1.5 md:gap-2"
+                  onClick={() => setMetodoPago("Efectivo")}
+                >
+                  <DollarSign className="h-4 w-4 md:h-5 md:w-5" />
+                  Efectivo
+                </Button>
+                <Button
+                  type="button"
+                  variant={metodoPago === "QR" ? "default" : "outline"}
+                  className="h-10 md:h-12 text-sm md:text-base font-semibold flex items-center gap-1.5 md:gap-2"
+                  onClick={() => setMetodoPago("QR")}
+                >
+                  <CreditCard className="h-4 w-4 md:h-5 md:w-5" />
+                  QR
+                </Button>
+              </div>
 
               {metodoPago === "Efectivo" && (
-                <div className="space-y-2">
-                  <Label htmlFor="montoPagado">
-                    Monto Pagado (opcional para calcular cambio):
+                <div className="space-y-2 pt-1 md:pt-2">
+                  <Label htmlFor="montoPagado" className="text-xs md:text-sm font-medium">
+                    Monto Pagado (opcional):
                   </Label>
-                  <Input
-                    id="montoPagado"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={montoPagado || ""}
-                    onChange={(e) =>
-                      setMontoPagado(Number(e.target.value) || 0)
-                    }
-                    placeholder="Ingrese el monto pagado"
-                    className="number-input-no-scroll"
-                    onWheel={(e) => e.currentTarget.blur()}
-                  />
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium text-xs md:text-sm">
+                      Bs
+                    </span>
+                    <Input
+                      id="montoPagado"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={montoPagado || ""}
+                      onChange={(e) =>
+                        setMontoPagado(Number(e.target.value) || 0)
+                      }
+                      placeholder="0.00"
+                      className="pl-8 md:pl-10 text-sm md:text-base h-10 md:h-11 number-input-no-scroll"
+                      onWheel={(e) => e.currentTarget.blur()}
+                    />
+                  </div>
                   {montoPagado > 0 && (
-                    <div className="text-sm">
-                      <span className="font-medium">
-                        Cambio: Bs {formatBs(cambio)}
+                    <div className="text-xs md:text-sm bg-muted/50 rounded-lg p-2 md:p-3 flex justify-between items-center">
+                      <span className="font-medium">Cambio:</span>
+                      <span className="text-base md:text-lg font-bold text-green-600">
+                        Bs {formatBs(cambio)}
                       </span>
                     </div>
                   )}
@@ -1771,17 +1760,8 @@ export function VenderView() {
               )}
 
               {metodoPago === "QR" && (
-                <div className="text-center">
-                  <div className="w-64 h-64 bg-white rounded-lg mx-auto flex items-center justify-center border-2 border-primary/20">
-                    <img
-                      src="/qr.jpg"
-                      alt="Código QR para pago"
-                      className="w-full h-full object-contain rounded-lg"
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Escanea el código QR para pagar
-                  </p>
+                <div className="text-center py-3 md:py-4">
+                  <p className="text-xs md:text-sm text-muted-foreground">Pago con QR</p>
                 </div>
               )}
             </div>
@@ -1789,7 +1769,7 @@ export function VenderView() {
             <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
               <DialogTrigger asChild>
                 <Button
-                  className="w-full"
+                  className="w-full text-sm md:text-base h-10 md:h-11"
                   disabled={
                     ventaItems.length === 0 ||
                     !cajaAbierta ||
@@ -1809,41 +1789,42 @@ export function VenderView() {
                     : "Procesar Venta"}
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-w-[95vw] md:max-w-lg p-4 md:p-6">
                 <DialogHeader>
-                  <DialogTitle>Confirmar Venta</DialogTitle>
-                  <DialogDescription>
+                  <DialogTitle className="text-base md:text-lg">Confirmar Venta</DialogTitle>
+                  <DialogDescription className="text-sm md:text-base">
                     ¿Está seguro de procesar esta venta por Bs {formatBs(total)}
                     ?
                     {isDoctorMode && selectedDoctor && (
-                      <span className="block mt-2 text-sm">
+                      <span className="block mt-2 text-xs md:text-sm">
                         Doctor asignado:{" "}
                         <strong>{selectedDoctor.nombre}</strong>
                       </span>
                     )}
                     {tieneDescuentos && (
-                      <span className="block mt-2 text-sm text-amber-600">
+                      <span className="block mt-2 text-xs md:text-sm text-amber-600">
                         Descuento aplicado:{" "}
                         <strong>
                           Bs {formatBs(descuentosProducto + descuentoMonto)}
                         </strong>
                         <br />
-                        <span className="text-xs">
+                        <span className="text-[10px] md:text-xs">
                           Motivo: {discountReason}
                         </span>
                       </span>
                     )}
                   </DialogDescription>
                 </DialogHeader>
-                <div className="flex gap-3 justify-end">
+                <div className="flex gap-3 justify-end mt-3 md:mt-4">
                   <Button
                     variant="outline"
                     onClick={() => setShowConfirm(false)}
                     disabled={loading}
+                    className="text-sm md:text-base"
                   >
                     Cancelar
                   </Button>
-                  <Button onClick={procesarVenta} disabled={loading}>
+                  <Button onClick={procesarVenta} disabled={loading} className="text-sm md:text-base">
                     {loading ? "Procesando..." : "Confirmar Venta"}
                   </Button>
                 </div>

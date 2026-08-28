@@ -1,276 +1,246 @@
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
-import { Venta } from "@/api/VentasApi";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { jsPDF } from "jspdf";
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
-export interface GenerateVentaPDFParams {
-  venta: Venta;
-  nombreCliente: string;
-  fileName?: string;
+export interface VentaData {
+  codigoVenta: string;
+  clientName: string;
+  fechaVenta: string;
+  total: number;
+  montoPagado: number;
+  subtotal?: number;
+  descuento?: number;
+  tiendaNombre?: string;
+  registradoPor?: string;
+  productos?: ProductoItem[];
 }
 
-/**
- * generateVentaPDF
- * - Crea un PDF del detalle de venta que se ve exactamente igual al diálogo de impresión
- * - Retorna una Promise que se resuelve tras descargar el PDF
- * - Utiliza tamaño MEDIA CARTA (Half Letter: 216mm x 139.7mm / 8.5" x 5.5")
- */
-export async function generateVentaPDF(params: GenerateVentaPDFParams): Promise<void> {
-  const {
-    venta,
-    nombreCliente,
-    fileName = `Venta_${venta.id}_${nombreCliente.replace(/\s+/g, '_')}.pdf`
-  } = params;
+export interface ProductoItem {
+  nombre: string;
+  precio: number;
+  cantidad: number;
+}
 
-  // 1) Crear el contenedor offscreen
-  const wrapper = document.createElement("div");
-  wrapper.style.position = "fixed";
-  wrapper.style.left = "-9999px";
-  wrapper.style.top = "0";
-  wrapper.style.width = "720px";
-  wrapper.style.padding = "20px";
-  wrapper.style.boxSizing = "border-box";
-  wrapper.style.background = "#ffffff";
-  wrapper.style.fontFamily = "Arial, sans-serif";
-  wrapper.style.display = "flex";
-  wrapper.style.flexDirection = "column";
-  wrapper.id = "venta-pdf-wrapper";
+export class PrintSalesHistory {
+  private static colaImpresion: jsPDF[] = [];
+  private static imprimiendo = false;
+  private static logoBase64: string | null = null;
 
-  // 2) Construir HTML idéntico al diálogo de impresión con marca de agua
-  const fechaFormateada = format(venta.fecha, "dd/MM/yyyy HH:mm", { locale: es });
-
-  wrapper.innerHTML = `
-<style>
-  .venta-watermark-container {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    pointer-events: none;
-    z-index: 0;
-    overflow: hidden;
-  }
-  .venta-watermark-logo {
-    opacity: 0.2;
-    width: 50%;
-    max-width: 250px;
-    height: auto;
-    object-fit: contain;
-  }
-  .venta-content-container {
-    position: relative;
-    z-index: 1;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-  }
-  .venta-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 12px;
-    background: white;
-  }
-  .venta-table th {
-    padding: 8px 10px;
-    text-align: left;
-    background: #f8fafc;
-    border-bottom: 2px solid #e5e7eb;
-  }
-  .venta-table td {
-    padding: 8px 10px;
-    border-bottom: 1px solid #e5e7eb;
-  }
-  .venta-table .text-right {
-    text-align: right;
-  }
-  .venta-table .text-center {
-    text-align: center;
-  }
-  .venta-totales {
-    width: 280px;
-    margin-left: auto;
-    margin-top: 20px;
-    border-collapse: collapse;
-    font-size: 12px;
-    background: white;
-  }
-  .venta-totales td {
-    padding: 6px 8px;
-  }
-  .venta-totales .total-row {
-    border-top: 2px solid #000;
-  }
-  .venta-totales .total-label {
-    font-weight: 700;
-    font-size: 14px;
-  }
-  .venta-totales .total-value {
-    font-weight: 700;
-    font-size: 14px;
-    text-align: right;
-  }
-  @media print {
-    .venta-watermark-container {
-      display: flex !important;
+  // ========== CARGAR LOGO ==========
+  private static async cargarLogo(): Promise<string | null> {
+    if (this.logoBase64) return this.logoBase64;
+    
+    try {
+      const response = await fetch('/lovable-uploads/84af3e7f-9171-4c73-900f-9499a9673234.png');
+      const blob = await response.blob();
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          this.logoBase64 = reader.result as string;
+          resolve(this.logoBase64);
+        };
+        reader.readAsDataURL(blob);
+      });
+    } catch (error) {
+      console.error('Error cargando logo:', error);
+      return null;
     }
   }
-</style>
 
-<div style="position: relative; height: 100%; min-height: 800px;">
-  <div class="venta-watermark-container">
-    <img
-      src="/lovable-uploads/84af3e7f-9171-4c73-900f-9499a9673234.png"
-      class="venta-watermark-logo"
-      alt="Watermark"
-    />
-  </div>
-
-  <div class="venta-content-container">
-    <div style="text-align:center;margin-bottom:16px;">
-      <img
-        src="/lovable-uploads/84af3e7f-9171-4c73-900f-9499a9673234.png"
-        alt="NEOLED Logo"
-        style="height:70px;display:block;margin:0 auto;"
-      />
-    </div>
-
-    <div style="margin-bottom:16px;line-height:1.8;font-size:13px;">
-      <p style="margin:0 0 4px 0;">
-        <strong>Cliente:</strong> ${escapeHtml(nombreCliente)}
-      </p>
-      <p style="margin:0 0 4px 0;">
-        <strong>Fecha:</strong> ${escapeHtml(fechaFormateada)}
-      </p>
-      <p style="margin:0 0 4px 0;">
-        <strong>Dirección:</strong> Av. Heroinas esq. Hamiraya #316
-      </p>
-      <p style="margin:0;">
-        <strong>Números:</strong> 77950297 - 77918672
-      </p>
-      ${venta.medico ? `<p style="margin:4px 0 0 0;"><strong>Médico:</strong> ${escapeHtml(venta.medico)}</p>` : ''}
-    </div>
-
-    <div style="flex:1;display:flex;flex-direction:column;justify-content:space-between;">
-      <div style="flex:1;overflow-x:auto;">
-        <table class="venta-table">
-          <thead>
-            <tr>
-              <th style="width:45%;">Producto</th>
-              <th style="width:18%;text-align:right;">Precio</th>
-              <th style="width:12%;text-align:center;">Cantidad</th>
-              <th style="width:25%;text-align:right;">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${venta.detalle.map(item => `
-              <tr>
-                <td style="padding:8px 10px;">${escapeHtml(item.producto)}</td>
-                <td style="padding:8px 10px;text-align:right;">Bs ${item.precio_unitario.toFixed(2)}</td>
-                <td style="padding:8px 10px;text-align:center;">${item.cantidad}</td>
-                <td style="padding:8px 10px;text-align:right;">Bs ${(item.precio_unitario * item.cantidad).toFixed(2)}</td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      </div>
-
-      <div style="margin-top:20px;">
-        <table class="venta-totales">
-          <tbody>
-            <tr>
-              <td style="font-weight:600;padding:6px 8px;">Subtotal:</td>
-              <td style="padding:6px 8px;text-align:right;">Bs ${venta.subtotal.toFixed(2)}</td>
-            </tr>
-            <tr>
-              <td style="font-weight:600;padding:6px 8px;">Descuento:</td>
-              <td style="padding:6px 8px;text-align:right;">Bs ${venta.descuento.toFixed(2)}</td>
-            </tr>
-            ${venta.descripcion_descuento ? `
-              <tr>
-                <td style="font-weight:600;padding:6px 8px;">Concepto descuento:</td>
-                <td style="padding:6px 8px;text-align:right;font-size:11px;">${escapeHtml(venta.descripcion_descuento)}</td>
-              </tr>
-            ` : ''}
-            <tr class="total-row">
-              <td class="total-label" style="padding:10px 8px;">Total:</td>
-              <td class="total-value" style="padding:10px 8px;">Bs ${venta.total.toFixed(2)}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div style="margin-top:16px;padding-top:12px;border-top:1px solid #e5e7eb;text-align:center;">
-      <p style="color:#6b7280;font-size:11px;margin:0;">Gracias por su preferencia</p>
-    </div>
-  </div>
-</div>
-`;
-
-  document.body.appendChild(wrapper);
-
-  try {
-    const node = wrapper;
-    const scale = 2;
-
-    const canvas = await html2canvas(node, {
-      scale: scale,
-      useCORS: true,
-      allowTaint: true,
-      logging: false,
-      windowWidth: node.scrollWidth,
-      windowHeight: node.scrollHeight,
-      backgroundColor: "#ffffff"
-    });
-
-    const imgData = canvas.toDataURL("image/png");
-
-    // Tamaño MEDIA CARTA (Half Letter)
-    const pdf = new jsPDF({
-      orientation: "portrait",
+  // ========== GENERAR PDF DE VENTA ==========
+  private static async generarPDFVenta(venta: VentaData): Promise<jsPDF> {
+    const doc = new jsPDF({
       unit: "mm",
-      format: [139.7, 216]
+      format: [80, 297]
     });
 
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = pdf.internal.pageSize.getHeight();
+    const pageWidth = 80;
+    const margin = 5;
+    let yPos = 5;
 
-    const imgWidth = canvas.width;
-    const imgHeight = canvas.height;
+    const fechaFormateada = venta.fechaVenta ? format(new Date(venta.fechaVenta), 'dd/MM/yyyy HH:mm', { locale: es }) : 'No especificada';
 
-    const ratio = Math.min(
-      (pdfWidth - 8) / imgWidth,
-      (pdfHeight - 8) / imgHeight
-    );
+    // ========== LOGO ==========
+    const logoData = await this.cargarLogo();
+    if (logoData) {
+      try {
+        // Calcular tamaño del logo (ajustado para ticket de 80mm)
+        const logoWidth = 40; // mm
+        const logoHeight = 20; // mm
+        doc.addImage(logoData, 'PNG', (pageWidth - logoWidth) / 2, yPos, logoWidth, logoHeight);
+        yPos += logoHeight + 4;
+      } catch (error) {
+        console.error('Error agregando logo:', error);
+        // Si falla el logo, mostrar texto
+        doc.setFontSize(16);
+        doc.setTextColor("#000000");
+        doc.setFont("helvetica", "bold");
+        doc.text("LUMYLA", pageWidth / 2, yPos + 10, { align: "center" });
+        yPos += 14;
+      }
+    } else {
+      // Si no hay logo, mostrar texto
+      doc.setFontSize(18);
+      doc.setTextColor("#000000");
+      doc.setFont("helvetica", "bold");
+      doc.text("LUMYLA", pageWidth / 2, yPos + 10, { align: "center" });
+      yPos += 14;
+    }
 
-    const imgX = (pdfWidth - imgWidth * ratio) / 2;
-    const imgY = 4;
+    // Línea separadora
+    doc.setDrawColor("#000000");
+    doc.setLineWidth(0.3);
+    doc.line(margin, yPos, pageWidth - margin, yPos);
+    yPos += 4;
 
-    pdf.addImage(imgData, "PNG", imgX, imgY, imgWidth * ratio, imgHeight * ratio);
-    pdf.save(fileName);
+    // ========== CAMPOS DEL CLIENTE CON LÍNEAS ==========
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    
+    // NIT/CI: _______________________
+    const nitLabel = "NIT/CI:";
+    const nitLine = "________________________";
+    doc.text(nitLabel, margin, yPos);
+    doc.text(nitLine, margin + doc.getTextWidth(nitLabel) + 2, yPos);
+    yPos += 6;
 
-  } catch (err) {
-    console.error("Error generando PDF de venta:", err);
-    throw err;
-  } finally {
-    if (wrapper && wrapper.parentNode) {
-      wrapper.parentNode.removeChild(wrapper);
+    // NOMBRE: _________________________
+    const nombreLabel = "NOMBRE:";
+    const nombreLine = "_____________________";
+    doc.text(nombreLabel, margin, yPos);
+    doc.text(nombreLine, margin + doc.getTextWidth(nombreLabel) + 2, yPos);
+    yPos += 6;
+
+    // NÚMERO: _________________________
+    const numeroLabel = "NÚMERO:";
+    const numeroLine = "_____________________";
+    doc.text(numeroLabel, margin, yPos);
+    doc.text(numeroLine, margin + doc.getTextWidth(numeroLabel) + 2, yPos);
+    yPos += 8;
+
+    // Fecha
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    const fechaText = `FECHA: ${fechaFormateada}`;
+    doc.text(fechaText, margin, yPos);
+    yPos += 5;
+
+    doc.line(margin, yPos, pageWidth - margin, yPos);
+    yPos += 4;
+
+    // ========== PRODUCTOS ==========
+    if (venta.productos && venta.productos.length > 0) {
+      doc.setFont("helvetica", "bold");
+      doc.text("PRODUCTOS", margin, yPos);
+      yPos += 4;
+      doc.setFont("helvetica", "normal");
+      
+      venta.productos.forEach((producto) => {
+        const cantidad = producto.cantidad || 1;
+        const totalProducto = producto.precio * cantidad;
+        const text = cantidad > 1 
+          ? `${producto.nombre} x${cantidad}`
+          : producto.nombre;
+        doc.text(text, margin + 2, yPos);
+        doc.text(`Bs ${totalProducto.toFixed(2)}`, pageWidth - margin - doc.getTextWidth(`Bs ${totalProducto.toFixed(2)}`), yPos);
+        yPos += 4;
+      });
+    }
+
+    doc.line(margin, yPos, pageWidth - margin, yPos);
+    yPos += 4;
+
+    // ========== TOTALES ==========
+    const descuento = venta.descuento || 0;
+    const subtotal = venta.subtotal || venta.total + descuento;
+
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor("#000000");
+
+    if (descuento > 0) {
+      doc.text(`SUB TOTAL: Bs ${subtotal.toFixed(2)}`, margin, yPos);
+      yPos += 4;
+      doc.text(`DESCUENTO: Bs ${descuento.toFixed(2)}`, margin, yPos);
+      yPos += 4;
+    }
+
+    doc.setFont("helvetica", "bold");
+    doc.text(`TOTAL: Bs ${venta.total.toFixed(2)}`, margin, yPos);
+    yPos += 4;
+
+    doc.line(margin, yPos, pageWidth - margin, yPos);
+    yPos += 4;
+
+    doc.setFontSize(8);
+    doc.setTextColor("#000000");
+    doc.setFont("helvetica", "normal");
+    doc.text(`Registrado por: ${venta.registradoPor || 'No registrado'}`, margin, yPos);
+    yPos += 6;
+
+    return doc;
+  }
+
+  // ========== IMPRIMIR UN PDF CON IFRAME OCULTO (IMPRESIÓN DIRECTA) ==========
+  private static imprimirPDFConIframe(doc: jsPDF): Promise<void> {
+    return new Promise((resolve) => {
+      const pdfBlob = doc.output('blob');
+      const url = URL.createObjectURL(pdfBlob);
+      
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.left = '-9999px';
+      iframe.style.top = '-9999px';
+      iframe.style.width = '1px';
+      iframe.style.height = '1px';
+      iframe.style.border = 'none';
+      iframe.src = url;
+      document.body.appendChild(iframe);
+      
+      iframe.onload = () => {
+        setTimeout(() => {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+          
+          setTimeout(() => {
+            if (iframe.parentNode) {
+              document.body.removeChild(iframe);
+            }
+            URL.revokeObjectURL(url);
+            resolve();
+          }, 3000);
+        }, 500);
+      };
+    });
+  }
+
+  // ========== PROCESAR COLA DE IMPRESIÓN ==========
+  private static async procesarCola() {
+    if (this.imprimiendo || this.colaImpresion.length === 0) return;
+    
+    this.imprimiendo = true;
+    
+    try {
+      while (this.colaImpresion.length > 0) {
+        const doc = this.colaImpresion.shift();
+        if (doc) {
+          await this.imprimirPDFConIframe(doc);
+          if (this.colaImpresion.length > 0) {
+            await new Promise(resolve => setTimeout(resolve, 1500));
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error en cola de impresión:', error);
+    } finally {
+      this.imprimiendo = false;
     }
   }
-}
 
-/* ---------- Helper Functions ---------- */
-
-function escapeHtml(str: string): string {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+  // ========== MÉTODO PRINCIPAL PARA IMPRIMIR DIRECTAMENTE ==========
+  static async imprimir(venta: VentaData) {
+    const doc = await this.generarPDFVenta(venta);
+    this.colaImpresion.push(doc);
+    await this.procesarCola();
+  }
 }

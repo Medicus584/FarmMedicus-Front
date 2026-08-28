@@ -58,6 +58,7 @@ import {
   useDebounce,
   type SaleItemWithLotes,
 } from "./VenderDetalles";
+import { PrintSalesHistory, type VentaData, type ProductoItem } from "./VentasPDF";
 
 export function VenderView() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -996,6 +997,29 @@ export function VenderView() {
       };
 
       await processSale(saleRequest, userId);
+
+      // ========== IMPRIMIR TICKET ==========
+      const productosParaImpresion: ProductoItem[] = ventaItems.map((item) => ({
+        nombre: item.nombre,
+        precio: item.precio_venta,
+        cantidad: item.cantidad,
+      }));
+
+      const ventaData: VentaData = {
+        codigoVenta: Date.now().toString(),
+        clientName: "",
+        fechaVenta: new Date().toISOString(),
+        total: total,
+        montoPagado: metodoPago === "Efectivo" ? montoPagado : total,
+        subtotal: subtotalSinDescuentos,
+        descuento: descuentoTotal,
+        tiendaNombre: "LUMYLA",
+        registradoPor: username,
+        productos: productosParaImpresion,
+      };
+
+      await PrintSalesHistory.imprimir(ventaData);
+      // ========== FIN IMPRESIÓN ==========
 
       setVentaItems([]);
       setDescuentoPorcentaje(0);

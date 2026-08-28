@@ -17,7 +17,7 @@ import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { getVentas, getTotalesVentas, getUsuariosVentas, getVentasHoyAsistente, getMedicos, Venta, VentasFiltros, TotalesVentas, BackendUsuario } from "@/api/VentasApi";
 import { getUserRole, getCurrentUser } from "@/api/AuthApi";
-import { generateVentaPDF } from "./VentasPDF";
+import { PrintSalesHistory } from "./VentasPDF";
 import { VentasTablaPDF } from "./VentasTablaPDF";
 import { pdf } from "@react-pdf/renderer";
 
@@ -119,10 +119,7 @@ export function VentasView() {
 
   // Estados para detalle de venta
   const [ventaSeleccionada, setVentaSeleccionada] = useState<Venta | null>(null);
-  const [mostrarDetallesImpresion, setMostrarDetallesImpresion] = useState<boolean>(true);
   const [mostrarDetalle, setMostrarDetalle] = useState(false);
-  const [mostrarAlerta, setMostrarAlerta] = useState(false);
-  const [nombreCliente, setNombreCliente] = useState("");
 
   // Estado para paginación móvil
   const [paginaActual, setPaginaActual] = useState(1);
@@ -133,7 +130,6 @@ export function VentasView() {
   useEffect(() => {
     const detectarMovil = () => {
       setEsMovil(window.innerWidth < 768);
-      // En móvil mostrar menos items por página
       if (window.innerWidth < 640) {
         setItemsPorPagina(5);
       } else if (window.innerWidth < 768) {
@@ -171,12 +167,10 @@ export function VentasView() {
       setDatosCargados(false);
       setError(null);
 
-      // Cargar médicos
       const medicos = await getMedicos();
       setMedicosOptions(["Todos", ...medicos]);
 
       if (!isAssistant) {
-        // Cargar usuarios para el filtro de empleados
         const usuariosBackend: BackendUsuario[] = await getUsuariosVentas();
         const opcionesUsuarios: UsuarioOption[] = usuariosBackend.map(user => ({
           value: user.usuario,
@@ -351,26 +345,30 @@ export function VentasView() {
     setMostrarRango(false);
   };
 
-  const abrirDetalleVenta = (venta: Venta, imprimir: boolean = true) => {
-    setMostrarDetallesImpresion(imprimir);
-    setVentaSeleccionada(venta);
-    setMostrarDetalle(true);
-    setNombreCliente("");
-  };
+  // Función para imprimir directamente usando PrintSalesHistory
+  const imprimirVenta = (venta: Venta) => {
+    // Convertir la venta al formato que espera PrintSalesHistory
+    const ventaData = {
+      codigoVenta: String(venta.id),
+      clientName: "",
+      fechaVenta: typeof venta.fecha === 'string' ? venta.fecha : venta.fecha.toISOString(), // Convertir a string
+      sistemaLente: "",
+      materialName: "",
+      frameName: "",
+      total: venta.total,
+      montoPagado: venta.total,
+      subtotal: venta.subtotal,
+      descuento: venta.descuento,
+      tiendaNombre: "LUMYLA",
+      registradoPor: venta.usuario,
+      productos: venta.detalle.map(item => ({
+        nombre: item.producto,
+        precio: item.precio_unitario,
+        cantidad: item.cantidad
+      }))
+    };
 
-  const imprimirDetalle = () => {
-    if (!nombreCliente.trim()) {
-      setMostrarAlerta(true);
-      return;
-    }
-
-    if (ventaSeleccionada) {
-      generateVentaPDF({
-        venta: ventaSeleccionada,
-        nombreCliente,
-        fileName: `Venta_${ventaSeleccionada.id}_${nombreCliente.replace(/\s+/g, '_')}.pdf`
-      });
-    }
+    PrintSalesHistory.imprimir(ventaData);
   };
 
   // Calcular paginación
@@ -419,7 +417,7 @@ export function VentasView() {
           <Button
             size="sm"
             variant="outline"
-            onClick={() => abrirDetalleVenta(venta)}
+            onClick={() => imprimirVenta(venta)}
             className="flex-1 text-xs h-8"
           >
             <Printer className="h-3 w-3 mr-1" />
@@ -428,7 +426,10 @@ export function VentasView() {
           <Button
             size="sm"
             variant="outline"
-            onClick={() => abrirDetalleVenta(venta, false)}
+            onClick={() => {
+              setVentaSeleccionada(venta);
+              setMostrarDetalle(true);
+            }}
             className="flex-1 text-xs h-8"
           >
             <Eye className="h-3 w-3 mr-1" />
@@ -480,7 +481,7 @@ export function VentasView() {
         </div>
       )}
 
-      {/* Cards de totales - Responsive y lado a lado en escritorio */}
+      {/* Cards de totales */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
         <Card className="w-full">
           <CardHeader className="pb-1 sm:pb-2">
@@ -645,7 +646,7 @@ export function VentasView() {
               </div>
             </div>
 
-            {/* Indicador de filtros activos - Responsive */}
+            {/* Indicador de filtros activos */}
             <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t">
               <div className="flex flex-wrap gap-1 sm:gap-2 text-xs sm:text-sm text-muted-foreground">
                 <span className="hidden xs:inline">Filtros activos:</span>
@@ -814,7 +815,7 @@ export function VentasView() {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => abrirDetalleVenta(venta)}
+                              onClick={() => imprimirVenta(venta)}
                               className="flex items-center gap-1 h-8 text-xs"
                             >
                               <Printer className="h-3.5 w-3.5" />
@@ -826,7 +827,10 @@ export function VentasView() {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => abrirDetalleVenta(venta, false)}
+                              onClick={() => {
+                                setVentaSeleccionada(venta);
+                                setMostrarDetalle(true);
+                              }}
                               className="flex items-center gap-1 h-8 w-8 sm:w-auto"
                             >
                               <Eye className="h-3.5 w-3.5" />
@@ -882,43 +886,15 @@ export function VentasView() {
         </CardContent>
       </Card>
 
-      {/* Dialog para detalle de venta */}
+      {/* Dialog para detalle de venta - Solo vista, sin impresión */}
       <Dialog open={mostrarDetalle} onOpenChange={setMostrarDetalle}>
         <DialogContent className="max-w-[95vw] sm:max-w-3xl md:max-w-4xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="text-base sm:text-lg">Detalle de Venta</DialogTitle>
           </DialogHeader>
 
-          {mostrarDetallesImpresion && (
-            <div className="mb-4 sm:mb-6">
-              <div>
-                <Label htmlFor="nombreCliente" className="text-sm">Nombre del Cliente</Label>
-                <Input
-                  id="nombreCliente"
-                  value={nombreCliente}
-                  onChange={(e) => setNombreCliente(e.target.value)}
-                  placeholder="Ingrese el nombre del cliente"
-                  className="text-sm"
-                />
-              </div>
-            </div>
-          )}
-
-          <div id="detalle-venta-imprimir" className="space-y-4 sm:space-y-6">
-            {mostrarDetallesImpresion && (
-              <div className="logo text-center mb-4 sm:mb-6">
-                <img
-                  src="/lovable-uploads/84af3e7f-9171-4c73-900f-9499a9673234.png"
-                  alt="Lumyla Logo"
-                  className="h-12 sm:h-16 mx-auto"
-                />
-              </div>
-            )}
-
+          <div id="detalle-venta" className="space-y-4 sm:space-y-6">
             <div className="info-cliente space-y-1 sm:space-y-2 text-sm sm:text-base">
-              {mostrarDetallesImpresion && (
-                <p><strong>Cliente:</strong> {nombreCliente || "No especificado"}</p>
-              )}
               <p><strong>Fecha:</strong> {ventaSeleccionada ? `${formatDateForDisplay(ventaSeleccionada.fecha)} ${formatTimeForDisplay(ventaSeleccionada.fecha)}` : ""}</p>
               <p><strong>Dirección:</strong> Av. Heroinas esq. Hamiraya #316</p>
               <p><strong>Números:</strong> 77950297 - 77918672</p>
@@ -986,32 +962,16 @@ export function VentasView() {
             )}
           </div>
 
-          {mostrarDetallesImpresion && (
-            <div className="flex justify-end mt-4 sm:mt-6">
-              <Button onClick={imprimirDetalle} className="flex items-center gap-2 text-sm">
-                <Printer className="h-4 w-4" />
-                Descargar PDF
-              </Button>
-            </div>
-          )}
+          <div className="flex justify-end mt-4 sm:mt-6">
+            <Button onClick={() => {
+              if (ventaSeleccionada) imprimirVenta(ventaSeleccionada);
+            }} className="flex items-center gap-2 text-sm">
+              <Printer className="h-4 w-4" />
+              Imprimir
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
-
-      <AlertDialog open={mostrarAlerta} onOpenChange={setMostrarAlerta}>
-        <AlertDialogContent className="max-w-[90vw] sm:max-w-lg">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-base sm:text-lg">Información requerida</AlertDialogTitle>
-            <AlertDialogDescription className="text-sm">
-              Por favor, ingresa el nombre del cliente antes de generar el PDF.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setMostrarAlerta(false)} className="text-sm">
-              Entendido
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

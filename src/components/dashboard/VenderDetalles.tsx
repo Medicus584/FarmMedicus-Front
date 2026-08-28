@@ -552,18 +552,16 @@ export const SeleccionarLoteDialog = ({
   const [paso, setPaso] = useState<'cantidad' | 'distribucion'>('cantidad');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Cuando el diálogo se abre, forzar que el input no tenga selección
+  // Cuando el diálogo se abre, enfocar el input
   useEffect(() => {
-    if (open) {
+    if (open && paso === 'cantidad') {
       setTimeout(() => {
         if (inputRef.current) {
-          inputRef.current.blur();
-          inputRef.current.selectionStart = 0;
-          inputRef.current.selectionEnd = 0;
+          inputRef.current.focus();
         }
-      }, 10);
+      }, 100);
     }
-  }, [open]);
+  }, [open, paso]);
 
   // Resetear el estado cuando se abre el diálogo
   useEffect(() => {
@@ -662,13 +660,6 @@ export const SeleccionarLoteDialog = ({
     new Date(a.fechaVencimiento).getTime() - new Date(b.fechaVencimiento).getTime()
   );
 
-  // Función para prevenir la selección automática del input
-  const handleInputFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-    e.target.selectionStart = 0;
-    e.target.selectionEnd = 0;
-    e.target.blur();
-  };
-
   // Funciones para los botones + y - de cantidad
   const incrementarCantidad = () => {
     const actual = cantidadSolicitada || 0;
@@ -752,9 +743,8 @@ export const SeleccionarLoteDialog = ({
                         }
                       }
                     }}
-                    className="text-lg font-semibold focus-visible:ring-0 focus-visible:ring-offset-0 select-none text-center flex-1"
+                    className="text-lg font-semibold focus-visible:ring-0 focus-visible:ring-offset-0 text-center flex-1"
                     onWheel={(e) => e.currentTarget.blur()}
-                    onFocus={handleInputFocus}
                     autoFocus={false}
                   />
                   <Button
@@ -844,9 +834,8 @@ export const SeleccionarLoteDialog = ({
                           max={Math.min(lote.stock, cantidadSolicitada || 999)}
                           value={cantidades[lote.idlote] || 0}
                           onChange={(e) => handleCantidadChange(lote.idlote, e.target.value)}
-                          className="w-16 h-7 text-center text-sm number-input-no-scroll focus-visible:ring-0 focus-visible:ring-offset-0 select-none"
+                          className="w-16 h-7 text-center text-sm number-input-no-scroll focus-visible:ring-0 focus-visible:ring-offset-0"
                           onWheel={(e) => e.currentTarget.blur()}
-                          onFocus={handleInputFocus}
                           autoFocus={false}
                         />
                         <Button

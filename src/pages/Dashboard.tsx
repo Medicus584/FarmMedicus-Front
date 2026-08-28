@@ -7,7 +7,7 @@ import { isAuthenticated, getCurrentUser } from "@/api/AuthApi";
 
 export type DashboardView = "vender" | "notas" | "productos" | "inventario" | "ventas" | "cotizacion" | "pagos-pendientes" | "caja" | "registra-movimiento" | "reportes" | "ecommerce" | "configuracion" | "alertas" | "usuarios";
 
-const Dashboard = () => {
+function Dashboard() {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -62,20 +62,19 @@ const Dashboard = () => {
       }
     }
     
-    // Navegar a la ruta real - esto agregará al historial
     navigate(`/dashboard/${view}`);
   };
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-background">
+      <div className="min-h-screen flex w-full bg-[#F7F2E8]">
         <AppSidebar 
           currentView={getCurrentViewFromPath()} 
           onViewChange={handleViewChange} 
         />
         <div className="flex-1 flex flex-col">
           <DashboardHeader />
-          <main className="flex-1 p-6">
+          <main className="flex-1 p-6 bg-[#F7F2E8]">
             <Outlet />
           </main>
         </div>

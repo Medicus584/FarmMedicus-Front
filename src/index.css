@@ -24,102 +24,101 @@ input[type="number"] {
   margin: 0;
 }
 
-/* NEOLED Design System - Colores actualizados */
+/* NEOLED Design System - Colores actualizados con paleta de imagen */
 
 @layer base {
   :root {
-    --neoled-primary: 345 100% 23%;
-    --neoled-secondary: 25 78% 48%;
-    --neoled-accent: 36 89% 61%;
-    --neoled-background: 30 40% 94%;
-    --neoled-grey-90: 0 0% 10%;
-    --neoled-grey-50: 0 0% 50%;
-    --neoled-white: 0 0% 100%;
+    /* Colores base de la paleta */
+    --neoled-olive: 76 46% 27%;      /* #4C5A2E */
+    --neoled-olive-dark: 76 30% 17%; /* #2F381F */
+    --neoled-gold: 45 65% 52%;       /* #D4AF37 */
+    --neoled-copper: 25 52% 46%;     /* #B87333 */
+    --neoled-cream: 40 33% 94%;      /* #F7F2E8 */
     
-    /* Sistema de colores basado en la marca */
-    --background: 30 40% 94%;
-    --foreground: 345 100% 18%;
+    /* Sistema de colores basado en la nueva paleta */
+    --background: 40 33% 94%;        /* CREMA */
+    --foreground: 76 30% 17%;        /* VERDE OLIVA PROFUNDO */
     
-    --card: 30 40% 98%;
-    --card-foreground: 345 100% 23%;
+    --card: 40 33% 98%;
+    --card-foreground: 76 46% 27%;   /* VERDE OLIVA */
     
-    --popover: 30 40% 98%;
-    --popover-foreground: 345 100% 23%;
+    --popover: 40 33% 98%;
+    --popover-foreground: 76 46% 27%;
     
-    --primary: 345 100% 23%;
-    --primary-foreground: 30 40% 94%;
+    --primary: 76 46% 27%;           /* VERDE OLIVA */
+    --primary-foreground: 40 33% 94%; /* CREMA */
     
-    --secondary: 25 78% 48%;
-    --secondary-foreground: 30 40% 94%;
+    --secondary: 25 52% 46%;         /* COBRE SUAVE */
+    --secondary-foreground: 40 33% 94%;
     
-    --muted: 30 30% 90%;
-    --muted-foreground: 345 40% 35%;
+    --muted: 40 30% 88%;
+    --muted-foreground: 76 30% 25%;
     
-    --accent: 36 89% 61%;
-    --accent-foreground: 345 100% 18%;
+    --accent: 45 65% 52%;            /* DORADO CHAMPÁN */
+    --accent-foreground: 76 30% 17%;
     
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 30 40% 94%;
+    --destructive-foreground: 40 33% 94%;
     
-    --border: 30 30% 85%;
-    --input: 30 40% 96%;
-    --ring: 345 100% 23%;
+    --border: 40 25% 80%;
+    --input: 40 33% 96%;
+    --ring: 76 46% 27%;
     
     --radius: 0.75rem;
     
     /* Gradientes */
-    --gradient-primary: linear-gradient(135deg, #73001C, #9e0026);
-    --gradient-secondary: linear-gradient(135deg, #D96A1D, #e8853a);
-    --gradient-accent: linear-gradient(135deg, #F4A340, #f6b55c);
-    --gradient-hero: linear-gradient(135deg, #73001C 0%, #9e0026 40%, #D96A1D 80%, #F4A340 100%);
+    --gradient-primary: linear-gradient(135deg, #2F381F, #4C5A2E);
+    --gradient-secondary: linear-gradient(135deg, #B87333, #c9854a);
+    --gradient-accent: linear-gradient(135deg, #D4AF37, #dec85c);
+    --gradient-hero: linear-gradient(135deg, #2F381F 0%, #4C5A2E 40%, #B87333 80%, #D4AF37 100%);
     
     /* Sombras */
-    --shadow-neoled: 0 10px 30px -10px rgba(115, 0, 28, 0.3);
-    --shadow-glow: 0 0 40px rgba(244, 163, 64, 0.4);
-    --shadow-copper: 0 8px 25px -8px rgba(217, 106, 29, 0.35);
+    --shadow-neoled: 0 10px 30px -10px rgba(47, 56, 31, 0.4);
+    --shadow-glow: 0 0 40px rgba(212, 175, 55, 0.35);
+    --shadow-copper: 0 8px 25px -8px rgba(184, 115, 51, 0.35);
     
     /* Transiciones */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
     
-    --sidebar-background: 345 100% 18%;
-    --sidebar-foreground: 30 40% 94%;
-    --sidebar-primary: 36 89% 61%;
-    --sidebar-primary-foreground: 345 100% 18%;
-    --sidebar-accent: 25 78% 48%;
-    --sidebar-accent-foreground: 30 40% 94%;
-    --sidebar-border: 345 50% 28%;
-    --sidebar-ring: 36 89% 61%;
+    --sidebar-background: 76 30% 17%;
+    --sidebar-foreground: 40 33% 94%;
+    --sidebar-primary: 45 65% 52%;
+    --sidebar-primary-foreground: 76 30% 17%;
+    --sidebar-accent: 25 52% 46%;
+    --sidebar-accent-foreground: 40 33% 94%;
+    --sidebar-border: 76 25% 25%;
+    --sidebar-ring: 45 65% 52%;
   }
   
   .dark {
-    --background: 345 100% 10%;
-    --foreground: 30 40% 94%;
-    --card: 345 100% 14%;
-    --card-foreground: 30 40% 94%;
-    --popover: 345 100% 14%;
-    --popover-foreground: 30 40% 94%;
-    --primary: 36 89% 61%;
-    --primary-foreground: 345 100% 10%;
-    --secondary: 25 78% 48%;
-    --secondary-foreground: 30 40% 94%;
-    --muted: 345 50% 18%;
-    --muted-foreground: 30 30% 70%;
-    --accent: 25 78% 48%;
-    --accent-foreground: 30 40% 94%;
+    --background: 76 30% 8%;
+    --foreground: 40 33% 94%;
+    --card: 76 30% 12%;
+    --card-foreground: 40 33% 94%;
+    --popover: 76 30% 12%;
+    --popover-foreground: 40 33% 94%;
+    --primary: 45 65% 52%;
+    --primary-foreground: 76 30% 8%;
+    --secondary: 25 52% 46%;
+    --secondary-foreground: 40 33% 94%;
+    --muted: 76 25% 16%;
+    --muted-foreground: 40 25% 70%;
+    --accent: 25 52% 46%;
+    --accent-foreground: 40 33% 94%;
     --destructive: 0 62.8% 45%;
-    --destructive-foreground: 30 40% 94%;
-    --border: 345 50% 20%;
-    --input: 345 50% 18%;
-    --ring: 36 89% 61%;
-    --sidebar-background: 345 100% 8%;
-    --sidebar-foreground: 30 40% 94%;
-    --sidebar-primary: 36 89% 61%;
-    --sidebar-primary-foreground: 345 100% 10%;
-    --sidebar-accent: 25 78% 48%;
-    --sidebar-accent-foreground: 30 40% 94%;
-    --sidebar-border: 345 50% 18%;
-    --sidebar-ring: 36 89% 61%;
+    --destructive-foreground: 40 33% 94%;
+    --border: 76 25% 18%;
+    --input: 76 25% 16%;
+    --ring: 45 65% 52%;
+    --sidebar-background: 76 30% 6%;
+    --sidebar-foreground: 40 33% 94%;
+    --sidebar-primary: 45 65% 52%;
+    --sidebar-primary-foreground: 76 30% 8%;
+    --sidebar-accent: 25 52% 46%;
+    --sidebar-accent-foreground: 40 33% 94%;
+    --sidebar-border: 76 25% 16%;
+    --sidebar-ring: 45 65% 52%;
   }
 }
 
@@ -166,21 +165,21 @@ input[type="number"] {
   }
   
   .glow-effect {
-    filter: drop-shadow(0 0 20px rgba(244, 163, 64, 0.5));
+    filter: drop-shadow(0 0 20px rgba(212, 175, 55, 0.5));
     transition: filter 0.3s ease;
   }
   
   .glow-effect:hover {
-    filter: drop-shadow(0 0 30px rgba(244, 163, 64, 0.8));
+    filter: drop-shadow(0 0 30px rgba(212, 175, 55, 0.8));
   }
   
   .copper-glow {
-    filter: drop-shadow(0 0 15px rgba(217, 106, 29, 0.4));
+    filter: drop-shadow(0 0 15px rgba(184, 115, 51, 0.4));
     transition: filter 0.3s ease;
   }
   
   .copper-glow:hover {
-    filter: drop-shadow(0 0 25px rgba(217, 106, 29, 0.7));
+    filter: drop-shadow(0 0 25px rgba(184, 115, 51, 0.7));
   }
 }
 

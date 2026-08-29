@@ -45,6 +45,7 @@ import {
   Filter,
   X,
   Info,
+  Maximize2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { FormularioProductos } from "./FormularioProductos";
@@ -90,16 +91,139 @@ function formatDateToLocal(dateStr: string): string {
   }
 }
 
+// COMPONENTE CORREGIDO: Visor de imágenes en tamaño completo
+function ImageViewer({ 
+  images, 
+  productName, 
+  open, 
+  onOpenChange,
+  initialIndex = 0 
+}: { 
+  images: string[]; 
+  productName: string; 
+  open: boolean; 
+  onOpenChange: (open: boolean) => void;
+  initialIndex?: number;
+}) {
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+
+  // Resetear el índice cuando se abre el visor
+  useEffect(() => {
+    if (open) {
+      setCurrentIndex(initialIndex);
+    }
+  }, [open, initialIndex]);
+
+  const goToPrevious = useCallback(() => {
+    setCurrentIndex(prev => prev === 0 ? images.length - 1 : prev - 1);
+  }, [images.length]);
+
+  const goToNext = useCallback(() => {
+    setCurrentIndex(prev => prev === images.length - 1 ? 0 : prev + 1);
+  }, [images.length]);
+
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'ArrowLeft') goToPrevious();
+    if (e.key === 'ArrowRight') goToNext();
+    if (e.key === 'Escape') onOpenChange(false);
+  }, [goToPrevious, goToNext, onOpenChange]);
+
+  useEffect(() => {
+    if (open) {
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [open, handleKeyDown]);
+
+  // Siempre renderizar el Dialog, pero controlar su visibilidad con open
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-none">
+        <div className="relative w-full h-[90vh] flex items-center justify-center">
+          {images.length > 0 && (
+            <img
+              src={images[currentIndex]}
+              alt={`${productName} - Imagen ${currentIndex + 1}`}
+              className="max-w-full max-h-full object-contain select-none"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src =
+                  "https://static.vecteezy.com/system/resources/previews/011/781/801/non_2x/medicine-3d-render-icon-illustration-png.png";
+              }}
+            />
+          )}
+
+          {images.length > 1 && (
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={goToPrevious}
+                className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full h-10 w-10 md:h-12 md:w-12"
+              >
+                <ChevronLeft className="h-6 w-6 md:h-8 md:w-8" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={goToNext}
+                className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full h-10 w-10 md:h-12 md:w-12"
+              >
+                <ChevronRight className="h-6 w-6 md:h-8 md:w-8" />
+              </Button>
+            </>
+          )}
+
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onOpenChange(false)}
+            className="absolute top-2 right-2 md:top-4 md:right-4 bg-black/50 hover:bg-black/70 text-white rounded-full h-10 w-10 md:h-12 md:w-12"
+          >
+            <X className="h-6 w-6 md:h-8 md:w-8" />
+          </Button>
+
+          {images.length > 1 && (
+            <>
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2">
+                {images.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setCurrentIndex(index)}
+                    className={`w-2.5 h-2.5 rounded-full transition-all ${
+                      index === currentIndex ? "bg-white" : "bg-white/40 hover:bg-white/60"
+                    }`}
+                    aria-label={`Ir a imagen ${index + 1}`}
+                  />
+                ))}
+              </div>
+              <div className="absolute bottom-4 right-4 bg-black/50 text-white text-sm px-3 py-1.5 rounded-full">
+                {currentIndex + 1} / {images.length}
+              </div>
+            </>
+          )}
+
+          <div className="absolute top-4 left-4 bg-black/50 text-white text-sm px-3 py-1.5 rounded-full">
+            {productName}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 interface ImageCarouselProps {
   images: string[];
   productName: string;
   className?: string;
+  onImageClick?: (index: number) => void;
 }
 
+// COMPONENTE CORREGIDO: ImageCarousel con mejor tamaño y clic
 export function ImageCarousel({
   images,
   productName,
   className = "",
+  onImageClick,
 }: ImageCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
@@ -124,59 +248,79 @@ export function ImageCarousel({
     setIsHovered(false);
   };
 
+  const handleImageClick = () => {
+    if (onImageClick) {
+      onImageClick(currentIndex);
+    }
+  };
+
   if (!images || images.length === 0) {
     return (
       <div
-        className={`flex items-center justify-center bg-gray-100 rounded ${className}`}
+        className={`flex items-center justify-center bg-gray-100 rounded cursor-pointer hover:bg-gray-200 transition-colors ${className}`}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
+        onClick={handleImageClick}
       >
-        <Package className="h-8 w-8 text-gray-400" />
+        <Package className="h-10 w-10 text-gray-400" />
       </div>
     );
   }
 
-  const goToPrevious = () => {
+  const goToPrevious = (e: React.MouseEvent) => {
+    e.stopPropagation();
     setCurrentIndex(currentIndex === 0 ? images.length - 1 : currentIndex - 1);
   };
 
-  const goToNext = () => {
+  const goToNext = (e: React.MouseEvent) => {
+    e.stopPropagation();
     setCurrentIndex(currentIndex === images.length - 1 ? 0 : currentIndex + 1);
   };
 
-  const goToSlide = (index: number) => {
+  const goToSlide = (index: number, e: React.MouseEvent) => {
+    e.stopPropagation();
     setCurrentIndex(index);
   };
 
   return (
     <div 
-      className={`relative overflow-hidden rounded ${className}`}
+      className={`relative overflow-hidden rounded cursor-pointer group ${className}`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      onClick={handleImageClick}
     >
       <div className="relative aspect-square w-full">
         <img
           src={images[currentIndex]}
           alt={`${productName} - Imagen ${currentIndex + 1}`}
-          className={`w-full h-full object-cover transition-all duration-300 ${isHovered ? 'scale-125' : 'scale-100'}`}
+          className={`w-full h-full object-cover transition-all duration-300 ${
+            isHovered ? 'scale-110' : 'scale-100'
+          }`}
           onError={(e) => {
             (e.target as HTMLImageElement).src =
               "https://static.vecteezy.com/system/resources/previews/011/781/801/non_2x/medicine-3d-render-icon-illustration-png.png";
           }}
         />
 
+        {/* Overlay con ícono de ampliar */}
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-300 flex items-center justify-center">
+          <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/50 rounded-full p-2">
+            <Maximize2 className="h-5 w-5 text-white" />
+          </div>
+        </div>
+
         {images.length > 1 && (
           <>
             <button
               onClick={goToPrevious}
-              className="absolute left-1 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1 transition-all"
+              className="absolute left-1 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5 transition-all opacity-0 group-hover:opacity-100"
               aria-label="Imagen anterior"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button
               onClick={goToNext}
-              className="absolute right-1 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1 transition-all"
+              className="absolute right-1 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5 transition-all opacity-0 group-hover:opacity-100"
               aria-label="Siguiente imagen"
             >
               <ChevronRight className="h-4 w-4" />
@@ -190,7 +334,7 @@ export function ImageCarousel({
           {images.map((_, index) => (
             <button
               key={index}
-              onClick={() => goToSlide(index)}
+              onClick={(e) => goToSlide(index, e)}
               className={`w-1.5 h-1.5 rounded-full transition-all ${
                 index === currentIndex ? "bg-white" : "bg-white/50"
               }`}
@@ -208,6 +352,8 @@ export function ImageCarousel({
     </div>
   );
 }
+
+// El resto del código permanece igual hasta el componente ProductosView...
 
 function LotesDesglose({ lotes }: { lotes: ProductoLote[], productName: string }) {
   const [expanded, setExpanded] = useState(false);
@@ -577,6 +723,18 @@ export function ProductosView() {
   const [laboratorios, setLaboratorios] = useState<string[]>([]);
   const [formasFarmaceuticas, setFormasFarmaceuticas] = useState<string[]>([]);
 
+  // Estado para el visor de imágenes
+  const [imageViewerOpen, setImageViewerOpen] = useState(false);
+  const [imageViewerData, setImageViewerData] = useState<{
+    images: string[];
+    productName: string;
+    initialIndex: number;
+  }>({
+    images: [],
+    productName: "",
+    initialIndex: 0,
+  });
+
   const userRole = localStorage.getItem("userRole") || "admin";
   const isAssistant = userRole === "Asistente";
 
@@ -598,6 +756,16 @@ export function ProductosView() {
   const isInitialMount = useRef(true);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isPerformingSearch = useRef(false);
+
+  // Función para abrir el visor de imágenes
+  const openImageViewer = useCallback((images: string[], productName: string, index: number = 0) => {
+    setImageViewerData({
+      images,
+      productName,
+      initialIndex: index,
+    });
+    setImageViewerOpen(true);
+  }, []);
 
   useBarcodeCapture((barcode) => {
     setSearchTerm(barcode);
@@ -927,6 +1095,15 @@ export function ProductosView() {
 
   return (
     <div className="space-y-6">
+      {/* Visor de imágenes en tamaño completo */}
+      <ImageViewer
+        images={imageViewerData.images}
+        productName={imageViewerData.productName}
+        open={imageViewerOpen}
+        onOpenChange={setImageViewerOpen}
+        initialIndex={imageViewerData.initialIndex}
+      />
+
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h1 className="text-2xl sm:text-3xl font-bold text-primary">
           {isAssistant ? "Visualización de Productos" : "Gestión de Productos"}
@@ -1155,7 +1332,7 @@ export function ProductosView() {
             <Table>
               <TableHeader className="hidden md:table-header-group">
                 <TableRow>
-                  <TableHead className="px-4 py-3 w-[70px]">Imagen</TableHead>
+                  <TableHead className="px-4 py-3 w-[90px]">Imagen</TableHead>
                   <TableHead className="px-4 py-3 w-[90px]">Código</TableHead>
                   <TableHead className="px-4 py-3 w-[120px]">N. Comercial</TableHead>
                   <TableHead className="px-4 py-3 w-[160px]">N. Genérico</TableHead>
@@ -1187,196 +1364,84 @@ export function ProductosView() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  products.map((product) => (
-                    <TableRow key={product.idproducto} className="border-b transition-colors hover:bg-muted/50">
-                      {/* Desktop View */}
-                      <TableCell className="hidden md:table-cell px-4 py-3">
-                        <div className="w-12 h-12">
-                          <ImageCarousel
-                            images={[getImageUrl(product.imagen)]}
-                            productName={product.nombre}
-                            className="w-12 h-12"
-                          />
-                        </div>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell px-4 py-3">
-                        <span className="text-xs font-mono font-medium text-primary">
-                          {product.codigoP || "—"}
-                        </span>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell px-4 py-3 font-medium truncate max-w-[110px]" title={product.nombre}>
-                        {product.nombre}
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell px-4 py-3">
-                        <DescripcionCell descripcion={product.descripcion} />
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell px-4 py-3 truncate max-w-[90px]" title={product.ubicacion}>
-                        {product.ubicacion}
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell px-4 py-3">
-                        <LotesDesglose lotes={product.lotes || []} productName={product.nombre} />
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleIncreaseStock(product)}
-                          className="h-6 text-xs px-2 mt-1"
-                        >
-                          <Package className="h-2.5 w-2.5 mr-1" />
-                          Añadir
-                        </Button>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell px-4 py-3">
-                        <div className="text-sm font-semibold">
-                          Bs {Number(product.precio_venta).toFixed(2)}
-                        </div>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell px-4 py-3 text-center">
-                        <DetallesProductoDialog product={product}>
+                  products.map((product) => {
+                    const productImages = [getImageUrl(product.imagen)];
+                    
+                    return (
+                      <TableRow key={product.idproducto} className="border-b transition-colors hover:bg-muted/50">
+                        {/* Desktop View */}
+                        <TableCell className="hidden md:table-cell px-4 py-3">
+                          <div className="w-16 h-16">
+                            <ImageCarousel
+                              images={productImages}
+                              productName={product.nombre}
+                              className="w-16 h-16"
+                              onImageClick={(index) => openImageViewer(productImages, product.nombre, index)}
+                            />
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell px-4 py-3">
+                          <span className="text-xs font-mono font-medium text-primary">
+                            {product.codigoP || "—"}
+                          </span>
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell px-4 py-3 font-medium truncate max-w-[110px]" title={product.nombre}>
+                          {product.nombre}
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell px-4 py-3">
+                          <DescripcionCell descripcion={product.descripcion} />
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell px-4 py-3 truncate max-w-[90px]" title={product.ubicacion}>
+                          {product.ubicacion}
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell px-4 py-3">
+                          <LotesDesglose lotes={product.lotes || []} productName={product.nombre} />
                           <Button
                             variant="outline"
                             size="sm"
-                            className="h-8 px-3"
+                            onClick={() => handleIncreaseStock(product)}
+                            className="h-6 text-xs px-2 mt-1"
                           >
-                            <Info className="h-4 w-4 mr-1" />
-                            Ver
+                            <Package className="h-2.5 w-2.5 mr-1" />
+                            Añadir
                           </Button>
-                        </DetallesProductoDialog>
-                      </TableCell>
-                      {!isAssistant && (
-                        <TableCell className="hidden md:table-cell px-4 py-3 text-right">
-                          <div className="flex justify-end space-x-1">
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell px-4 py-3">
+                          <div className="text-sm font-semibold">
+                            Bs {Number(product.precio_venta).toFixed(2)}
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell px-4 py-3 text-center">
+                          <DetallesProductoDialog product={product}>
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleEdit(product)}
-                              className="h-8 w-8 p-0"
+                              className="h-8 px-3"
                             >
-                              <Edit className="h-3.5 w-3.5" />
+                              <Info className="h-4 w-4 mr-1" />
+                              Ver
                             </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-8 w-8 p-0"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>
-                                    ¿Estás seguro?
-                                  </AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Esta acción no se puede deshacer.
-                                    Esto eliminará permanentemente el
-                                    producto "{product.nombre}".
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>
-                                    Cancelar
-                                  </AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() =>
-                                      handleDelete(
-                                        product.idproducto,
-                                        product.nombre,
-                                      )
-                                    }
-                                  >
-                                    Eliminar
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
+                          </DetallesProductoDialog>
                         </TableCell>
-                      )}
-
-                      {/* Mobile View */}
-                      <TableCell className="md:hidden px-4 py-3">
-                        <div className="space-y-3">
-                          <div className="flex items-start gap-3">
-                            <div className="w-16 h-16 flex-shrink-0">
-                              <ImageCarousel
-                                images={[getImageUrl(product.imagen)]}
-                                productName={product.nombre}
-                                className="w-16 h-16"
-                              />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium">{product.nombre}</div>
-                              {product.codigoP && (
-                                <div className="text-xs font-mono text-primary mt-0.5">
-                                  Código: {product.codigoP}
-                                </div>
-                              )}
-                              <div className="mt-1">
-                                <DetallesProductoDialog product={product}>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 px-2 text-xs"
-                                  >
-                                    <Info className="h-3 w-3 mr-1" />
-                                    Ver detalles
-                                  </Button>
-                                </DetallesProductoDialog>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <DescripcionMobile descripcion={product.descripcion} />
-                            
-                            <div className="grid grid-cols-2 gap-2 text-sm">
-                              <div>
-                                <div className="text-xs font-medium text-muted-foreground mb-1">UBICACIÓN</div>
-                                <div>{product.ubicacion}</div>
-                              </div>
-                              <div>
-                                <div className="text-xs font-medium text-muted-foreground mb-1">PRECIO</div>
-                                <div className="font-semibold">Bs {Number(product.precio_venta).toFixed(2)}</div>
-                              </div>
-                            </div>
-
-                            <div>
-                              <div className="text-xs font-medium text-muted-foreground mb-1">STOCK</div>
-                              <LotesDesglose lotes={product.lotes || []} productName={product.nombre} />
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleIncreaseStock(product)}
-                                className="h-6 text-xs px-2 mt-1"
-                              >
-                                <Package className="h-2.5 w-2.5 mr-1" />
-                                Añadir
-                              </Button>
-                            </div>
-                          </div>
-
-                          {!isAssistant && (
-                            <div className="flex gap-2 pt-2 border-t">
+                        {!isAssistant && (
+                          <TableCell className="hidden md:table-cell px-4 py-3 text-right">
+                            <div className="flex justify-end space-x-1">
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleEdit(product)}
-                                className="flex-1"
+                                className="h-8 w-8 p-0"
                               >
-                                <Edit className="h-3.5 w-3.5 mr-1" />
-                                Editar
+                                <Edit className="h-3.5 w-3.5" />
                               </Button>
                               <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    className="flex-1"
+                                    className="h-8 w-8 p-0"
                                   >
-                                    <Trash2 className="h-3.5 w-3.5 mr-1 text-destructive" />
-                                    Eliminar
+                                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
                                   </Button>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
@@ -1408,11 +1473,129 @@ export function ProductosView() {
                                 </AlertDialogContent>
                               </AlertDialog>
                             </div>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                          </TableCell>
+                        )}
+
+                        {/* Mobile View */}
+                        <TableCell className="md:hidden px-4 py-3">
+                          <div className="space-y-3">
+                            <div className="flex items-start gap-3">
+                              <div className="w-20 h-20 flex-shrink-0">
+                                <ImageCarousel
+                                  images={productImages}
+                                  productName={product.nombre}
+                                  className="w-20 h-20"
+                                  onImageClick={(index) => openImageViewer(productImages, product.nombre, index)}
+                                />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium">{product.nombre}</div>
+                                {product.codigoP && (
+                                  <div className="text-xs font-mono text-primary mt-0.5">
+                                    Código: {product.codigoP}
+                                  </div>
+                                )}
+                                <div className="mt-1">
+                                  <DetallesProductoDialog product={product}>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 px-2 text-xs"
+                                    >
+                                      <Info className="h-3 w-3 mr-1" />
+                                      Ver detalles
+                                    </Button>
+                                  </DetallesProductoDialog>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <DescripcionMobile descripcion={product.descripcion} />
+                              
+                              <div className="grid grid-cols-2 gap-2 text-sm">
+                                <div>
+                                  <div className="text-xs font-medium text-muted-foreground mb-1">UBICACIÓN</div>
+                                  <div>{product.ubicacion}</div>
+                                </div>
+                                <div>
+                                  <div className="text-xs font-medium text-muted-foreground mb-1">PRECIO</div>
+                                  <div className="font-semibold">Bs {Number(product.precio_venta).toFixed(2)}</div>
+                                </div>
+                              </div>
+
+                              <div>
+                                <div className="text-xs font-medium text-muted-foreground mb-1">STOCK</div>
+                                <LotesDesglose lotes={product.lotes || []} productName={product.nombre} />
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleIncreaseStock(product)}
+                                  className="h-6 text-xs px-2 mt-1"
+                                >
+                                  <Package className="h-2.5 w-2.5 mr-1" />
+                                  Añadir
+                                </Button>
+                              </div>
+                            </div>
+
+                            {!isAssistant && (
+                              <div className="flex gap-2 pt-2 border-t">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleEdit(product)}
+                                  className="flex-1"
+                                >
+                                  <Edit className="h-3.5 w-3.5 mr-1" />
+                                  Editar
+                                </Button>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="flex-1"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5 mr-1 text-destructive" />
+                                      Eliminar
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>
+                                        ¿Estás seguro?
+                                      </AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Esta acción no se puede deshacer.
+                                        Esto eliminará permanentemente el
+                                        producto "{product.nombre}".
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>
+                                        Cancelar
+                                      </AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() =>
+                                          handleDelete(
+                                            product.idproducto,
+                                            product.nombre,
+                                          )
+                                        }
+                                      >
+                                        Eliminar
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>

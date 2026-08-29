@@ -91,7 +91,7 @@ function formatDateToLocal(dateStr: string): string {
   }
 }
 
-// COMPONENTE CORREGIDO: Visor de imágenes en tamaño completo
+// COMPONENTE: Visor de imágenes en tamaño completo (solo una X)
 function ImageViewer({ 
   images, 
   productName, 
@@ -135,10 +135,9 @@ function ImageViewer({
     }
   }, [open, handleKeyDown]);
 
-  // Siempre renderizar el Dialog, pero controlar su visibilidad con open
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-none">
+      <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-none [&>button]:hidden">
         <div className="relative w-full h-[90vh] flex items-center justify-center">
           {images.length > 0 && (
             <img
@@ -173,11 +172,12 @@ function ImageViewer({
             </>
           )}
 
+          {/* SOLO UNA X PARA CERRAR */}
           <Button
             variant="ghost"
             size="icon"
             onClick={() => onOpenChange(false)}
-            className="absolute top-2 right-2 md:top-4 md:right-4 bg-black/50 hover:bg-black/70 text-white rounded-full h-10 w-10 md:h-12 md:w-12"
+            className="absolute top-2 right-2 md:top-4 md:right-4 bg-black/50 hover:bg-black/70 text-white rounded-full h-10 w-10 md:h-12 md:w-12 z-50"
           >
             <X className="h-6 w-6 md:h-8 md:w-8" />
           </Button>
@@ -218,7 +218,7 @@ interface ImageCarouselProps {
   onImageClick?: (index: number) => void;
 }
 
-// COMPONENTE CORREGIDO: ImageCarousel con mejor tamaño y clic
+// COMPONENTE: ImageCarousel con mejor tamaño y clic
 export function ImageCarousel({
   images,
   productName,
@@ -353,8 +353,6 @@ export function ImageCarousel({
   );
 }
 
-// El resto del código permanece igual hasta el componente ProductosView...
-
 function LotesDesglose({ lotes }: { lotes: ProductoLote[], productName: string }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -418,7 +416,6 @@ function DetallesProductoDialog({
             <DialogTitle>Detalles del Producto</DialogTitle>
           </DialogHeader>
           <div className="py-4 space-y-4">
-            {/* Fila 1: Laboratorio | Forma Farm. */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <div className="text-xs font-medium text-muted-foreground">Laboratorio</div>
@@ -429,7 +426,6 @@ function DetallesProductoDialog({
                 <div className="text-sm font-medium mt-0.5 break-words">{product.forma_farmaceutica || "—"}</div>
               </div>
             </div>
-            {/* Fila 2: Productos Similares | Categorías */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <div className="text-xs font-medium text-muted-foreground">Productos Similares</div>

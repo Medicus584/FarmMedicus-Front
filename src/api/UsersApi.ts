@@ -1,4 +1,5 @@
 import axios from "axios";
+
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 interface BackendUsuario {
@@ -38,9 +39,23 @@ const api = axios.create({
   },
 });
 
+// Interceptor para agregar el token de autenticación
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
 export const getUsuarios = async (): Promise<Usuario[]> => {
   try {
-    const response = await api.get<BackendUsuario[]>("/users/users");
+    const response = await api.get<BackendUsuario[]>("/users");
     return response.data.map((usuario) => ({
       id: usuario.idusuario,
       nombres: usuario.nombres,
@@ -48,7 +63,7 @@ export const getUsuarios = async (): Promise<Usuario[]> => {
       telefono: usuario.telefono,
       usuario: usuario.usuario,
       rol: usuario.rol.toLowerCase() as "admin" | "asistente",
-      activo: usuario.estado === 0,
+      activo: usuario.estado === 0, // CORREGIDO: estado 0 = activo, estado 1 = inactivo
     }));
   } catch (error) {
     console.error("Error fetching users:", error);
@@ -58,7 +73,7 @@ export const getUsuarios = async (): Promise<Usuario[]> => {
 
 export const createUsuario = async (usuario: UsuarioRequest): Promise<Usuario> => {
   try {
-    const response = await api.post<BackendUsuario>("/users/users", {
+    const response = await api.post<BackendUsuario>("/users", {
       nombres: usuario.nombres,
       apellidos: usuario.apellidos,
       telefono: usuario.telefono,
@@ -75,7 +90,7 @@ export const createUsuario = async (usuario: UsuarioRequest): Promise<Usuario> =
 
 export const updateUsuario = async (id: number, usuario: UsuarioRequest): Promise<Usuario> => {
   try {
-    const response = await api.put<BackendUsuario>(`/users/users/${id}`, {
+    const response = await api.put<BackendUsuario>(`/users/${id}`, {
       nombres: usuario.nombres,
       apellidos: usuario.apellidos,
       telefono: usuario.telefono,
@@ -92,7 +107,7 @@ export const updateUsuario = async (id: number, usuario: UsuarioRequest): Promis
 
 export const deleteUsuario = async (id: number): Promise<void> => {
   try {
-    await api.delete(`/users/users/${id}`);
+    await api.delete(`/users/${id}`);
   } catch (error) {
     console.error("Error deleting user:", error);
     throw new Error("No se pudo eliminar el usuario");
@@ -101,7 +116,7 @@ export const deleteUsuario = async (id: number): Promise<void> => {
 
 export const toggleUsuarioStatus = async (id: number): Promise<Usuario> => {
   try {
-    const response = await api.patch<BackendUsuario>(`/users/users/${id}/toggle-status`);
+    const response = await api.patch<BackendUsuario>(`/users/${id}/toggle-status`);
     return mapBackendUsuario(response.data);
   } catch (error) {
     console.error("Error toggling user status:", error);
@@ -117,6 +132,6 @@ function mapBackendUsuario(usuario: BackendUsuario): Usuario {
     telefono: usuario.telefono,
     usuario: usuario.usuario,
     rol: usuario.rol.toLowerCase() as "admin" | "asistente",
-    activo: usuario.estado === 1,
+    activo: usuario.estado === 0, // CORREGIDO: estado 0 = activo, estado 1 = inactivo
   };
 }

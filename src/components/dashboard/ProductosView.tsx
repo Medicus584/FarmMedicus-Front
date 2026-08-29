@@ -107,7 +107,6 @@ function ImageViewer({
 }) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
 
-  // Resetear el índice cuando se abre el visor
   useEffect(() => {
     if (open) {
       setCurrentIndex(initialIndex);
@@ -172,7 +171,6 @@ function ImageViewer({
             </>
           )}
 
-          {/* SOLO UNA X PARA CERRAR */}
           <Button
             variant="ghost"
             size="icon"
@@ -218,7 +216,6 @@ interface ImageCarouselProps {
   onImageClick?: (index: number) => void;
 }
 
-// COMPONENTE: ImageCarousel con mejor tamaño y clic
 export function ImageCarousel({
   images,
   productName,
@@ -302,7 +299,6 @@ export function ImageCarousel({
           }}
         />
 
-        {/* Overlay con ícono de ampliar */}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-300 flex items-center justify-center">
           <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/50 rounded-full p-2">
             <Maximize2 className="h-5 w-5 text-white" />
@@ -641,7 +637,6 @@ function DescripcionMobile({ descripcion }: { descripcion: string }) {
   );
 }
 
-// Capturar código de barras automáticamente
 function useBarcodeCapture(onBarcodeScanned: (barcode: string) => void) {
   const bufferRef = useRef<string>("");
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -719,7 +714,6 @@ export function ProductosView() {
   const [laboratorios, setLaboratorios] = useState<string[]>([]);
   const [formasFarmaceuticas, setFormasFarmaceuticas] = useState<string[]>([]);
 
-  // Estado para el visor de imágenes
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const [imageViewerData, setImageViewerData] = useState<{
     images: string[];
@@ -753,7 +747,6 @@ export function ProductosView() {
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isPerformingSearch = useRef(false);
 
-  // Función para abrir el visor de imágenes
   const openImageViewer = useCallback((images: string[], productName: string, index: number = 0) => {
     setImageViewerData({
       images,
@@ -1091,7 +1084,6 @@ export function ProductosView() {
 
   return (
     <div className="space-y-6">
-      {/* Visor de imágenes en tamaño completo */}
       <ImageViewer
         images={imageViewerData.images}
         productName={imageViewerData.productName}
@@ -1107,11 +1099,12 @@ export function ProductosView() {
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           <div className="relative flex-1 sm:min-w-[350px] md:min-w-[500px]">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            {/* CAMBIO: Borde verde oliva */}
             <Input
               placeholder="Buscar por nombre, código o escanear..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 h-10"
+              className="pl-10 h-10 border-2 border-[#3A5A40] focus-visible:ring-[#3A5A40] focus-visible:ring-offset-2"
             />
             {searching && (
               <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -1183,7 +1176,6 @@ export function ProductosView() {
         </div>
       </div>
 
-      {/* Dialog para aumentar stock */}
       <Dialog open={isStockFormOpen} onOpenChange={setIsStockFormOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -1315,7 +1307,6 @@ export function ProductosView() {
         </DialogContent>
       </Dialog>
 
-      {/* Tabla de productos */}
       <Card>
         <CardHeader>
           <CardTitle>
@@ -1330,7 +1321,8 @@ export function ProductosView() {
                 <TableRow>
                   <TableHead className="px-4 py-3 w-[90px]">Imagen</TableHead>
                   <TableHead className="px-4 py-3 w-[90px]">Código</TableHead>
-                  <TableHead className="px-4 py-3 w-[120px]">N. Comercial</TableHead>
+                  {/* CAMBIO: N. Comercial con 160px */}
+                  <TableHead className="px-4 py-3 w-[160px]">N. Comercial</TableHead>
                   <TableHead className="px-4 py-3 w-[160px]">N. Genérico</TableHead>
                   <TableHead className="px-4 py-3 w-[100px]">Ubicación</TableHead>
                   <TableHead className="px-4 py-3 w-[140px]">Stock</TableHead>
@@ -1365,7 +1357,6 @@ export function ProductosView() {
                     
                     return (
                       <TableRow key={product.idproducto} className="border-b transition-colors hover:bg-muted/50">
-                        {/* Desktop View */}
                         <TableCell className="hidden md:table-cell px-4 py-3">
                           <div className="w-16 h-16">
                             <ImageCarousel
@@ -1381,7 +1372,8 @@ export function ProductosView() {
                             {product.codigoP || "—"}
                           </span>
                         </TableCell>
-                        <TableCell className="hidden md:table-cell px-4 py-3 font-medium truncate max-w-[110px]" title={product.nombre}>
+                        {/* CAMBIO: N. Comercial con 160px y truncate */}
+                        <TableCell className="hidden md:table-cell px-4 py-3 font-medium w-[160px] truncate" title={product.nombre}>
                           {product.nombre}
                         </TableCell>
                         <TableCell className="hidden md:table-cell px-4 py-3">
@@ -1472,7 +1464,6 @@ export function ProductosView() {
                           </TableCell>
                         )}
 
-                        {/* Mobile View */}
                         <TableCell className="md:hidden px-4 py-3">
                           <div className="space-y-3">
                             <div className="flex items-start gap-3">
@@ -1597,7 +1588,6 @@ export function ProductosView() {
             </Table>
           </div>
 
-          {/* Paginación */}
           {products.length > 0 && !loadingAll && totalPages > 1 && (
             <div className="flex items-center justify-between px-2 py-4 border-t mt-4">
               <div className="text-sm text-muted-foreground">

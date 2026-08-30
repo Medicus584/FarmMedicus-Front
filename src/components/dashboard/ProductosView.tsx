@@ -91,7 +91,8 @@ function formatDateToLocal(dateStr: string): string {
   }
 }
 
-// COMPONENTE: Visor de imágenes en tamaño completo (solo una X)
+// COMPONENTE: Visor de imágenes en tamaño completo (solo una X) - MEJORADO
+// COMPONENTE: Visor de imágenes en tamaño completo - MEJORADO
 function ImageViewer({ 
   images, 
   productName, 
@@ -106,19 +107,23 @@ function ImageViewer({
   initialIndex?: number;
 }) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [imageLoaded, setImageLoaded] = useState(false);
 
   useEffect(() => {
     if (open) {
       setCurrentIndex(initialIndex);
+      setImageLoaded(false);
     }
   }, [open, initialIndex]);
 
   const goToPrevious = useCallback(() => {
     setCurrentIndex(prev => prev === 0 ? images.length - 1 : prev - 1);
+    setImageLoaded(false);
   }, [images.length]);
 
   const goToNext = useCallback(() => {
     setCurrentIndex(prev => prev === images.length - 1 ? 0 : prev + 1);
+    setImageLoaded(false);
   }, [images.length]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -136,18 +141,46 @@ function ImageViewer({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-none [&>button]:hidden">
+      <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black border-none [&>button]:hidden">
         <div className="relative w-full h-[90vh] flex items-center justify-center">
           {images.length > 0 && (
-            <img
-              src={images[currentIndex]}
-              alt={`${productName} - Imagen ${currentIndex + 1}`}
-              className="max-w-full max-h-full object-contain select-none"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src =
-                  "https://static.vecteezy.com/system/resources/previews/011/781/801/non_2x/medicine-3d-render-icon-illustration-png.png";
-              }}
-            />
+            <>
+              {!imageLoaded && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Loader2 className="h-12 w-12 animate-spin text-white/50" />
+                </div>
+              )}
+              <div 
+                className="flex items-center justify-center w-full h-full"
+                style={{
+                  padding: 'clamp(10px, 3vh, 40px)',
+                }}
+              >
+                <img
+                  src={images[currentIndex]}
+                  alt={`${productName} - Imagen ${currentIndex + 1}`}
+                  className="select-none"
+                  style={{
+                    width: 'auto',
+                    height: 'auto',
+                    maxWidth: 'min(90%, 1000px)',
+                    maxHeight: 'min(85%, 800px)',
+                    minWidth: 'min(50%, 300px)',
+                    minHeight: 'min(50%, 300px)',
+                    objectFit: 'contain',
+                    opacity: imageLoaded ? 1 : 0,
+                    transition: 'opacity 0.3s ease',
+                    display: 'block',
+                  }}
+                  onLoad={() => setImageLoaded(true)}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src =
+                      "https://static.vecteezy.com/system/resources/previews/011/781/801/non_2x/medicine-3d-render-icon-illustration-png.png";
+                    setImageLoaded(true);
+                  }}
+                />
+              </div>
+            </>
           )}
 
           {images.length > 1 && (
@@ -186,7 +219,10 @@ function ImageViewer({
                 {images.map((_, index) => (
                   <button
                     key={index}
-                    onClick={() => setCurrentIndex(index)}
+                    onClick={() => {
+                      setCurrentIndex(index);
+                      setImageLoaded(false);
+                    }}
                     className={`w-2.5 h-2.5 rounded-full transition-all ${
                       index === currentIndex ? "bg-white" : "bg-white/40 hover:bg-white/60"
                     }`}
@@ -200,7 +236,7 @@ function ImageViewer({
             </>
           )}
 
-          <div className="absolute top-4 left-4 bg-black/50 text-white text-sm px-3 py-1.5 rounded-full">
+          <div className="absolute top-4 left-4 bg-black/50 text-white text-sm px-3 py-1.5 rounded-full max-w-[60%] truncate">
             {productName}
           </div>
         </div>
@@ -1099,7 +1135,6 @@ export function ProductosView() {
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           <div className="relative flex-1 sm:min-w-[350px] md:min-w-[500px]">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            {/* CAMBIO: Borde verde oliva */}
             <Input
               placeholder="Buscar por nombre, código o escanear..."
               value={searchTerm}
@@ -1321,7 +1356,6 @@ export function ProductosView() {
                 <TableRow>
                   <TableHead className="px-4 py-3 w-[90px]">Imagen</TableHead>
                   <TableHead className="px-4 py-3 w-[90px]">Código</TableHead>
-                  {/* CAMBIO: N. Comercial con 160px */}
                   <TableHead className="px-4 py-3 w-[160px]">N. Comercial</TableHead>
                   <TableHead className="px-4 py-3 w-[160px]">N. Genérico</TableHead>
                   <TableHead className="px-4 py-3 w-[100px]">Ubicación</TableHead>
@@ -1372,7 +1406,6 @@ export function ProductosView() {
                             {product.codigoP || "—"}
                           </span>
                         </TableCell>
-                        {/* CAMBIO: N. Comercial con 160px y truncate */}
                         <TableCell className="hidden md:table-cell px-4 py-3 font-medium w-[160px] truncate" title={product.nombre}>
                           {product.nombre}
                         </TableCell>

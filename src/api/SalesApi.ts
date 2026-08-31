@@ -40,14 +40,14 @@ interface ProductoListResponse {
   totalPages: number;
 }
 
+// Actualizar interfaz para usar la nueva tabla caja
 interface BackendCashStatus {
-  idestado_caja: number;
+  idcaja: number;
+  nombre_caja: string;
   estado: string;
-  monto_inicial: string;
   monto_final: string;
   idusuario: number;
-  fecha_apertura: string;
-  fecha_cierre: string | null;
+  usuario: string;
 }
 
 export interface Product {
@@ -76,7 +76,7 @@ export interface SaleItem {
     idlote: number;
     cantidad: number;
   }[];
-  descuento_monto?: number; // Descuento en monto fijo (Bs) para este producto
+  descuento_monto?: number;
 }
 
 export interface SaleRequest {
@@ -91,14 +91,14 @@ export interface SaleRequest {
   doctorId?: number;
 }
 
+// Actualizar interfaz CashStatus
 export interface CashStatus {
-  idestado_caja: number;
+  idcaja: number;
+  nombre_caja: string;
   estado: "abierta" | "cerrada";
-  monto_inicial: number;
   monto_final: number;
   idusuario: number;
-  fecha_apertura: string;
-  fecha_cierre: string | null;
+  usuario: string;
 }
 
 // Funciones para doctores
@@ -174,13 +174,22 @@ export const searchProducts = async (
   }
 };
 
+// ACTUALIZAR: getCashStatus para usar la nueva tabla caja
 export const getCashStatus = async (): Promise<CashStatus> => {
   try {
     const response = await api.get<BackendCashStatus>("/sales/cash-status");
     return mapBackendCashStatus(response.data);
   } catch (error) {
     console.error("Error fetching cash status:", error);
-    throw new Error("No se pudo obtener el estado de la caja");
+    // Devolver estado por defecto si hay error
+    return {
+      idcaja: 0,
+      nombre_caja: "Caja Principal",
+      estado: "cerrada",
+      monto_final: 0,
+      idusuario: 0,
+      usuario: "Sistema",
+    };
   }
 };
 
@@ -224,14 +233,14 @@ export function mapBackendProduct(product: BackendProduct): Product {
   };
 }
 
+// ACTUALIZAR: mapBackendCashStatus para usar la nueva estructura
 function mapBackendCashStatus(cashStatus: BackendCashStatus): CashStatus {
   return {
-    idestado_caja: cashStatus.idestado_caja,
+    idcaja: cashStatus.idcaja,
+    nombre_caja: cashStatus.nombre_caja,
     estado: cashStatus.estado as "abierta" | "cerrada",
-    monto_inicial: parseFloat(cashStatus.monto_inicial),
     monto_final: parseFloat(cashStatus.monto_final),
     idusuario: cashStatus.idusuario,
-    fecha_apertura: cashStatus.fecha_apertura,
-    fecha_cierre: cashStatus.fecha_cierre,
+    usuario: cashStatus.usuario,
   };
 }

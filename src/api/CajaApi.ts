@@ -4,20 +4,22 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 interface BackendTransaccionCaja {
   idtransaccion: number;
-  idestado_caja: number;
+  idcaja: number;
   tipo_movimiento: string;
   descripcion: string;
   monto: string;
-  fecha: string; 
+  fecha: string;
   idusuario: number;
   idventa: number | null;
   nombres: string;
   apellidos: string;
+  monto_anterior: string;
+  monto_nuevo: string;
 }
 
 export interface TransaccionCaja {
   idtransaccion: number;
-  idestado_caja: number;
+  idcaja: number;
   tipo_movimiento: string;
   descripcion: string;
   monto: number;
@@ -25,14 +27,15 @@ export interface TransaccionCaja {
   idusuario: number;
   idventa: number | null;
   empleado: string;
+  monto_anterior: number;
+  monto_nuevo: number;
 }
 
 export interface EstadoCaja {
-  idestado_caja: number;
+  idcaja: number;
+  nombre_caja: string;
+  total: number;
   estado: string;
-  monto_inicial: number;
-  monto_final: number;
-  idusuario: number;
 }
 
 interface SaldoActualResponse {
@@ -54,7 +57,7 @@ export const getTransaccionesCaja = async (): Promise<TransaccionCaja[]> => {
     const response = await api.get<BackendTransaccionCaja[]>("/caja/transacciones");
     return response.data.map((transaccion) => ({
       idtransaccion: transaccion.idtransaccion,
-      idestado_caja: transaccion.idestado_caja,
+      idcaja: transaccion.idcaja,
       tipo_movimiento: transaccion.tipo_movimiento,
       descripcion: transaccion.descripcion,
       monto: parseFloat(transaccion.monto),
@@ -62,6 +65,8 @@ export const getTransaccionesCaja = async (): Promise<TransaccionCaja[]> => {
       idusuario: transaccion.idusuario,
       idventa: transaccion.idventa,
       empleado: `${transaccion.nombres} ${transaccion.apellidos}`,
+      monto_anterior: parseFloat(transaccion.monto_anterior),
+      monto_nuevo: parseFloat(transaccion.monto_nuevo),
     }));
   } catch (error) {
     console.error("Error fetching transacciones caja:", error);
@@ -72,12 +77,10 @@ export const getTransaccionesCaja = async (): Promise<TransaccionCaja[]> => {
 // Obtener transacciones de caja por fecha (Admin)
 export const getTransaccionesCajaByFecha = async (fecha: string): Promise<TransaccionCaja[]> => {
   try {
-    console.log("API: Buscando transacciones por fecha:", fecha); // Debug
     const response = await api.get<BackendTransaccionCaja[]>(`/caja/transacciones/fecha/${fecha}`);
-    console.log("API: Resultados encontrados:", response.data.length); // Debug
     return response.data.map((transaccion) => ({
       idtransaccion: transaccion.idtransaccion,
-      idestado_caja: transaccion.idestado_caja,
+      idcaja: transaccion.idcaja,
       tipo_movimiento: transaccion.tipo_movimiento,
       descripcion: transaccion.descripcion,
       monto: parseFloat(transaccion.monto),
@@ -85,6 +88,8 @@ export const getTransaccionesCajaByFecha = async (fecha: string): Promise<Transa
       idusuario: transaccion.idusuario,
       idventa: transaccion.idventa,
       empleado: `${transaccion.nombres} ${transaccion.apellidos}`,
+      monto_anterior: parseFloat(transaccion.monto_anterior),
+      monto_nuevo: parseFloat(transaccion.monto_nuevo),
     }));
   } catch (error) {
     console.error("Error fetching transacciones caja por fecha:", error);
@@ -95,12 +100,10 @@ export const getTransaccionesCajaByFecha = async (fecha: string): Promise<Transa
 // Obtener transacciones de caja por rango de fechas (Admin)
 export const getTransaccionesCajaByRango = async (fechaInicio: string, fechaFin: string): Promise<TransaccionCaja[]> => {
   try {
-    console.log("API: Buscando transacciones por rango:", fechaInicio, "a", fechaFin); // Debug
     const response = await api.get<BackendTransaccionCaja[]>(`/caja/transacciones/rango/${fechaInicio}/${fechaFin}`);
-    console.log("API: Resultados encontrados en rango:", response.data.length); // Debug
     return response.data.map((transaccion) => ({
       idtransaccion: transaccion.idtransaccion,
-      idestado_caja: transaccion.idestado_caja,
+      idcaja: transaccion.idcaja,
       tipo_movimiento: transaccion.tipo_movimiento,
       descripcion: transaccion.descripcion,
       monto: parseFloat(transaccion.monto),
@@ -108,6 +111,8 @@ export const getTransaccionesCajaByRango = async (fechaInicio: string, fechaFin:
       idusuario: transaccion.idusuario,
       idventa: transaccion.idventa,
       empleado: `${transaccion.nombres} ${transaccion.apellidos}`,
+      monto_anterior: parseFloat(transaccion.monto_anterior),
+      monto_nuevo: parseFloat(transaccion.monto_nuevo),
     }));
   } catch (error) {
     console.error("Error fetching transacciones caja por rango:", error);
@@ -121,7 +126,7 @@ export const getTransaccionesCajaByUsuario = async (idusuario: number): Promise<
     const response = await api.get<BackendTransaccionCaja[]>(`/caja/transacciones/usuario/${idusuario}`);
     return response.data.map((transaccion) => ({
       idtransaccion: transaccion.idtransaccion,
-      idestado_caja: transaccion.idestado_caja,
+      idcaja: transaccion.idcaja,
       tipo_movimiento: transaccion.tipo_movimiento,
       descripcion: transaccion.descripcion,
       monto: parseFloat(transaccion.monto),
@@ -129,6 +134,8 @@ export const getTransaccionesCajaByUsuario = async (idusuario: number): Promise<
       idusuario: transaccion.idusuario,
       idventa: transaccion.idventa,
       empleado: `${transaccion.nombres} ${transaccion.apellidos}`,
+      monto_anterior: parseFloat(transaccion.monto_anterior),
+      monto_nuevo: parseFloat(transaccion.monto_nuevo),
     }));
   } catch (error) {
     console.error("Error fetching transacciones caja por usuario:", error);
@@ -142,7 +149,7 @@ export const getTransaccionesCajaByUsuarioFecha = async (idusuario: number, fech
     const response = await api.get<BackendTransaccionCaja[]>(`/caja/transacciones/usuario/${idusuario}/fecha/${fecha}`);
     return response.data.map((transaccion) => ({
       idtransaccion: transaccion.idtransaccion,
-      idestado_caja: transaccion.idestado_caja,
+      idcaja: transaccion.idcaja,
       tipo_movimiento: transaccion.tipo_movimiento,
       descripcion: transaccion.descripcion,
       monto: parseFloat(transaccion.monto),
@@ -150,6 +157,8 @@ export const getTransaccionesCajaByUsuarioFecha = async (idusuario: number, fech
       idusuario: transaccion.idusuario,
       idventa: transaccion.idventa,
       empleado: `${transaccion.nombres} ${transaccion.apellidos}`,
+      monto_anterior: parseFloat(transaccion.monto_anterior),
+      monto_nuevo: parseFloat(transaccion.monto_nuevo),
     }));
   } catch (error) {
     console.error("Error fetching transacciones caja por usuario y fecha:", error);
@@ -163,7 +172,7 @@ export const getTransaccionesCajaByUsuarioRango = async (idusuario: number, fech
     const response = await api.get<BackendTransaccionCaja[]>(`/caja/transacciones/usuario/${idusuario}/rango/${fechaInicio}/${fechaFin}`);
     return response.data.map((transaccion) => ({
       idtransaccion: transaccion.idtransaccion,
-      idestado_caja: transaccion.idestado_caja,
+      idcaja: transaccion.idcaja,
       tipo_movimiento: transaccion.tipo_movimiento,
       descripcion: transaccion.descripcion,
       monto: parseFloat(transaccion.monto),
@@ -171,6 +180,8 @@ export const getTransaccionesCajaByUsuarioRango = async (idusuario: number, fech
       idusuario: transaccion.idusuario,
       idventa: transaccion.idventa,
       empleado: `${transaccion.nombres} ${transaccion.apellidos}`,
+      monto_anterior: parseFloat(transaccion.monto_anterior),
+      monto_nuevo: parseFloat(transaccion.monto_nuevo),
     }));
   } catch (error) {
     console.error("Error fetching transacciones caja por usuario y rango:", error);
@@ -184,8 +195,7 @@ export const getEstadoCajaActual = async (): Promise<EstadoCaja | null> => {
     const response = await api.get<EstadoCaja>("/caja/estado-actual");
     return {
       ...response.data,
-      monto_inicial: parseFloat(response.data.monto_inicial as any),
-      monto_final: parseFloat(response.data.monto_final as any),
+      total: parseFloat(response.data.total as any),
     };
   } catch (error) {
     console.error("Error fetching estado caja:", error);
@@ -196,7 +206,7 @@ export const getEstadoCajaActual = async (): Promise<EstadoCaja | null> => {
 // Obtener saldo actual
 export const getSaldoActual = async (): Promise<SaldoActualResponse> => {
   try {
-    const response = await api.get<SaldoActualResponse>("/cash/status");
+    const response = await api.get<SaldoActualResponse>("/caja/saldo-actual");
     return response.data;
   } catch (error) {
     console.error("Error fetching saldo actual:", error);

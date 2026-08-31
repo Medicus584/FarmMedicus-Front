@@ -808,7 +808,10 @@ export function VenderView() {
   const loadCashStatus = async () => {
     try {
       const status = await getCashStatus();
+      // status ahora tiene: idcaja, nombre_caja, estado, monto_final, idusuario, usuario
       setCajaAbierta(status.estado === "abierta");
+      // Si necesitas el saldo, puedes usarlo también
+      // setSaldoActual(status.monto_final);
     } catch (error) {
       console.error("Error loading cash status:", error);
       setCajaAbierta(false);
@@ -1895,7 +1898,7 @@ export function VenderView() {
               </DialogContent>
             </Dialog>
           </CardContent>
-        </Card>
+        </Card> 
       </div>
     </div>
   );

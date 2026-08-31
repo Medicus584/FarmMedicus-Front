@@ -111,24 +111,26 @@ CREATE TABLE detalle_ventas (
     iddoctor INTEGER REFERENCES doctores(iddoctor) NULL
 );
 
--- Tablas de caja
-CREATE TABLE estado_caja (
-    idestado_caja SERIAL PRIMARY KEY,
-    estado VARCHAR(20) CHECK (estado IN ('abierta', 'cerrada')),
-    monto_inicial DECIMAL(15, 2) DEFAULT 0,
-    monto_final DECIMAL(15, 2) DEFAULT 0,
-    idusuario INTEGER REFERENCES usuarios(idusuario) NOT NULL
+
+CREATE TABLE caja (
+    idcaja SERIAL PRIMARY KEY,
+    nombre_caja VARCHAR(100) DEFAULT 'Caja Principal',
+    total DECIMAL(10,2) DEFAULT 0,
+    estado VARCHAR(20) DEFAULT 'cerrada' CHECK (estado IN ('abierta', 'cerrada'))
 );
 
-CREATE TABLE transacciones_caja (
-    idtransaccion SERIAL PRIMARY KEY,
-    idestado_caja INTEGER REFERENCES estado_caja(idestado_caja),
-    tipo_movimiento VARCHAR(20) CHECK (tipo_movimiento IN ('Apertura', 'Ingreso', 'Egreso', 'Cierre')),
+
+CREATE TABLE transaccion_caja (
+    idtransaccion_caja SERIAL PRIMARY KEY,
+    idcaja INTEGER NOT NULL REFERENCES caja(idcaja),
+    fecha TIMESTAMP DEFAULT TIMEZONE('America/La_Paz', NOW()),
+    idusuario INTEGER NOT NULL REFERENCES usuarios(idusuario),
+    monto_nuevo DECIMAL(10,2) NOT NULL,
+    monto_anterior DECIMAL(10,2) NOT NULL,
+    monto DECIMAL(10,2) NOT NULL,
+    tipo_movimiento VARCHAR(20) NOT NULL CHECK (tipo_movimiento IN ('apertura', 'cierre', 'ingreso', 'egreso')),
     descripcion TEXT,
-    monto DECIMAL(15, 2) NOT NULL,
-    fecha TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    idusuario INTEGER REFERENCES usuarios(idusuario) NOT NULL,
-    idventa INTEGER REFERENCES ventas(idventa) NULL
+    idventa INTEGER REFERENCES ventas(idventa)
 );
 
 -- Tablas de cotizaciones
@@ -203,10 +205,11 @@ CREATE TABLE productos_similares (
 );
 
 -- Índices para mejorar rendimiento
+CREATE INDEX idx_transaccion_caja_caja ON transaccion_caja(idcaja);
+CREATE INDEX idx_transaccion_caja_fecha ON transaccion_caja(fecha);
+CREATE INDEX idx_transaccion_caja_usuario ON transaccion_caja(idusuario);
 CREATE INDEX idx_ventas_fecha ON ventas(fecha_hora);
 CREATE INDEX idx_ventas_usuario ON ventas(idusuario);
-CREATE INDEX idx_transacciones_caja_fecha ON transacciones_caja(fecha);
-CREATE INDEX idx_transacciones_caja_usuario ON transacciones_caja(idusuario);
 CREATE INDEX idx_detalle_ventas_venta ON detalle_ventas(idventa);
 CREATE INDEX idx_detalle_cotizaciones_cotizacion ON detalle_cotizaciones(idcotizacion);
 CREATE INDEX idx_productos_codigo_barras ON productos(codigo_barras);

@@ -1,3 +1,4 @@
+// src/api/CashApi.ts
 import axios from "axios";
 import { getUserId } from "@/api/AuthApi";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
@@ -10,6 +11,8 @@ interface BackendTransaction {
   fecha: string;
   idusuario: number;
   nombre_usuario: string;
+  monto_anterior: string;
+  monto_nuevo: string;
 }
 
 export interface Transaction {
@@ -20,6 +23,8 @@ export interface Transaction {
   fecha: string;
   idUsuario: number;
   nombreUsuario: string;
+  montoAnterior: number;
+  montoNuevo: number;
 }
 
 export interface TransactionRequest {
@@ -52,7 +57,6 @@ api.interceptors.request.use((config) => {
 
 export const getCashStatus = async (): Promise<CashStatus> => {
   try {
-    // MODIFICADO: Ya no enviamos userId
     const response = await api.get("/cash/status");
     return response.data;
   } catch (error) {
@@ -83,6 +87,8 @@ export const getUserTransactions = async (): Promise<Transaction[]> => {
       fecha: transaction.fecha,
       idUsuario: transaction.idusuario,
       nombreUsuario: transaction.nombre_usuario,
+      montoAnterior: parseFloat(transaction.monto_anterior),
+      montoNuevo: parseFloat(transaction.monto_nuevo),
     }));
   } catch (error) {
     console.error("Error fetching user transactions:", error);
@@ -155,5 +161,7 @@ function mapBackendTransaction(transaction: BackendTransaction): Transaction {
     fecha: transaction.fecha,
     idUsuario: transaction.idusuario,
     nombreUsuario: transaction.nombre_usuario,
+    montoAnterior: parseFloat(transaction.monto_anterior),
+    montoNuevo: parseFloat(transaction.monto_nuevo),
   };
 }

@@ -192,11 +192,11 @@ export function CajaView() {
   };
 
   const totalIngresos = movimientosCaja
-    .filter(mov => mov.tipo_movimiento === "Ingreso")
+    .filter(mov => mov.tipo_movimiento === "ingreso" || mov.tipo_movimiento === "apertura")
     .reduce((sum, mov) => sum + mov.monto, 0);
 
   const totalEgresos = movimientosCaja
-    .filter(mov => mov.tipo_movimiento === "Egreso")
+    .filter(mov => mov.tipo_movimiento === "egreso")
     .reduce((sum, mov) => sum + mov.monto, 0);
 
   const saldoFiltrado = totalIngresos - totalEgresos;
@@ -617,9 +617,9 @@ export function CajaView() {
                       <TableCell className="md:table-cell block md:border-0 border-0 p-0 mb-1.5 md:mb-0">
                         <div className="md:hidden text-xs font-medium text-muted-foreground mb-0.5">TIPO</div>
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium inline-block ${
-                          movimiento.tipo_movimiento === "Ingreso" || movimiento.tipo_movimiento === "Apertura"
+                          movimiento.tipo_movimiento === "ingreso" || movimiento.tipo_movimiento === "apertura"
                             ? "bg-green-100 text-green-800" 
-                            : movimiento.tipo_movimiento === "Cierre"
+                            : movimiento.tipo_movimiento === "cierre"
                             ? "bg-blue-100 text-blue-800"
                             : "bg-red-100 text-red-800"
                         }`}>
@@ -637,12 +637,12 @@ export function CajaView() {
                         </TableCell>
                       )}
                       <TableCell className={`md:table-cell block md:border-0 border-0 p-0 font-medium ${
-                        movimiento.tipo_movimiento === "Ingreso" || movimiento.tipo_movimiento === "Apertura" ? "text-green-600" : 
-                        movimiento.tipo_movimiento === "Cierre" ? "text-blue-600" : "text-red-600"
+                        movimiento.tipo_movimiento === "ingreso" || movimiento.tipo_movimiento === "apertura" ? "text-green-600" : 
+                        movimiento.tipo_movimiento === "cierre" ? "text-blue-600" : "text-red-600"
                       }`}>
                         <div className="md:hidden text-xs font-medium text-muted-foreground mb-0.5">MONTO</div>
                         <div className="text-base font-bold text-right md:text-left">
-                          {movimiento.tipo_movimiento === "Egreso" ? "-" : ""}Bs {movimiento.monto.toFixed(2)}
+                          {movimiento.tipo_movimiento === "egreso" ? "-" : ""}Bs {movimiento.monto.toFixed(2)}
                         </div>
                       </TableCell>
                     </TableRow>

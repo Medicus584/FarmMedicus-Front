@@ -7,17 +7,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { CalendarIcon, Download, Calendar as CalendarRangeIcon, Printer, Loader2, Check, X, Eye, ChevronLeft, ChevronRight, Filter, SlidersHorizontal } from "lucide-react";
+import { CalendarIcon, Download, Calendar as CalendarRangeIcon, Printer, Loader2, Check, X, Eye, ChevronLeft, ChevronRight, Filter, SlidersHorizontal, AlertTriangle, XCircle } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { getVentas, getTotalesVentas, getUsuariosVentas, getVentasHoyAsistente, getMedicos, Venta, VentasFiltros, TotalesVentas, BackendUsuario } from "@/api/VentasApi";
+import { getVentas, getTotalesVentas, getUsuariosVentas, getVentasHoyAsistente, getMedicos, Venta, VentasFiltros, TotalesVentas, BackendUsuario, anularVenta } from "@/api/VentasApi";
 import { getUserRole, getCurrentUser } from "@/api/AuthApi";
 import { PrintSalesHistory } from "./VentasPDF";
 import { VentasTablaPDF } from "./VentasTablaPDF";
 import { pdf } from "@react-pdf/renderer";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 interface UsuarioOption {
   value: string;
@@ -78,10 +79,12 @@ const downloadPDF = (blob: Blob, filename: string) => {
 };
 
 export function VentasView() {
+  const { toast } = useToast();
   const currentUser = getCurrentUser();
   const userRole = getUserRole() || "admin";
   const username = currentUser?.usuario || "";
   const isAssistant = userRole === "Asistente";
+  const isAdmin = userRole === "Admin";
 
   const [fechaBoliviaHoy] = useState(() => getFechaBolivia());
 
@@ -119,6 +122,11 @@ export function VentasView() {
   // Estados para detalle de venta
   const [ventaSeleccionada, setVentaSeleccionada] = useState<Venta | null>(null);
   const [mostrarDetalle, setMostrarDetalle] = useState(false);
+
+  // Estados para anulación de venta
+  const [ventaToAnular, setVentaToAnular] = useState<Venta | null>(null);
+  const [isAnularModalOpen, setIsAnularModalOpen] = useState(false);
+  const [anulando, setAnulando] = useState(false);
 
   // Estado para paginación móvil
   const [paginaActual, setPaginaActual] = useState(1);
@@ -384,6 +392,43 @@ export function VentasView() {
     PrintSalesHistory.imprimir(ventaData);
   };
 
+  // Función para anular venta
+  const handleAnularVenta = (venta: Venta) => {
+    setVentaToAnular(venta);
+    setIsAnularModalOpen(true);
+  };
+
+  // Función para confirmar anulación
+  const confirmarAnularVenta = async () => {
+    if (!ventaToAnular) return;
+
+    try {
+      setAnulando(true);
+      const result = await anularVenta(ventaToAnular.id);
+      
+      toast({
+        title: "✅ Venta anulada",
+        description: result.message || `La venta #${ventaToAnular.id} fue anulada correctamente`,
+      });
+      
+      setIsAnularModalOpen(false);
+      setVentaToAnular(null);
+      
+      // Recargar datos
+      await buscarDatos();
+      
+    } catch (error: any) {
+      console.error("Error al anular venta:", error);
+      toast({
+        title: "❌ Error",
+        description: error.message || "No se pudo anular la venta",
+        variant: "destructive",
+      });
+    } finally {
+      setAnulando(false);
+    }
+  };
+
   // Calcular paginación
   const totalPaginas = Math.ceil(ventasFiltradas.length / itemsPorPagina);
   const inicio = (paginaActual - 1) * itemsPorPagina;
@@ -426,7 +471,7 @@ export function VentasView() {
           <div className="font-bold text-primary">Bs {venta.total.toFixed(2)}</div>
         </div>
 
-        <div className="flex gap-2 mt-3 pt-2 border-t border-gray-100">
+        <div className="flex gap-2 mt-3 pt-2 border-t border-gray-100 flex-wrap">
           <Button
             size="sm"
             variant="outline"
@@ -448,6 +493,17 @@ export function VentasView() {
             <Eye className="h-3 w-3 mr-1" />
             Detalle
           </Button>
+          {isAdmin && (
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => handleAnularVenta(venta)}
+              className="flex-1 text-xs h-8"
+            >
+              <XCircle className="h-3 w-3 mr-1" />
+              Anular
+            </Button>
+          )}
         </div>
       </div>
     );
@@ -521,7 +577,7 @@ export function VentasView() {
         </div>
       )}
 
-      {/* Panel de filtros colapsable - AHORA DISPONIBLE PARA TODOS */}
+      {/* Panel de filtros colapsable */}
       {mostrarFiltros && (
         <Card className="border-2">
           <CardContent className="pt-4">
@@ -783,6 +839,9 @@ export function VentasView() {
                         <TableHead className="w-[100px] text-xs">Método</TableHead>
                         <TableHead className="w-[100px] text-xs">Impresión</TableHead>
                         <TableHead className="w-[50px] text-xs">Detalle</TableHead>
+                        {isAdmin && (
+                          <TableHead className="w-[80px] text-xs">Anular</TableHead>
+                        )}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -846,6 +905,20 @@ export function VentasView() {
                               <span className="hidden sm:inline">Detalle</span>
                             </Button>
                           </TableCell>
+                          {isAdmin && (
+                            <TableCell className="py-2">
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handleAnularVenta(venta)}
+                                className="flex items-center gap-1 h-7 w-7 sm:w-auto px-2"
+                                title="Anular venta"
+                              >
+                                <XCircle className="h-3 w-3" />
+                                <span className="hidden sm:inline">Anular</span>
+                              </Button>
+                            </TableCell>
+                          )}
                         </TableRow>
                       ))}
                     </TableBody>
@@ -976,6 +1049,109 @@ export function VentasView() {
             }} className="flex items-center gap-2 text-sm">
               <Printer className="h-4 w-4" />
               Imprimir
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de confirmación para anular venta */}
+      <Dialog open={isAnularModalOpen} onOpenChange={(open) => {
+        setIsAnularModalOpen(open);
+        if (!open) setVentaToAnular(null);
+      }}>
+        <DialogContent className="w-[95vw] max-w-[450px]">
+          <DialogHeader>
+            <div className="flex items-center gap-3 text-red-600">
+              <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                <AlertTriangle className="h-6 w-6" />
+              </div>
+              <DialogTitle className="text-xl">⚠️ Anular Venta</DialogTitle>
+            </div>
+          </DialogHeader>
+
+          <DialogDescription className="sr-only">
+            Confirmación de anulación de venta
+          </DialogDescription>
+
+          {ventaToAnular && (
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">
+                ¿Estás seguro de que deseas <span className="font-bold text-red-600">ANULAR</span> la venta?
+              </p>
+
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-500">ID:</span>
+                  <span className="text-sm font-bold text-gray-900">#{ventaToAnular.id}</span>
+                </div>
+                <div className="flex justify-between items-center mt-1">
+                  <span className="text-sm font-medium text-gray-500">Fecha:</span>
+                  <span className="text-sm text-gray-700">{formatDateForDisplay(ventaToAnular.fecha)} {formatTimeForDisplay(ventaToAnular.fecha)}</span>
+                </div>
+                <div className="flex justify-between items-center mt-1">
+                  <span className="text-sm font-medium text-gray-500">Descripción:</span>
+                  <span className="text-sm text-gray-700 truncate max-w-[200px]">{ventaToAnular.descripcion}</span>
+                </div>
+                <div className="flex justify-between items-center mt-1">
+                  <span className="text-sm font-medium text-gray-500">Total:</span>
+                  <span className="text-sm font-bold text-red-600">Bs. {ventaToAnular.total.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between items-center mt-1">
+                  <span className="text-sm font-medium text-gray-500">Método:</span>
+                  <span className="text-sm">{ventaToAnular.metodo}</span>
+                </div>
+              </div>
+
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <p className="text-sm text-red-700 font-medium">Esta acción realizará:</p>
+                <div className="text-xs text-red-600 mt-2 space-y-1">
+                  <div className="flex items-start gap-2">
+                    <span className="text-red-500">•</span>
+                    <span>Reingresará el stock de los productos</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-red-500">•</span>
+                    <span>Eliminará la venta y sus detalles</span>
+                  </div>
+                  {ventaToAnular.metodo === "Efectivo" && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-red-500">•</span>
+                      <span>Revertirá el movimiento de caja (devolución del efectivo)</span>
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs font-bold text-red-700 mt-2">⚠️ Esta acción NO SE PUEDE DESHACER</p>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 mt-4">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsAnularModalOpen(false);
+                setVentaToAnular(null);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={confirmarAnularVenta}
+              disabled={anulando}
+              className="gap-2"
+            >
+              {anulando ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Anulando...
+                </>
+              ) : (
+                <>
+                  <XCircle className="h-4 w-4" />
+                  Sí, Anular Venta
+                </>
+              )}
             </Button>
           </div>
         </DialogContent>

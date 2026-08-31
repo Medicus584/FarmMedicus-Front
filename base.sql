@@ -108,7 +108,8 @@ CREATE TABLE detalle_ventas (
     precio_unitario DECIMAL(10,2) NOT NULL CHECK (precio_unitario >= 0),
     subtotal_linea DECIMAL(10,2) NOT NULL CHECK (subtotal_linea >= 0),
     descuento_monto DECIMAL(10,2) DEFAULT 0 CHECK (descuento_monto >= 0),
-    iddoctor INTEGER REFERENCES doctores(iddoctor) NULL
+    iddoctor INTEGER REFERENCES doctores(iddoctor) NULL,
+    idlote INTEGER REFERENCES lotes(idlote)
 );
 
 
@@ -217,3 +218,4 @@ CREATE INDEX idx_productos_similares_producto ON productos_similares(idproducto)
 CREATE INDEX idx_productos_similares_similar ON productos_similares(idproducto_similar);
 CREATE INDEX idx_lotes_producto ON lotes(idproducto);
 CREATE INDEX idx_detalle_ventas_doctor ON detalle_ventas(iddoctor);
+CREATE INDEX idx_detalle_ventas_idlote ON detalle_ventas(idlote);

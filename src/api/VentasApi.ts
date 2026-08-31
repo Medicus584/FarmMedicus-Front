@@ -242,3 +242,12 @@ const formatDateForAPI = (date: Date): string => {
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
+export const anularVenta = async (id: number): Promise<{ success: boolean; message: string; data: any }> => {
+  try {
+    const response = await api.delete(`/ventas/${id}/anular`);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error anulando venta:", error);
+    throw new Error(error.response?.data?.message || "No se pudo anular la venta");
+  }
+};

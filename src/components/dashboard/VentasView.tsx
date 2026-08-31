@@ -169,7 +169,15 @@ export function VentasView() {
       const medicos = await getMedicos();
       setMedicosOptions(["Todos", ...medicos]);
 
-      if (!isAssistant) {
+      // Para asistentes, solo mostrar su propio usuario
+      if (isAssistant) {
+        setEmpleadosOptions([{
+          value: currentUser.usuario,
+          label: `${currentUser.nombres} ${currentUser.apellidos}`,
+          username: currentUser.usuario
+        }]);
+        setFiltroEmpleado(currentUser.usuario);
+      } else {
         const usuariosBackend: BackendUsuario[] = await getUsuariosVentas();
         const opcionesUsuarios: UsuarioOption[] = usuariosBackend.map(user => ({
           value: user.usuario,
@@ -177,13 +185,6 @@ export function VentasView() {
           username: user.usuario
         }));
         setEmpleadosOptions([{ value: "Todos", label: "Todos", username: "" }, ...opcionesUsuarios]);
-      } else {
-        setEmpleadosOptions([{
-          value: currentUser.usuario,
-          label: `${currentUser.nombres} ${currentUser.apellidos}`,
-          username: currentUser.usuario
-        }]);
-        setFiltroEmpleado(currentUser.usuario);
       }
 
       setDatosCargados(true);
@@ -203,26 +204,30 @@ export function VentasView() {
       let ventas: Venta[] = [];
       let totalesData: TotalesVentas = { totalGeneral: 0, totalEfectivo: 0, totalQR: 0 };
 
+      // Construir filtros comunes
+      const filtros: VentasFiltros = {
+        metodo: filtroMetodo !== "Todos" ? filtroMetodo : undefined,
+        medico: filtroMedico !== "Todos" ? filtroMedico : undefined,
+        fechaEspecifica: fechaBusqueda,
+        fechaInicio: fechaRangoAplicado.from,
+        fechaFin: fechaRangoAplicado.to
+      };
+
       if (isAssistant) {
-        ventas = await getVentasHoyAsistente(username);
-
-        const totalGeneral = ventas.reduce((sum, venta) => sum + venta.total, 0);
-        const totalEfectivo = ventas.filter(v => v.metodo === "Efectivo").reduce((sum, venta) => sum + venta.total, 0);
-        const totalQR = ventas.filter(v => v.metodo === "QR").reduce((sum, venta) => sum + venta.total, 0);
-        totalesData = { totalGeneral, totalEfectivo, totalQR };
-      } else {
-        const filtros: VentasFiltros = {
-          empleado: filtroEmpleado !== "Todos" ? filtroEmpleado : undefined,
-          metodo: filtroMetodo !== "Todos" ? filtroMetodo : undefined,
-          medico: filtroMedico !== "Todos" ? filtroMedico : undefined,
-          fechaEspecifica: fechaBusqueda,
-          fechaInicio: fechaRangoAplicado.from,
-          fechaFin: fechaRangoAplicado.to
-        };
-
+        // Asistente: siempre filtra por su propio usuario
+        filtros.empleado = currentUser.usuario;
         ventas = await getVentas(filtros);
-        totalesData = await getTotalesVentas(filtros);
+      } else {
+        // Admin: puede filtrar por cualquier usuario
+        filtros.empleado = filtroEmpleado !== "Todos" ? filtroEmpleado : undefined;
+        ventas = await getVentas(filtros);
       }
+
+      // Calcular totales
+      const totalGeneral = ventas.reduce((sum, venta) => sum + venta.total, 0);
+      const totalEfectivo = ventas.filter(v => v.metodo === "Efectivo").reduce((sum, venta) => sum + venta.total, 0);
+      const totalQR = ventas.filter(v => v.metodo === "QR").reduce((sum, venta) => sum + venta.total, 0);
+      totalesData = { totalGeneral, totalEfectivo, totalQR };
 
       setVentasFiltradas(ventas);
       setTotales(totalesData);
@@ -302,10 +307,10 @@ export function VentasView() {
     setFechaRangoTemp({ from: undefined, to: undefined });
     setFechaRangoAplicado({ from: undefined, to: undefined });
 
-    if (userRole === "Admin") {
-      setFiltroEmpleado("Todos");
-    } else {
+    if (isAssistant) {
       setFiltroEmpleado(currentUser.usuario);
+    } else {
+      setFiltroEmpleado("Todos");
     }
 
     setFiltroMetodo("Todos");
@@ -346,7 +351,7 @@ export function VentasView() {
 
   const contarFiltrosActivos = () => {
     let count = 0;
-    if (filtroEmpleado !== "Todos") count++;
+    if (filtroEmpleado !== "Todos" && !isAssistant) count++;
     if (filtroMetodo !== "Todos") count++;
     if (filtroMedico !== "Todos") count++;
     if (fechaBusqueda && format(fechaBusqueda, "yyyy-MM-dd") !== format(fechaBoliviaHoy, "yyyy-MM-dd")) count++;
@@ -463,34 +468,30 @@ export function VentasView() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-primary">Historial de Ventas</h1>
         <div className="flex items-center gap-2 flex-wrap">
-          {!isAssistant && (
-            <>
-              <Button
-                variant={mostrarFiltros ? "default" : "outline"}
-                onClick={() => setMostrarFiltros(!mostrarFiltros)}
-                className="flex items-center gap-1.5 h-8 text-sm"
-                size="sm"
-              >
-                <SlidersHorizontal className="h-3.5 w-3.5" />
-                <span>Filtros</span>
-                {contarFiltrosActivos() > 0 && (
-                  <Badge variant="secondary" className="ml-0.5 h-5 px-1.5 text-[10px]">
-                    {contarFiltrosActivos()}
-                  </Badge>
-                )}
-              </Button>
-              {contarFiltrosActivos() > 0 && (
-                <Button
-                  variant="ghost"
-                  onClick={limpiarFiltros}
-                  className="h-8 text-xs px-2 text-muted-foreground hover:text-foreground"
-                  size="sm"
-                >
-                  <X className="h-3 w-3 mr-1" />
-                  Limpiar
-                </Button>
-              )}
-            </>
+          <Button
+            variant={mostrarFiltros ? "default" : "outline"}
+            onClick={() => setMostrarFiltros(!mostrarFiltros)}
+            className="flex items-center gap-1.5 h-8 text-sm"
+            size="sm"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            <span>Filtros</span>
+            {contarFiltrosActivos() > 0 && (
+              <Badge variant="secondary" className="ml-0.5 h-5 px-1.5 text-[10px]">
+                {contarFiltrosActivos()}
+              </Badge>
+            )}
+          </Button>
+          {contarFiltrosActivos() > 0 && (
+            <Button
+              variant="ghost"
+              onClick={limpiarFiltros}
+              className="h-8 text-xs px-2 text-muted-foreground hover:text-foreground"
+              size="sm"
+            >
+              <X className="h-3 w-3 mr-1" />
+              Limpiar
+            </Button>
           )}
           <Button
             onClick={handleExportarPDF}
@@ -520,27 +521,39 @@ export function VentasView() {
         </div>
       )}
 
-      {/* Panel de filtros colapsable */}
-      {!isAssistant && mostrarFiltros && (
+      {/* Panel de filtros colapsable - AHORA DISPONIBLE PARA TODOS */}
+      {mostrarFiltros && (
         <Card className="border-2">
           <CardContent className="pt-4">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-              {/* Empleado */}
-              <div className="space-y-1">
-                <Label className="text-xs font-medium text-muted-foreground">Empleado</Label>
-                <Select value={filtroEmpleado} onValueChange={setFiltroEmpleado}>
-                  <SelectTrigger className="h-9 text-sm">
-                    <SelectValue placeholder="Todos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {empleadosOptions.map(empleado => (
-                      <SelectItem key={empleado.value} value={empleado.value} className="text-sm">
-                        {empleado.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+              {/* Empleado - Solo visible para Admin */}
+              {!isAssistant && (
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium text-muted-foreground">Empleado</Label>
+                  <Select value={filtroEmpleado} onValueChange={setFiltroEmpleado}>
+                    <SelectTrigger className="h-9 text-sm">
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {empleadosOptions.map(empleado => (
+                        <SelectItem key={empleado.value} value={empleado.value} className="text-sm">
+                          {empleado.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Para Asistentes: mostrar su nombre fijo */}
+              {isAssistant && (
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium text-muted-foreground">Empleado</Label>
+                  <div className="h-9 px-3 py-1.5 text-sm border rounded-md bg-muted/50 flex items-center">
+                    {empleadosOptions[0]?.label || currentUser?.nombres}
+                  </div>
+                </div>
+              )}
 
               {/* Método de Pago */}
               <div className="space-y-1">
@@ -649,25 +662,13 @@ export function VentasView() {
                   </PopoverContent>
                 </Popover>
               </div>
-
-              {/* Botón limpiar */}
-              <div className="flex items-end">
-                <Button
-                  variant="outline"
-                  onClick={limpiarFiltros}
-                  className="w-full h-9 text-sm"
-                >
-                  <X className="h-4 w-4 mr-1" />
-                  Limpiar todo
-                </Button>
-              </div>
             </div>
 
             {/* Filtros activos */}
             {contarFiltrosActivos() > 0 && (
               <div className="mt-3 pt-3 border-t flex flex-wrap gap-1.5">
                 <span className="text-xs text-muted-foreground mr-1">Filtros activos:</span>
-                {filtroEmpleado !== "Todos" && (
+                {filtroEmpleado !== "Todos" && !isAssistant && (
                   <Badge variant="secondary" className="text-xs">
                     {empleadosOptions.find(e => e.value === filtroEmpleado)?.label}
                   </Badge>
@@ -699,9 +700,9 @@ export function VentasView() {
       )}
 
       {/* Información para asistentes */}
-      {isAssistant && (
+      {isAssistant && !mostrarFiltros && (
         <div className="bg-muted/30 px-4 py-2 rounded-lg border text-center text-sm">
-          <p className="font-medium">Mostrando tus ventas de hoy - {formatDateForDisplay(fechaBoliviaHoy)}</p>
+          <p className="font-medium">Mostrando tus ventas</p>
           <p className="text-xs text-muted-foreground">Usuario: {currentUser?.nombres} {currentUser?.apellidos}</p>
         </div>
       )}

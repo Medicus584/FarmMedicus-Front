@@ -11,7 +11,6 @@ import {
   User,
   Pencil,
   X,
-  Percent,
   CreditCard,
   DollarSign,
 } from "lucide-react";
@@ -110,6 +109,7 @@ export function VenderView() {
   const barcodeBufferRef = useRef<string>("");
   const barcodeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isScanningRef = useRef<boolean>(false);
+  const shouldFocusRef = useRef<boolean>(true); // Controla si debe mantener el foco
 
   const currentUser = getCurrentUser();
   const username = currentUser?.nombres || "Usuario";
@@ -120,6 +120,13 @@ export function VenderView() {
   useEffect(() => {
     loadCashStatus();
   }, []);
+
+  // Efecto para mantener el foco en el input de búsqueda
+  useEffect(() => {
+    if (shouldFocusRef.current && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [searchResults, loading, ventaItems]); // Se ejecuta cuando cambian estos estados
 
   useEffect(() => {
     if (
@@ -364,6 +371,8 @@ export function VenderView() {
         // Actualizar el valor del input
         const key = product.idproducto + index;
         setCantidadInputValues(prev => ({ ...prev, [key]: String(cantidad) }));
+        // Restaurar foco al input de búsqueda
+        setTimeout(() => searchInputRef.current?.focus(), 50);
       } else {
         // Verificar si el producto ya está en el carrito
         const existingIndex = ventaItems.findIndex(
@@ -415,6 +424,8 @@ export function VenderView() {
             description: `${product.nombre} (${cantidad} unidades del lote #${lote.idlote})`,
           });
         }
+        // Restaurar foco al input de búsqueda
+        setTimeout(() => searchInputRef.current?.focus(), 50);
       }
       return;
     }
@@ -612,6 +623,9 @@ export function VenderView() {
     setCantidadInicialParaLote(undefined);
     setEsEdicion(false);
     setItemIndexParaLote(-1);
+    
+    // Restaurar foco al input de búsqueda
+    setTimeout(() => searchInputRef.current?.focus(), 50);
   };
 
   const agregarProducto = (product: Product) => {
@@ -703,6 +717,8 @@ export function VenderView() {
       setLoading(false);
       setTimeout(() => {
         isScanningRef.current = false;
+        // Restaurar foco al input de búsqueda después del escaneo
+        searchInputRef.current?.focus();
       }, 100);
     }
   };
@@ -827,7 +843,14 @@ export function VenderView() {
     setSearchQuery(value);
   };
 
-  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {};
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Prevenir que Enter haga submit o pierda el foco
+    if (e.key === "Enter") {
+      e.preventDefault();
+      // Forzar el foco después de Enter
+      setTimeout(() => searchInputRef.current?.focus(), 0);
+    }
+  };
 
   const toggleProductExpansion = (productId: number) => {
     setExpandedProduct(expandedProduct === productId ? null : productId);
@@ -846,6 +869,8 @@ export function VenderView() {
         return newValues;
       });
     }
+    // Restaurar foco al input de búsqueda
+    setTimeout(() => searchInputRef.current?.focus(), 50);
   };
 
   // Cálculo de subtotal con descuentos por producto (monto fijo)
@@ -1036,6 +1061,9 @@ export function VenderView() {
       });
 
       await loadCashStatus();
+      
+      // Restaurar foco al input de búsqueda después de procesar la venta
+      setTimeout(() => searchInputRef.current?.focus(), 100);
     } catch (error) {
       toast({
         title: "Error",
@@ -1086,6 +1114,8 @@ export function VenderView() {
             setProductoParaLote(null);
             setCantidadInicialParaLote(undefined);
             setEsEdicion(false);
+            // Restaurar foco al input de búsqueda
+            setTimeout(() => searchInputRef.current?.focus(), 50);
           }}
         />
       )}
@@ -1100,15 +1130,16 @@ export function VenderView() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-        <Card className="lg:col-span-1">
-          <CardHeader className="flex flex-row items-center justify-between py-3 md:py-4 px-3 md:px-6">
+        {/* Card de Búsqueda - Mantiene tamaño fijo con scroll */}
+        <Card className="lg:col-span-1 flex flex-col h-[calc(100vh-140px)]">
+          <CardHeader className="flex flex-row items-center justify-between py-3 md:py-4 px-3 md:px-6 flex-shrink-0">
             <CardTitle className="text-base md:text-lg">Buscar Productos</CardTitle>
             <Badge variant={cajaAbierta ? "default" : "destructive"} className="text-[10px] md:text-xs">
               Caja: {cajaAbierta ? "Abierta" : "Cerrada"}
             </Badge>
           </CardHeader>
-          <CardContent className="p-3 md:p-6 space-y-3 md:space-y-4">
-            <div className="relative">
+          <CardContent className="p-3 md:p-6 space-y-3 md:space-y-4 flex-1 flex flex-col overflow-hidden">
+            <div className="relative flex-shrink-0">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-3 w-3 md:h-4 md:w-4" />
               <Input
                 ref={searchInputRef}
@@ -1134,13 +1165,13 @@ export function VenderView() {
             </div>
 
             {loading && (
-              <div className="text-center py-3 md:py-4">
+              <div className="text-center py-3 md:py-4 flex-shrink-0">
                 <p className="text-xs md:text-sm text-muted-foreground">Buscando productos...</p>
               </div>
             )}
 
             {!loading && searchResults.length > 0 && (
-              <div className="space-y-2 md:space-y-3 max-h-[300px] md:max-h-96 overflow-y-auto">
+              <div className="space-y-2 md:space-y-3 flex-1 overflow-y-auto min-h-[100px] pb-2">
                 {searchResults.map((product) => {
                   const hasSimilares =
                     product.productos_similares &&
@@ -1359,7 +1390,7 @@ export function VenderView() {
             {!loading &&
               searchQuery.length >= 2 &&
               searchResults.length === 0 && (
-                <div className="text-center py-3 md:py-4">
+                <div className="text-center py-3 md:py-4 flex-shrink-0">
                   <p className="text-xs md:text-sm text-muted-foreground">
                     No se encontraron productos
                   </p>
@@ -1368,43 +1399,40 @@ export function VenderView() {
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-1" ref={cartRef}>
-          <CardHeader className="py-3 md:py-4 px-3 md:px-6">
-            <CardTitle className="text-base md:text-lg">Detalle de Venta</CardTitle>
+        {/* Card de Detalle de Venta - Mantiene tamaño fijo con scroll */}
+        <Card className="lg:col-span-1 flex flex-col h-[calc(100vh-140px)]" ref={cartRef}>
+          <CardHeader className="py-2 md:py-3 px-3 md:px-4 flex flex-row items-center justify-between flex-shrink-0">
+            <CardTitle className="text-sm md:text-base">Detalle de Venta</CardTitle>
+            <div className="flex items-center gap-1.5">
+              <User className="h-3.5 w-3.5 text-primary" />
+              <span className="text-[10px] md:text-xs text-muted-foreground">Doctor</span>
+              <Switch
+                id="doctor-switch"
+                checked={isDoctorMode}
+                onCheckedChange={setIsDoctorMode}
+                className="scale-75"
+              />
+            </div>
           </CardHeader>
-          <CardContent className="p-3 md:p-6 space-y-3 md:space-y-4">
-            {/* Doctor Switch y Selector */}
-            <div className="border rounded-lg p-3 md:p-4 space-y-2 md:space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 md:gap-2">
-                  <User className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
-                  <Label htmlFor="doctor-switch" className="text-xs md:text-sm font-medium">
-                    Doctor
-                  </Label>
-                </div>
-                <Switch
-                  id="doctor-switch"
-                  checked={isDoctorMode}
-                  onCheckedChange={setIsDoctorMode}
-                  className="scale-75 md:scale-100"
-                />
-              </div>
-
-              {isDoctorMode && (
+          <CardContent className="p-3 md:p-4 space-y-2 md:space-y-3 flex-1 flex flex-col overflow-hidden">
+            {/* Doctor Select - solo aparece cuando está activado */}
+            {isDoctorMode && (
+              <div className="flex-shrink-0 mb-1">
                 <DoctorSelect
                   selectedDoctor={selectedDoctor}
                   onDoctorChange={setSelectedDoctor}
                   onRefreshList={async () => {}}
                 />
-              )}
-            </div>
+              </div>
+            )}
 
+            {/* Lista de productos en el carrito - Ocupa el espacio disponible con scroll */}
             {ventaItems.length === 0 ? (
-              <p className="text-muted-foreground text-center py-6 md:py-8 text-sm md:text-base">
+              <p className="text-muted-foreground text-center py-4 md:py-6 text-sm md:text-base flex-1 flex items-center justify-center">
                 No hay productos agregados
               </p>
             ) : (
-              <div className="space-y-2 md:space-y-3 max-h-48 md:max-h-64 overflow-y-auto">
+              <div className="space-y-2 md:space-y-3 flex-1 overflow-y-auto min-h-[80px] pb-2">
                 {ventaItems.map((item, index) => {
                   const subtotalItem = item.precio_venta * item.cantidad;
                   const descuentoItem = item.descuentoProducto || 0;
@@ -1417,7 +1445,7 @@ export function VenderView() {
                       key={key}
                       className="border rounded-lg p-2 md:p-3 bg-card"
                     >
-                      <div className="flex items-start gap-2 md:gap-3 mb-2 md:mb-3">
+                      <div className="flex items-start gap-2 md:gap-3 mb-1.5 md:mb-2">
                         {(() => {
                           const imageUrl = getImageUrl(item.imagen);
                           return imageUrl ? (
@@ -1640,31 +1668,31 @@ export function VenderView() {
               </div>
             )}
 
-            <div className="border-t pt-3 md:pt-4 space-y-1.5 md:space-y-2">
-              <div className="flex justify-between text-xs md:text-sm">
-                <span>Subtotal:</span>
+            {/* Totales - Sección fija en la parte inferior */}
+            <div className="border-t pt-1.5 space-y-0.5 flex-shrink-0">
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Subtotal:</span>
                 <span>Bs {formatBs(subtotalSinDescuentos)}</span>
               </div>
 
               {tieneDescuentosProducto && (
                 <>
-                  <div className="flex justify-between text-xs md:text-sm text-green-600">
-                    <span>Descuentos por producto:</span>
+                  <div className="flex justify-between text-xs text-green-600">
+                    <span>Desc. productos:</span>
                     <span>-Bs {formatBs(descuentosProducto)}</span>
                   </div>
-                  <div className="flex justify-between text-xs md:text-sm font-medium">
-                    <span>Subtotal con descuentos:</span>
+                  <div className="flex justify-between text-xs font-medium">
+                    <span>Subtotal c/desc.:</span>
                     <span>Bs {formatBs(subtotalConDescuentosProducto)}</span>
                   </div>
                 </>
               )}
 
-              <div className="flex justify-between items-center text-xs md:text-sm">
-                <span className="flex items-center gap-1">
-                  <Percent className="h-3 w-3 md:h-3.5 md:w-3.5" />
+              <div className="flex justify-between items-center text-xs">
+                <span className="flex items-center gap-0.5 text-muted-foreground">
                   Descuento %:
                 </span>
-                <div className="flex items-center gap-1 md:gap-2">
+                <div className="flex items-center gap-0.5">
                   <Input
                     id="descuentoPorcentaje"
                     type="number"
@@ -1681,10 +1709,10 @@ export function VenderView() {
                       }
                     }}
                     placeholder="0"
-                    className="w-16 md:w-20 h-7 md:h-8 text-xs md:text-sm number-input-no-scroll"
+                    className="w-12 h-6 text-xs text-center number-input-no-scroll px-1"
                     onWheel={(e) => e.currentTarget.blur()}
                   />
-                  <span className="text-xs md:text-sm whitespace-nowrap">
+                  <span className="text-xs whitespace-nowrap">
                     {descuentoPorcentaje > 0 &&
                       `-Bs ${formatBs(descuentoMonto)}`}
                   </span>
@@ -1693,69 +1721,80 @@ export function VenderView() {
 
               {isDoctorMode && selectedDoctor && (
                 <div className="flex justify-end">
-                  <Badge variant="secondary" className="text-[9px] md:text-xs">
-                    Doctor: {selectedDoctor.nombre}
+                  <Badge variant="secondary" className="text-[8px] py-0 px-1.5">
+                    Dr. {selectedDoctor.nombre}
                   </Badge>
                 </div>
               )}
 
-              <div className="flex justify-between text-base md:text-lg font-bold border-t pt-2">
+              <div className="flex justify-between text-sm font-bold border-t pt-1">
                 <span>Total:</span>
                 <span>Bs {formatBs(total)}</span>
               </div>
 
               {tieneDescuentos && (
-                <div className="mt-2 md:mt-3">
-                  <Label htmlFor="discountReason" className="text-xs md:text-sm font-medium">
-                    Justificación del descuento *
+                <div className="mt-0.5">
+                  <Label htmlFor="discountReason" className="text-[10px] font-medium">
+                    Justificación <span className="text-red-500">*</span>
                   </Label>
                   <Textarea
                     id="discountReason"
                     value={discountReason}
                     onChange={(e) => setDiscountReason(e.target.value)}
-                    placeholder="Explique el motivo del descuento..."
-                    rows={2}
-                    className="mt-1 text-xs md:text-sm"
+                    placeholder="Motivo del descuento..."
+                    rows={1}
+                    className="mt-0.5 text-xs min-h-[22px] max-h-[60px] resize-none overflow-y-auto py-0.5 px-2"
+                    onFocus={(e) => {
+                      const target = e.target as HTMLTextAreaElement;
+                      target.style.height = '22px';
+                      target.style.height = target.scrollHeight + 'px';
+                    }}
+                    onInput={(e) => {
+                      const target = e.target as HTMLTextAreaElement;
+                      target.style.height = '22px';
+                      target.style.height = target.scrollHeight + 'px';
+                    }}
                   />
                   {isDoctorMode && selectedDoctor && (
-                    <p className="text-[9px] md:text-xs text-muted-foreground mt-1">
-                      Descuento aplicado por: {selectedDoctor.nombre}
+                    <p className="text-[8px] text-muted-foreground mt-0.5">
+                      Por: {selectedDoctor.nombre}
                     </p>
                   )}
                 </div>
               )}
             </div>
 
-            <div className="space-y-3 md:space-y-4">
-              <Label className="text-xs md:text-sm font-medium">Método de Pago:</Label>
-              <div className="grid grid-cols-2 gap-2 md:gap-3">
+            {/* Método de Pago - Compacto */}
+            <div className="space-y-1.5 flex-shrink-0">
+              <Label className="text-xs font-medium">Método de Pago:</Label>
+              <div className="grid grid-cols-2 gap-1.5">
                 <Button
                   type="button"
                   variant={metodoPago === "Efectivo" ? "default" : "outline"}
-                  className="h-10 md:h-12 text-sm md:text-base font-semibold flex items-center gap-1.5 md:gap-2"
+                  className="h-7 text-xs font-medium flex items-center gap-1 px-2"
                   onClick={() => setMetodoPago("Efectivo")}
                 >
-                  <DollarSign className="h-4 w-4 md:h-5 md:w-5" />
+                  <DollarSign className="h-3 w-3" />
                   Efectivo
                 </Button>
                 <Button
                   type="button"
                   variant={metodoPago === "QR" ? "default" : "outline"}
-                  className="h-10 md:h-12 text-sm md:text-base font-semibold flex items-center gap-1.5 md:gap-2"
+                  className="h-7 text-xs font-medium flex items-center gap-1 px-2"
                   onClick={() => setMetodoPago("QR")}
                 >
-                  <CreditCard className="h-4 w-4 md:h-5 md:w-5" />
+                  <CreditCard className="h-3 w-3" />
                   QR
                 </Button>
               </div>
 
               {metodoPago === "Efectivo" && (
-                <div className="space-y-2 pt-1 md:pt-2">
-                  <Label htmlFor="montoPagado" className="text-xs md:text-sm font-medium">
+                <div className="space-y-1 pt-1">
+                  <Label htmlFor="montoPagado" className="text-xs font-medium">
                     Monto Pagado (opcional):
                   </Label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium text-xs md:text-sm">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground font-medium text-xs">
                       Bs
                     </span>
                     <Input
@@ -1768,14 +1807,14 @@ export function VenderView() {
                         setMontoPagado(Number(e.target.value) || 0)
                       }
                       placeholder="0.00"
-                      className="pl-8 md:pl-10 text-sm md:text-base h-10 md:h-11 number-input-no-scroll"
+                      className="pl-7 text-sm h-8 number-input-no-scroll"
                       onWheel={(e) => e.currentTarget.blur()}
                     />
                   </div>
                   {montoPagado > 0 && (
-                    <div className="text-xs md:text-sm bg-muted/50 rounded-lg p-2 md:p-3 flex justify-between items-center">
+                    <div className="text-xs bg-muted/50 rounded-lg p-1.5 flex justify-between items-center">
                       <span className="font-medium">Cambio:</span>
-                      <span className="text-base md:text-lg font-bold text-green-600">
+                      <span className="text-sm font-bold text-green-600">
                         Bs {formatBs(cambio)}
                       </span>
                     </div>
@@ -1784,16 +1823,17 @@ export function VenderView() {
               )}
 
               {metodoPago === "QR" && (
-                <div className="text-center py-3 md:py-4">
-                  <p className="text-xs md:text-sm text-muted-foreground">Pago con QR</p>
+                <div className="text-center py-1">
+                  <p className="text-xs text-muted-foreground">Pago con QR</p>
                 </div>
               )}
             </div>
 
+            {/* Botón Procesar Venta */}
             <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
               <DialogTrigger asChild>
                 <Button
-                  className="w-full text-sm md:text-base h-10 md:h-11"
+                  className="w-full text-sm h-9 flex-shrink-0"
                   disabled={
                     ventaItems.length === 0 ||
                     !cajaAbierta ||

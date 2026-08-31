@@ -47,6 +47,60 @@ export class PrintSalesHistory {
     }
   }
 
+  // ========== FUNCIÓN OPTIMIZADA PARA DIVIDIR TEXTO ==========
+  private static dividirTextoOptimizado(texto: string, maxWidth: number, doc: jsPDF, fontSize: number = 9): string[] {
+    // Guardar el tamaño de fuente original
+    const originalFontSize = doc.getFontSize();
+    doc.setFontSize(fontSize);
+    
+    const palabras = texto.split(' ');
+    const lineas: string[] = [];
+    let lineaActual = '';
+
+    for (const palabra of palabras) {
+      const prueba = lineaActual ? `${lineaActual} ${palabra}` : palabra;
+      if (doc.getTextWidth(prueba) <= maxWidth) {
+        lineaActual = prueba;
+      } else {
+        if (lineaActual) {
+          lineas.push(lineaActual);
+        }
+        lineaActual = palabra;
+      }
+    }
+
+    if (lineaActual) {
+      lineas.push(lineaActual);
+    }
+
+    // Restaurar el tamaño de fuente original
+    doc.setFontSize(originalFontSize);
+    return lineas;
+  }
+
+  // ========== CALCULAR TAMAÑO DE FUENTE ÓPTIMO ==========
+  private static calcularTamanoFuente(texto: string, maxWidth: number, doc: jsPDF): number {
+    let fontSize = 9; // Tamaño base
+    const palabras = texto.split(' ');
+    
+    // Si el texto es corto, mantener tamaño normal
+    if (texto.length <= 20) return fontSize;
+    
+    // Probar diferentes tamaños de fuente
+    const tamaños = [9, 8, 7.5, 7, 6.5, 6];
+    
+    for (const size of tamaños) {
+      doc.setFontSize(size);
+      const width = doc.getTextWidth(texto);
+      if (width <= maxWidth) {
+        fontSize = size;
+        break;
+      }
+    }
+    
+    return fontSize;
+  }
+
   // ========== GENERAR PDF DE VENTA ==========
   private static async generarPDFVenta(venta: VentaData): Promise<jsPDF> {
     const doc = new jsPDF({
@@ -64,14 +118,12 @@ export class PrintSalesHistory {
     const logoData = await this.cargarLogo();
     if (logoData) {
       try {
-        // Calcular tamaño del logo (ajustado para ticket de 80mm)
-        const logoWidth = 40; // mm
-        const logoHeight = 20; // mm
+        const logoWidth = 40;
+        const logoHeight = 20;
         doc.addImage(logoData, 'PNG', (pageWidth - logoWidth) / 2, yPos, logoWidth, logoHeight);
         yPos += logoHeight + 4;
       } catch (error) {
         console.error('Error agregando logo:', error);
-        // Si falla el logo, mostrar texto
         doc.setFontSize(16);
         doc.setTextColor("#000000");
         doc.setFont("helvetica", "bold");
@@ -79,7 +131,6 @@ export class PrintSalesHistory {
         yPos += 14;
       }
     } else {
-      // Si no hay logo, mostrar texto
       doc.setFontSize(18);
       doc.setTextColor("#000000");
       doc.setFont("helvetica", "bold");
@@ -93,25 +144,22 @@ export class PrintSalesHistory {
     doc.line(margin, yPos, pageWidth - margin, yPos);
     yPos += 4;
 
-    // ========== CAMPOS DEL CLIENTE CON LÍNEAS ==========
+    // ========== CAMPOS DEL CLIENTE ==========
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
     
-    // NIT/CI: _______________________
     const nitLabel = "NIT/CI:";
     const nitLine = "________________________";
     doc.text(nitLabel, margin, yPos);
     doc.text(nitLine, margin + doc.getTextWidth(nitLabel) + 2, yPos);
     yPos += 6;
 
-    // NOMBRE: _________________________
     const nombreLabel = "NOMBRE:";
     const nombreLine = "_____________________";
     doc.text(nombreLabel, margin, yPos);
     doc.text(nombreLine, margin + doc.getTextWidth(nombreLabel) + 2, yPos);
     yPos += 6;
 
-    // NÚMERO: _________________________
     const numeroLabel = "NÚMERO:";
     const numeroLine = "_____________________";
     doc.text(numeroLabel, margin, yPos);
@@ -128,7 +176,7 @@ export class PrintSalesHistory {
     doc.line(margin, yPos, pageWidth - margin, yPos);
     yPos += 4;
 
-    // ========== PRODUCTOS ==========
+    // ========== PRODUCTOS CON TAMAÑO DE FUENTE DINÁMICO ==========
     if (venta.productos && venta.productos.length > 0) {
       doc.setFont("helvetica", "bold");
       doc.text("PRODUCTOS", margin, yPos);
@@ -138,12 +186,40 @@ export class PrintSalesHistory {
       venta.productos.forEach((producto) => {
         const cantidad = producto.cantidad || 1;
         const totalProducto = producto.precio * cantidad;
-        const text = cantidad > 1 
+        const nombreProducto = cantidad > 1 
           ? `${producto.nombre} x${cantidad}`
           : producto.nombre;
-        doc.text(text, margin + 2, yPos);
-        doc.text(`Bs ${totalProducto.toFixed(2)}`, pageWidth - margin - doc.getTextWidth(`Bs ${totalProducto.toFixed(2)}`), yPos);
-        yPos += 4;
+        
+        // Calcular espacio disponible para el nombre (restar espacio del precio)
+        const precioStr = `Bs ${totalProducto.toFixed(2)}`;
+        const precioWidth = doc.getTextWidth(precioStr);
+        const espacioNombre = pageWidth - margin - margin - precioWidth - 4;
+        
+        // Calcular el tamaño de fuente óptimo para este producto
+        const fontSizeOptimo = this.calcularTamanoFuente(nombreProducto, espacioNombre, doc);
+        const lineas = this.dividirTextoOptimizado(nombreProducto, espacioNombre, doc, fontSizeOptimo);
+        
+        // Aplicar el tamaño de fuente calculado
+        doc.setFontSize(fontSizeOptimo);
+        
+        // Mostrar las líneas con el precio
+        if (lineas.length > 0) {
+          // Primera línea con el precio a la derecha
+          doc.text(lineas[0], margin + 2, yPos);
+          doc.setFont("helvetica", "bold");
+          doc.text(precioStr, pageWidth - margin - precioWidth, yPos);
+          doc.setFont("helvetica", "normal");
+          yPos += 4;
+          
+          // Líneas adicionales sin precio
+          for (let i = 1; i < lineas.length; i++) {
+            doc.text(lineas[i], margin + 2, yPos);
+            yPos += 4;
+          }
+        }
+        
+        // Restaurar tamaño de fuente por defecto
+        doc.setFontSize(9);
       });
     }
 
@@ -181,7 +257,7 @@ export class PrintSalesHistory {
     return doc;
   }
 
-  // ========== IMPRIMIR UN PDF CON IFRAME OCULTO (IMPRESIÓN DIRECTA) ==========
+  // ========== IMPRIMIR UN PDF CON IFRAME OCULTO ==========
   private static imprimirPDFConIframe(doc: jsPDF): Promise<void> {
     return new Promise((resolve) => {
       const pdfBlob = doc.output('blob');

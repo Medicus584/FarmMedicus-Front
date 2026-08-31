@@ -6,7 +6,9 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CalendarIcon, CalendarRange as CalendarRangeIcon, Loader2, Check, X, Download } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { CalendarIcon, CalendarRange as CalendarRangeIcon, Loader2, Check, X, Download, SlidersHorizontal } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { 
@@ -27,37 +29,27 @@ import { pdf } from "@react-pdf/renderer";
 // Función para obtener la fecha actual en Bolivia (GMT-4)
 const getFechaBolivia = () => {
   const now = new Date();
-  // Bolivia está en GMT-4, así que restamos 4 horas para obtener la hora boliviana
-  const boliviaOffset = -4 * 60; // -4 horas en minutos
-  const localOffset = now.getTimezoneOffset(); // offset local en minutos
-  const diff = boliviaOffset - localOffset; // diferencia en minutos
-  
-  // Ajustar la fecha a la zona horaria de Bolivia
+  const boliviaOffset = -4 * 60;
+  const localOffset = now.getTimezoneOffset();
+  const diff = boliviaOffset - localOffset;
   const fechaBolivia = new Date(now.getTime() + diff * 60000);
-  fechaBolivia.setHours(0, 0, 0, 0); // Inicio del día en Bolivia
-  
+  fechaBolivia.setHours(0, 0, 0, 0);
   return fechaBolivia;
 };
 
 // Función auxiliar para descargar archivo sin file-saver
 const downloadPDF = (blob: Blob, filename: string) => {
-  // Crear un enlace temporal
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
   link.download = filename;
-  
-  // Agregar al documento y hacer clic
   document.body.appendChild(link);
   link.click();
-  
-  // Limpiar
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 };
 
 export function CajaView() {
-  // Configurar fecha actual de Bolivia por defecto (SOLO para la carga inicial)
   const [fechaBoliviaHoy] = useState(() => getFechaBolivia());
   
   const [fechaBusqueda, setFechaBusqueda] = useState<Date | undefined>(fechaBoliviaHoy);
@@ -72,6 +64,7 @@ export function CajaView() {
   const [filtroEmpleado, setFiltroEmpleado] = useState("Todos");
   const [mostrarCalendario, setMostrarCalendario] = useState(false);
   const [mostrarRango, setMostrarRango] = useState(false);
+  const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const [movimientosCaja, setMovimientosCaja] = useState<TransaccionCaja[]>([]);
   const [empleados, setEmpleados] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -90,7 +83,7 @@ export function CajaView() {
     cargarDatosIniciales();
   }, []);
 
-  // Efecto para buscar datos cuando cambian los filtros O cuando se terminan de cargar los datos iniciales
+  // Efecto para buscar datos cuando cambian los filtros
   useEffect(() => {
     if (datosCargados) {
       buscarDatos();
@@ -102,18 +95,15 @@ export function CajaView() {
       setInitialLoading(true);
       setDatosCargados(false);
       
-      // Obtener información del usuario actual
       const userInfo = await getCurrentUser();
       setUserRole(userInfo.rol);
       setCurrentUserId(userInfo.idusuario);
       setCurrentUserName(`${userInfo.nombres} ${userInfo.apellidos}`);
       
-      // Obtener saldo actual
       const saldoData = await getSaldoActual();
       setSaldoActual(parseFloat(saldoData.monto_final));
       setEstadoCaja(saldoData.estado);
       
-      // Obtener empleados (solo para Admin)
       if (userInfo.rol === "Admin") {
         const usuariosList = await getUsuariosCaja();
         setEmpleados(usuariosList);
@@ -122,7 +112,6 @@ export function CajaView() {
         setFiltroEmpleado(`${userInfo.nombres} ${userInfo.apellidos}`);
       }
       
-      // Marcar que los datos iniciales están cargados
       setDatosCargados(true);
       
     } catch (error) {
@@ -132,7 +121,6 @@ export function CajaView() {
     }
   };
 
-  // Función principal para buscar datos con los filtros actuales
   const buscarDatos = async () => {
     try {
       setLoading(true);
@@ -140,54 +128,32 @@ export function CajaView() {
       
       let datosFiltrados: TransaccionCaja[] = [];
       
-      // Formatear fechas como YYYY-MM-DD
       const fechaStr = fechaBusqueda ? format(fechaBusqueda, "yyyy-MM-dd") : "";
       
       if (userRole === "Admin") {
-        // CASO 1: FECHA ESPECÍFICA (prioridad máxima)
         if (fechaBusqueda) {
-          console.log("🔍 Buscando por fecha específica:", fechaStr);
           datosFiltrados = await getTransaccionesCajaByFecha(fechaStr);
-        }
-        // CASO 2: RANGO DE FECHAS (solo si no hay fecha específica)
-        else if (fechaRangoAplicado.from && fechaRangoAplicado.to) {
+        } else if (fechaRangoAplicado.from && fechaRangoAplicado.to) {
           const fechaInicioStr = format(fechaRangoAplicado.from, "yyyy-MM-dd");
           const fechaFinStr = format(fechaRangoAplicado.to, "yyyy-MM-dd");
-          console.log("🔍 Buscando por rango:", fechaInicioStr, "a", fechaFinStr);
           datosFiltrados = await getTransaccionesCajaByRango(fechaInicioStr, fechaFinStr);
-        }
-        // CASO 3: SIN FILTROS DE FECHA
-        else {
-          console.log("🔍 Buscando todos los movimientos");
+        } else {
           datosFiltrados = await getTransaccionesCaja();
         }
       } else {
-        // CASO 1: FECHA ESPECÍFICA (prioridad máxima)
         if (fechaBusqueda) {
-          console.log("🔍 Buscando por fecha específica (usuario):", fechaStr);
           datosFiltrados = await getTransaccionesCajaByUsuarioFecha(currentUserId, fechaStr);
-        }
-        // CASO 2: RANGO DE FECHAS (solo si no hay fecha específica)
-        else if (fechaRangoAplicado.from && fechaRangoAplicado.to) {
+        } else if (fechaRangoAplicado.from && fechaRangoAplicado.to) {
           const fechaInicioStr = format(fechaRangoAplicado.from, "yyyy-MM-dd");
           const fechaFinStr = format(fechaRangoAplicado.to, "yyyy-MM-dd");
-          console.log("🔍 Buscando por rango (usuario):", fechaInicioStr, "a", fechaFinStr);
           datosFiltrados = await getTransaccionesCajaByUsuarioRango(currentUserId, fechaInicioStr, fechaFinStr);
-        }
-        // CASO 3: SIN FILTROS DE FECHA
-        else {
-          console.log("🔍 Buscando todos los movimientos (usuario)");
+        } else {
           datosFiltrados = await getTransaccionesCajaByUsuario(currentUserId);
         }
       }
       
-      console.log("📊 Resultados encontrados:", datosFiltrados.length);
-      
-      // Filtrar por empleado si es Admin y no es "Todos"
       if (userRole === "Admin" && filtroEmpleado !== "Todos") {
-        const antes = datosFiltrados.length;
         datosFiltrados = datosFiltrados.filter(mov => mov.empleado === filtroEmpleado);
-        console.log(`👤 Filtrado por empleado "${filtroEmpleado}": ${antes} -> ${datosFiltrados.length}`);
       }
       
       setMovimientosCaja(datosFiltrados);
@@ -202,40 +168,29 @@ export function CajaView() {
     }
   };
 
-  // Función para formatear fecha para mostrar (sin conversiones UTC)
   const formatDateForDisplay = (dateInput: string | Date) => {
     try {
-      // Si es string, convertir a Date
       const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-      
-      // Extraer partes de la fecha LOCAL (como se seleccionó)
-      const day = date.getDate(); // Día local
-      const month = date.getMonth() + 1; // Mes local
-      const year = date.getFullYear(); // Año local
-      
+      const day = date.getDate();
+      const month = date.getMonth() + 1;
+      const year = date.getFullYear();
       return `${day}/${month}/${year}`;
     } catch (error) {
-      console.error("Error formatting date:", error);
       return typeof dateInput === 'string' ? dateInput.substring(0, 10) : "Fecha inválida";
     }
   };
 
-  // Función para formatear hora para mostrar (sin conversiones UTC)
   const formatTimeForDisplay = (dateInput: string | Date) => {
     try {
       const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-      const hours = date.getHours(); // Hora local
-      const minutes = date.getMinutes(); // Minutos local
-      const formattedHours = hours < 10 ? `0${hours}` : hours.toString();
-      const formattedMinutes = minutes < 10 ? `0${minutes}` : minutes.toString();
-      return `${formattedHours}:${formattedMinutes}`;
+      const hours = date.getHours();
+      const minutes = date.getMinutes();
+      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
     } catch (error) {
-      console.error("Error formatting time:", error);
       return "";
     }
   };
 
-  // Calcular totales de los movimientos
   const totalIngresos = movimientosCaja
     .filter(mov => mov.tipo_movimiento === "Ingreso")
     .reduce((sum, mov) => sum + mov.monto, 0);
@@ -244,16 +199,21 @@ export function CajaView() {
     .filter(mov => mov.tipo_movimiento === "Egreso")
     .reduce((sum, mov) => sum + mov.monto, 0);
 
-  // Calcular el saldo basado en los movimientos
   const saldoFiltrado = totalIngresos - totalEgresos;
 
-  // Función para descargar el PDF sin file-saver
+  const contarFiltrosActivos = () => {
+    let count = 0;
+    if (filtroEmpleado !== "Todos") count++;
+    if (fechaBusqueda && format(fechaBusqueda, "yyyy-MM-dd") !== format(fechaBoliviaHoy, "yyyy-MM-dd")) count++;
+    if (fechaRangoAplicado.from || fechaRangoAplicado.to) count++;
+    return count;
+  };
+
   const handleDescargarPDF = async () => {
     try {
       setGenerandoPDF(true);
       setError("");
       
-      // Calcular nombre del archivo basado en filtros
       let nombreArchivo = "reporte_caja";
       
       if (fechaBusqueda) {
@@ -271,7 +231,6 @@ export function CajaView() {
       
       nombreArchivo += ".pdf";
       
-      // Crear el documento PDF
       const pdfDocument = (
         <CajaPDF
           movimientos={movimientosCaja}
@@ -292,10 +251,7 @@ export function CajaView() {
         />
       );
       
-      // Generar el PDF como blob
       const pdfBlob = await pdf(pdfDocument).toBlob();
-      
-      // Descargar el archivo usando función auxiliar
       downloadPDF(pdfBlob, nombreArchivo);
       
     } catch (error) {
@@ -306,9 +262,7 @@ export function CajaView() {
     }
   };
 
-  // Limpiar filtros y volver a cargar datos del día actual DE BOLIVIA
   const limpiarFiltros = async () => {
-    // Usar la fecha de Bolivia actual
     const hoyBolivia = getFechaBolivia();
     setFechaBusqueda(hoyBolivia);
     setFechaRangoTemp({ from: undefined, to: undefined });
@@ -321,38 +275,30 @@ export function CajaView() {
     }
   };
 
-  // Manejar cambio en filtro de fecha específica
   const handleFechaBusquedaChange = async (date: Date | undefined) => {
     if (date) {
-      // Usar la fecha exacta como está (sin ajustes de zona horaria)
-      // El usuario selecciona la fecha que ve en el calendario
       setFechaBusqueda(date);
-      // Limpiar completamente el rango
       setFechaRangoAplicado({ from: undefined, to: undefined });
       setFechaRangoTemp({ from: undefined, to: undefined });
       setMostrarCalendario(false);
     }
   };
 
-  // Manejar cambio temporal en filtro de rango de fechas
   const handleRangoTempChange = (range: { from: Date | undefined; to: Date | undefined }) => {
     setFechaRangoTemp(range);
   };
 
-  // Aplicar rango seleccionado
   const aplicarRangoFechas = async () => {
     if (fechaRangoTemp.from && fechaRangoTemp.to) {
       setFechaRangoAplicado({
         from: fechaRangoTemp.from,
         to: fechaRangoTemp.to
       });
-      // Limpiar completamente la fecha específica
       setFechaBusqueda(undefined);
       setMostrarRango(false);
     }
   };
 
-  // Cancelar selección de rango
   const cancelarRangoFechas = () => {
     setFechaRangoTemp({
       from: fechaRangoAplicado.from,
@@ -361,7 +307,6 @@ export function CajaView() {
     setMostrarRango(false);
   };
 
-  // Manejar cambio en filtro de empleado
   const handleEmpleadoChange = (value: string) => {
     setFiltroEmpleado(value);
   };
@@ -376,119 +321,101 @@ export function CajaView() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl sm:text-3xl font-bold text-primary">Gestión de Caja</h1>
-        <div className="text-sm text-muted-foreground">
-          Rol: <span className="font-medium">{userRole}</span>
-          {userRole !== "Admin" && (
-            <span className="ml-4">Usuario: <span className="font-medium">{currentUserName}</span></span>
+    <div className="space-y-4">
+      {/* Header con título y botones */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-primary">Gestión de Caja</h1>
+        <div className="flex items-center gap-2 flex-wrap">
+          {userRole === "Admin" && (
+            <>
+              <Button
+                variant={mostrarFiltros ? "default" : "outline"}
+                onClick={() => setMostrarFiltros(!mostrarFiltros)}
+                className="flex items-center gap-1.5 h-8 text-sm"
+                size="sm"
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                <span>Filtros</span>
+                {contarFiltrosActivos() > 0 && (
+                  <Badge variant="secondary" className="ml-0.5 h-5 px-1.5 text-[10px]">
+                    {contarFiltrosActivos()}
+                  </Badge>
+                )}
+              </Button>
+              {contarFiltrosActivos() > 0 && (
+                <Button
+                  variant="ghost"
+                  onClick={limpiarFiltros}
+                  className="h-8 text-xs px-2 text-muted-foreground hover:text-foreground"
+                  size="sm"
+                >
+                  <X className="h-3 w-3 mr-1" />
+                  Limpiar
+                </Button>
+              )}
+            </>
           )}
+          <Button
+            onClick={handleDescargarPDF}
+            disabled={movimientosCaja.length === 0 || generandoPDF}
+            className="flex items-center gap-2 h-8 text-sm"
+            size="sm"
+          >
+            {generandoPDF ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span>Generando...</span>
+              </>
+            ) : (
+              <>
+                <Download className="h-3.5 w-3.5" />
+                <span className="hidden xs:inline">Exportar PDF</span>
+                <span className="xs:hidden">PDF</span>
+              </>
+            )}
+          </Button>
         </div>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
           {error}
         </div>
       )}
 
-      {/* Cards de totales */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Egresos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">Bs {totalEgresos.toFixed(2)}</div>
-            <div className="text-xs text-muted-foreground mt-1">
-              En los movimientos mostrados
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Ingresos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">Bs {totalIngresos.toFixed(2)}</div>
-            <div className="text-xs text-muted-foreground mt-1">
-              En los movimientos mostrados
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Saldo Actual</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-xs text-muted-foreground mb-1">
-              Estado: <span className={`font-medium ${estadoCaja === 'abierta' ? 'text-green-600' : 'text-red-600'}`}>
-                {estadoCaja === 'abierta' ? 'ABIERTA' : 'CERRADA'}
-              </span>
-            </div>
-            <div className={`text-2xl font-bold ${saldoActual >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              Bs {saldoActual.toFixed(2)}
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              Saldo mostrado: <span className={`font-medium ${saldoFiltrado >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                Bs {saldoFiltrado.toFixed(2)}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filtros - Solo mostrar para Admin */}
-      {userRole === "Admin" && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-            <CardTitle>Filtros</CardTitle>
-            <Button 
-              onClick={handleDescargarPDF} 
-              disabled={movimientosCaja.length === 0 || generandoPDF}
-              className="ml-auto"
-              variant="default"
-            >
-              {generandoPDF ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generando PDF...
-                </>
-              ) : (
-                <>
-                  <Download className="mr-2 h-4 w-4" />
-                  Descargar PDF
-                </>
-              )}
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-              <div>
-                <label className="text-sm font-medium">Empleado</label>
+      {/* Panel de filtros colapsable */}
+      {userRole === "Admin" && mostrarFiltros && (
+        <Card className="border-2">
+          <CardContent className="pt-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {/* Empleado */}
+              <div className="space-y-1">
+                <Label className="text-xs font-medium text-muted-foreground">Empleado</Label>
                 <Select value={filtroEmpleado} onValueChange={handleEmpleadoChange}>
-                  <SelectTrigger>
-                    <SelectValue />
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue placeholder="Todos" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Todos">Todos</SelectItem>
                     {empleados.map(empleado => (
-                      <SelectItem key={empleado} value={empleado}>{empleado}</SelectItem>
+                      <SelectItem key={empleado} value={empleado} className="text-sm">
+                        {empleado}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              <div>
-                <label className="text-sm font-medium">Fecha Específica</label>
+              {/* Fecha específica */}
+              <div className="space-y-1">
+                <Label className="text-xs font-medium text-muted-foreground">Fecha</Label>
                 <Popover open={mostrarCalendario} onOpenChange={setMostrarCalendario}>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal">
+                    <Button variant="outline" className="w-full justify-start text-left font-normal h-9 text-sm">
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {fechaBusqueda ? format(fechaBusqueda, "dd/MM/yyyy", { locale: es }) : "Seleccionar fecha"}
+                      <span className="truncate">
+                        {fechaBusqueda ? format(fechaBusqueda, "dd/MM/yyyy", { locale: es }) : "Seleccionar"}
+                      </span>
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
@@ -504,16 +431,19 @@ export function CajaView() {
                 </Popover>
               </div>
 
-              <div>
-                <label className="text-sm font-medium">Rango de Fechas</label>
+              {/* Rango de fechas */}
+              <div className="space-y-1">
+                <Label className="text-xs font-medium text-muted-foreground">Rango</Label>
                 <Popover open={mostrarRango} onOpenChange={setMostrarRango}>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal">
+                    <Button variant="outline" className="w-full justify-start text-left font-normal h-9 text-sm">
                       <CalendarRangeIcon className="mr-2 h-4 w-4" />
-                      {fechaRangoAplicado.from && fechaRangoAplicado.to ? 
-                        `${format(fechaRangoAplicado.from, "dd/MM/yyyy", { locale: es })} - ${format(fechaRangoAplicado.to, "dd/MM/yyyy", { locale: es })}` : 
-                        "Seleccionar rango"
-                      }
+                      <span className="truncate text-sm">
+                        {fechaRangoAplicado.from && fechaRangoAplicado.to ? 
+                          `${format(fechaRangoAplicado.from, "dd/MM/yy", { locale: es })} - ${format(fechaRangoAplicado.to, "dd/MM/yy", { locale: es })}` : 
+                          "Seleccionar rango"
+                        }
+                      </span>
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
@@ -532,6 +462,7 @@ export function CajaView() {
                           size="sm"
                           onClick={cancelarRangoFechas}
                           disabled={!fechaRangoTemp.from && !fechaRangoTemp.to}
+                          className="h-8 text-sm"
                         >
                           <X className="h-4 w-4 mr-1" />
                           Cancelar
@@ -540,6 +471,7 @@ export function CajaView() {
                           size="sm"
                           onClick={aplicarRangoFechas}
                           disabled={!fechaRangoTemp.from || !fechaRangoTemp.to}
+                          className="h-8 text-sm"
                         >
                           <Check className="h-4 w-4 mr-1" />
                           Aplicar
@@ -550,107 +482,100 @@ export function CajaView() {
                 </Popover>
               </div>
 
+              {/* Botón limpiar */}
               <div className="flex items-end">
-                <Button variant="outline" onClick={limpiarFiltros} className="w-full">
-                  Limpiar Filtros
+                <Button
+                  variant="outline"
+                  onClick={limpiarFiltros}
+                  className="w-full h-9 text-sm"
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Limpiar todo
                 </Button>
               </div>
             </div>
-            
-            {/* Indicador de filtros activos */}
-            <div className="mt-4 pt-4 border-t">
-              <div className="text-sm text-muted-foreground">
-                Filtros activos:
+
+            {/* Filtros activos */}
+            {contarFiltrosActivos() > 0 && (
+              <div className="mt-3 pt-3 border-t flex flex-wrap gap-1.5">
+                <span className="text-xs text-muted-foreground mr-1">Filtros activos:</span>
+                {filtroEmpleado !== "Todos" && (
+                  <Badge variant="secondary" className="text-xs">
+                    {filtroEmpleado}
+                  </Badge>
+                )}
                 {fechaBusqueda && (
-                  <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
-                    Fecha: {format(fechaBusqueda, "dd/MM/yyyy", { locale: es })}
-                  </span>
+                  <Badge variant="secondary" className="text-xs">
+                    📅 {format(fechaBusqueda, "dd/MM/yyyy", { locale: es })}
+                  </Badge>
                 )}
                 {fechaRangoAplicado.from && fechaRangoAplicado.to && (
-                  <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
-                    Rango: {format(fechaRangoAplicado.from, "dd/MM/yyyy", { locale: es })} - {format(fechaRangoAplicado.to, "dd/MM/yyyy", { locale: es })}
-                  </span>
-                )}
-                {filtroEmpleado !== "Todos" && (
-                  <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
-                    Empleado: {filtroEmpleado}
-                  </span>
-                )}
-                {!fechaBusqueda && !fechaRangoAplicado.from && !fechaRangoAplicado.to && filtroEmpleado === "Todos" && (
-                  <span className="ml-2 px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded">
-                    Todos los movimientos
-                  </span>
+                  <Badge variant="secondary" className="text-xs">
+                    📅 {format(fechaRangoAplicado.from, "dd/MM/yyyy", { locale: es })} - {format(fechaRangoAplicado.to, "dd/MM/yyyy", { locale: es })}
+                  </Badge>
                 )}
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       )}
 
       {/* Información para no-Admin */}
       {userRole !== "Admin" && (
+        <div className="bg-muted/30 px-4 py-2 rounded-lg border text-center text-sm">
+          <p className="font-medium">Mostrando tus movimientos de caja</p>
+          <p className="text-xs text-muted-foreground">Usuario: {currentUserName}</p>
+        </div>
+      )}
+
+      {/* Cards de totales */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-            <CardTitle>Mis Movimientos de Caja</CardTitle>
-            <Button 
-              onClick={handleDescargarPDF} 
-              disabled={movimientosCaja.length === 0 || generandoPDF}
-              className="ml-auto"
-              variant="default"
-            >
-              {generandoPDF ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generando PDF...
-                </>
-              ) : (
-                <>
-                  <Download className="mr-2 h-4 w-4" />
-                  Descargar PDF
-                </>
-              )}
-            </Button>
+          <CardHeader className="pb-1">
+            <CardTitle className="text-xs font-medium text-muted-foreground">Total Egresos</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex flex-col gap-2">
-                <p className="text-sm text-muted-foreground">
-                  Mostrando solo tus movimientos de caja.
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {fechaBusqueda && (
-                    <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
-                      Fecha: {format(fechaBusqueda, "dd/MM/yyyy", { locale: es })}
-                    </span>
-                  )}
-                  {fechaRangoAplicado.from && fechaRangoAplicado.to && (
-                    <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
-                      Rango: {format(fechaRangoAplicado.from, "dd/MM/yyyy", { locale: es })} - {format(fechaRangoAplicado.to, "dd/MM/yyyy", { locale: es })}
-                    </span>
-                  )}
-                  {!fechaBusqueda && !fechaRangoAplicado.from && !fechaRangoAplicado.to && (
-                    <span className="px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded">
-                      Todos los movimientos
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={limpiarFiltros}>
-                  Limpiar
-                </Button>
-              </div>
+          <CardContent className="pb-2">
+            <div className="text-xl font-bold text-red-600">Bs {totalEgresos.toFixed(2)}</div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-1">
+            <CardTitle className="text-xs font-medium text-muted-foreground">Total Ingresos</CardTitle>
+          </CardHeader>
+          <CardContent className="pb-2">
+            <div className="text-xl font-bold text-green-600">Bs {totalIngresos.toFixed(2)}</div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-1">
+            <CardTitle className="text-xs font-medium text-muted-foreground">Saldo Actual</CardTitle>
+          </CardHeader>
+          <CardContent className="pb-2">
+            <div className="text-xs text-muted-foreground mb-1">
+              Estado: <span className={`font-medium ${estadoCaja === 'abierta' ? 'text-green-600' : 'text-red-600'}`}>
+                {estadoCaja === 'abierta' ? 'ABIERTA' : 'CERRADA'}
+              </span>
+            </div>
+            <div className={`text-xl font-bold ${saldoActual >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              Bs {saldoActual.toFixed(2)}
+            </div>
+            <div className="text-xs text-muted-foreground mt-0.5">
+              Saldo filtrado: <span className={`font-medium ${saldoFiltrado >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                Bs {saldoFiltrado.toFixed(2)}
+              </span>
             </div>
           </CardContent>
         </Card>
-      )}
+      </div>
 
-      {/* Tabla de movimientos de caja */}
+      {/* Tabla de movimientos */}
       <Card>
-        <CardHeader>
-          <CardTitle>
-            {userRole === "Admin" ? "Movimientos de Caja" : "Mis Movimientos"} 
-            <span className="ml-2 text-sm font-normal text-muted-foreground">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm sm:text-base flex flex-wrap items-center gap-1 sm:gap-2">
+            {userRole === "Admin" ? "Movimientos de Caja" : "Mis Movimientos"}
+            <span className="text-xs font-normal text-muted-foreground">
               ({movimientosCaja.length} registros)
             </span>
           </CardTitle>
@@ -661,81 +586,67 @@ export function CajaView() {
               <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
               <span>Cargando movimientos...</span>
             </div>
+          ) : movimientosCaja.length === 0 ? (
+            <div className="text-center py-6">
+              <p className="text-muted-foreground text-sm">No se encontraron movimientos de caja</p>
+            </div>
           ) : (
             <div className="block md:overflow-x-auto">
               <Table>
                 <TableHeader className="hidden md:table-header-group">
                   <TableRow>
-                    <TableHead>Fecha</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Descripción</TableHead>
-                    {userRole === "Admin" && <TableHead>Empleado</TableHead>}
-                    <TableHead>Monto (Bs)</TableHead>
+                    <TableHead className="text-xs">Fecha</TableHead>
+                    <TableHead className="text-xs">Tipo</TableHead>
+                    <TableHead className="text-xs">Descripción</TableHead>
+                    {userRole === "Admin" && <TableHead className="text-xs">Empleado</TableHead>}
+                    <TableHead className="text-xs text-right">Monto (Bs)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {movimientosCaja.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={userRole === "Admin" ? 5 : 4} className="text-center py-8">
-                        <div className="flex flex-col items-center">
-                          <p className="text-muted-foreground mb-2">No se encontraron movimientos de caja</p>
-                          <p className="text-sm text-muted-foreground">
-                            {fechaBusqueda && `Para la fecha: ${format(fechaBusqueda, "dd/MM/yyyy", { locale: es })}`}
-                            {fechaRangoAplicado.from && fechaRangoAplicado.to && 
-                              `En el rango: ${format(fechaRangoAplicado.from, "dd/MM/yyyy", { locale: es })} - ${format(fechaRangoAplicado.to, "dd/MM/yyyy", { locale: es })}`}
-                            {filtroEmpleado !== "Todos" && ` - Empleado: ${filtroEmpleado}`}
-                          </p>
+                  {movimientosCaja.map((movimiento) => (
+                    <TableRow key={movimiento.idtransaccion} className="md:table-row block border-b p-3 md:p-0">
+                      <TableCell className="md:table-cell block md:border-0 border-0 p-0 mb-1.5 md:mb-0">
+                        <div className="md:hidden text-xs font-medium text-muted-foreground mb-0.5">FECHA</div>
+                        <div className="font-medium text-sm">
+                          {formatDateForDisplay(movimiento.fecha)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {formatTimeForDisplay(movimiento.fecha)}
+                        </div>
+                      </TableCell>
+                      <TableCell className="md:table-cell block md:border-0 border-0 p-0 mb-1.5 md:mb-0">
+                        <div className="md:hidden text-xs font-medium text-muted-foreground mb-0.5">TIPO</div>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium inline-block ${
+                          movimiento.tipo_movimiento === "Ingreso" || movimiento.tipo_movimiento === "Apertura"
+                            ? "bg-green-100 text-green-800" 
+                            : movimiento.tipo_movimiento === "Cierre"
+                            ? "bg-blue-100 text-blue-800"
+                            : "bg-red-100 text-red-800"
+                        }`}>
+                          {movimiento.tipo_movimiento}
+                        </span>
+                      </TableCell>
+                      <TableCell className="md:table-cell block md:border-0 border-0 p-0 mb-1.5 md:mb-0">
+                        <div className="md:hidden text-xs font-medium text-muted-foreground mb-0.5">DESCRIPCIÓN</div>
+                        <div className="text-sm">{movimiento.descripcion}</div>
+                      </TableCell>
+                      {userRole === "Admin" && (
+                        <TableCell className="md:table-cell block md:border-0 border-0 p-0 mb-1.5 md:mb-0">
+                          <div className="md:hidden text-xs font-medium text-muted-foreground mb-0.5">EMPLEADO</div>
+                          <div className="text-sm">{movimiento.empleado}</div>
+                        </TableCell>
+                      )}
+                      <TableCell className={`md:table-cell block md:border-0 border-0 p-0 font-medium ${
+                        movimiento.tipo_movimiento === "Ingreso" || movimiento.tipo_movimiento === "Apertura" ? "text-green-600" : 
+                        movimiento.tipo_movimiento === "Cierre" ? "text-blue-600" : "text-red-600"
+                      }`}>
+                        <div className="md:hidden text-xs font-medium text-muted-foreground mb-0.5">MONTO</div>
+                        <div className="text-base font-bold text-right md:text-left">
+                          {movimiento.tipo_movimiento === "Egreso" ? "-" : ""}Bs {movimiento.monto.toFixed(2)}
                         </div>
                       </TableCell>
                     </TableRow>
-                  ) : (
-                    movimientosCaja.map((movimiento) => (
-                      <TableRow key={movimiento.idtransaccion} className="md:table-row block border-b p-4 md:p-0">
-                        <TableCell className="md:table-cell block md:border-0 border-0 p-0 mb-2 md:mb-0">
-                          <div className="md:hidden font-semibold text-primary mb-1">Mov. #{movimiento.idtransaccion}</div>
-                          <div className="font-medium">
-                            {formatDateForDisplay(movimiento.fecha)}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {formatTimeForDisplay(movimiento.fecha)}
-                          </div>
-                        </TableCell>
-                        <TableCell className="md:table-cell block md:border-0 border-0 p-0 mb-2 md:mb-0">
-                          <div className="md:hidden text-xs font-medium text-muted-foreground mb-1">TIPO</div>
-                          <div className="flex justify-center md:justify-start">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              movimiento.tipo_movimiento === "Ingreso" || movimiento.tipo_movimiento === "Apertura"
-                                ? "bg-green-100 text-green-800" 
-                                : movimiento.tipo_movimiento === "Cierre"
-                                ? "bg-blue-100 text-blue-800"
-                                : "bg-red-100 text-red-800"
-                            }`}>
-                              {movimiento.tipo_movimiento}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="md:table-cell block md:border-0 border-0 p-0 mb-2 md:mb-0">
-                          <div className="md:hidden text-xs font-medium text-muted-foreground mb-1">DESCRIPCIÓN</div>
-                          <div className="text-center md:text-left">{movimiento.descripcion}</div>
-                        </TableCell>
-                        {userRole === "Admin" && (
-                          <TableCell className="md:table-cell block md:border-0 border-0 p-0 mb-2 md:mb-0">
-                            <div className="md:hidden text-xs font-medium text-muted-foreground mb-1">EMPLEADO</div>
-                            <div className="text-center md:text-left">{movimiento.empleado}</div>
-                          </TableCell>
-                        )}
-                        <TableCell className={`md:table-cell block md:border-0 border-0 p-0 font-medium ${
-                          movimiento.tipo_movimiento === "Ingreso" || movimiento.tipo_movimiento === "Apertura" ? "text-green-600" : 
-                          movimiento.tipo_movimiento === "Cierre" ? "text-blue-600" : "text-red-600"
-                        }`}>
-                          <div className="md:hidden text-xs font-medium text-muted-foreground mb-1">MONTO</div>
-                          <div className="text-lg font-bold text-center md:text-left">
-                            {movimiento.tipo_movimiento === "Egreso" ? "-" : ""}Bs {movimiento.monto.toFixed(2)}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
+                  ))}
                 </TableBody>
               </Table>
             </div>

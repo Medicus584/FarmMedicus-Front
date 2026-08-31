@@ -2,24 +2,22 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
-import { CalendarIcon, Download, Calendar as CalendarRangeIcon, Printer, Loader2, Check, X, Eye, ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarIcon, Download, Calendar as CalendarRangeIcon, Printer, Loader2, Check, X, Eye, ChevronLeft, ChevronRight, Filter, SlidersHorizontal } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { cn } from "@/lib/utils";
 import { getVentas, getTotalesVentas, getUsuariosVentas, getVentasHoyAsistente, getMedicos, Venta, VentasFiltros, TotalesVentas, BackendUsuario } from "@/api/VentasApi";
 import { getUserRole, getCurrentUser } from "@/api/AuthApi";
 import { PrintSalesHistory } from "./VentasPDF";
 import { VentasTablaPDF } from "./VentasTablaPDF";
 import { pdf } from "@react-pdf/renderer";
+import { cn } from "@/lib/utils";
 
 interface UsuarioOption {
   value: string;
@@ -96,6 +94,7 @@ export function VentasView() {
   const [error, setError] = useState<string | null>(null);
   const [datosCargados, setDatosCargados] = useState(false);
   const [generandoPDF, setGenerandoPDF] = useState(false);
+  const [mostrarFiltros, setMostrarFiltros] = useState(false);
 
   // Estados para filtros
   const [filtroEmpleado, setFiltroEmpleado] = useState("Todos");
@@ -345,13 +344,22 @@ export function VentasView() {
     setMostrarRango(false);
   };
 
+  const contarFiltrosActivos = () => {
+    let count = 0;
+    if (filtroEmpleado !== "Todos") count++;
+    if (filtroMetodo !== "Todos") count++;
+    if (filtroMedico !== "Todos") count++;
+    if (fechaBusqueda && format(fechaBusqueda, "yyyy-MM-dd") !== format(fechaBoliviaHoy, "yyyy-MM-dd")) count++;
+    if (fechaRangoAplicado.from || fechaRangoAplicado.to) count++;
+    return count;
+  };
+
   // Función para imprimir directamente usando PrintSalesHistory
   const imprimirVenta = (venta: Venta) => {
-    // Convertir la venta al formato que espera PrintSalesHistory
     const ventaData = {
       codigoVenta: String(venta.id),
       clientName: "",
-      fechaVenta: typeof venta.fecha === 'string' ? venta.fecha : venta.fecha.toISOString(), // Convertir a string
+      fechaVenta: typeof venta.fecha === 'string' ? venta.fecha : venta.fecha.toISOString(),
       sistemaLente: "",
       materialName: "",
       frameName: "",
@@ -450,84 +458,83 @@ export function VentasView() {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+    <div className="space-y-4">
+      {/* Header con título y botones */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-primary">Historial de Ventas</h1>
-        <Button
-          onClick={handleExportarPDF}
-          disabled={ventasFiltradas.length === 0 || generandoPDF}
-          className="flex items-center gap-2 w-full sm:w-auto text-sm sm:text-base"
-          size={esMovil ? "sm" : "default"}
-        >
-          {generandoPDF ? (
+        <div className="flex items-center gap-2 flex-wrap">
+          {!isAssistant && (
             <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <span className="hidden xs:inline">Generando PDF...</span>
-              <span className="xs:hidden">PDF...</span>
-            </>
-          ) : (
-            <>
-              <Download className="h-4 w-4" />
-              <span className="hidden xs:inline">Exportar PDF</span>
-              <span className="xs:hidden">PDF</span>
+              <Button
+                variant={mostrarFiltros ? "default" : "outline"}
+                onClick={() => setMostrarFiltros(!mostrarFiltros)}
+                className="flex items-center gap-1.5 h-8 text-sm"
+                size="sm"
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                <span>Filtros</span>
+                {contarFiltrosActivos() > 0 && (
+                  <Badge variant="secondary" className="ml-0.5 h-5 px-1.5 text-[10px]">
+                    {contarFiltrosActivos()}
+                  </Badge>
+                )}
+              </Button>
+              {contarFiltrosActivos() > 0 && (
+                <Button
+                  variant="ghost"
+                  onClick={limpiarFiltros}
+                  className="h-8 text-xs px-2 text-muted-foreground hover:text-foreground"
+                  size="sm"
+                >
+                  <X className="h-3 w-3 mr-1" />
+                  Limpiar
+                </Button>
+              )}
             </>
           )}
-        </Button>
+          <Button
+            onClick={handleExportarPDF}
+            disabled={ventasFiltradas.length === 0 || generandoPDF}
+            className="flex items-center gap-2 h-8 text-sm"
+            size="sm"
+          >
+            {generandoPDF ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span>Generando...</span>
+              </>
+            ) : (
+              <>
+                <Download className="h-3.5 w-3.5" />
+                <span className="hidden xs:inline">Exportar PDF</span>
+                <span className="xs:hidden">PDF</span>
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 sm:px-4 sm:py-3 rounded text-sm">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
           {error}
         </div>
       )}
 
-      {/* Cards de totales */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
-        <Card className="w-full">
-          <CardHeader className="pb-1 sm:pb-2">
-            <CardTitle className="text-xs sm:text-sm font-medium">Total General</CardTitle>
-          </CardHeader>
-          <CardContent className="pb-2 sm:pb-4">
-            <div className="text-base sm:text-xl md:text-2xl font-bold text-primary">Bs {totales.totalGeneral.toFixed(2)}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="w-full">
-          <CardHeader className="pb-1 sm:pb-2">
-            <CardTitle className="text-xs sm:text-sm font-medium">Total Efectivo</CardTitle>
-          </CardHeader>
-          <CardContent className="pb-2 sm:pb-4">
-            <div className="text-base sm:text-xl md:text-2xl font-bold text-green-600">Bs {totales.totalEfectivo.toFixed(2)}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="w-full">
-          <CardHeader className="pb-1 sm:pb-2">
-            <CardTitle className="text-xs sm:text-sm font-medium">Total QR</CardTitle>
-          </CardHeader>
-          <CardContent className="pb-2 sm:pb-4">
-            <div className="text-base sm:text-xl md:text-2xl font-bold text-blue-600">Bs {totales.totalQR.toFixed(2)}</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filtros - Solo para Admin */}
-      {!isAssistant && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 sm:pb-3">
-            <CardTitle className="text-sm sm:text-base">Filtros</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
-              <div>
-                <label className="text-xs sm:text-sm font-medium">Empleado</label>
+      {/* Panel de filtros colapsable */}
+      {!isAssistant && mostrarFiltros && (
+        <Card className="border-2">
+          <CardContent className="pt-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              {/* Empleado */}
+              <div className="space-y-1">
+                <Label className="text-xs font-medium text-muted-foreground">Empleado</Label>
                 <Select value={filtroEmpleado} onValueChange={setFiltroEmpleado}>
-                  <SelectTrigger className="h-8 sm:h-10 text-xs sm:text-sm">
-                    <SelectValue />
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue placeholder="Todos" />
                   </SelectTrigger>
                   <SelectContent>
                     {empleadosOptions.map(empleado => (
-                      <SelectItem key={empleado.value} value={empleado.value} className="text-xs sm:text-sm">
+                      <SelectItem key={empleado.value} value={empleado.value} className="text-sm">
                         {empleado.label}
                       </SelectItem>
                     ))}
@@ -535,11 +542,12 @@ export function VentasView() {
                 </Select>
               </div>
 
-              <div>
-                <label className="text-xs sm:text-sm font-medium">Método de Pago</label>
+              {/* Método de Pago */}
+              <div className="space-y-1">
+                <Label className="text-xs font-medium text-muted-foreground">Método</Label>
                 <Select value={filtroMetodo} onValueChange={setFiltroMetodo}>
-                  <SelectTrigger className="h-8 sm:h-10 text-xs sm:text-sm">
-                    <SelectValue />
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue placeholder="Todos" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Todos">Todos</SelectItem>
@@ -549,15 +557,16 @@ export function VentasView() {
                 </Select>
               </div>
 
-              <div>
-                <label className="text-xs sm:text-sm font-medium">Médico</label>
+              {/* Médico */}
+              <div className="space-y-1">
+                <Label className="text-xs font-medium text-muted-foreground">Médico</Label>
                 <Select value={filtroMedico} onValueChange={setFiltroMedico}>
-                  <SelectTrigger className="h-8 sm:h-10 text-xs sm:text-sm">
-                    <SelectValue placeholder="Seleccionar médico" />
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue placeholder="Todos" />
                   </SelectTrigger>
                   <SelectContent>
                     {medicosOptions.map(medico => (
-                      <SelectItem key={medico} value={medico} className="text-xs sm:text-sm">
+                      <SelectItem key={medico} value={medico} className="text-sm">
                         {medico}
                       </SelectItem>
                     ))}
@@ -565,12 +574,13 @@ export function VentasView() {
                 </Select>
               </div>
 
-              <div>
-                <label className="text-xs sm:text-sm font-medium">Fecha</label>
+              {/* Fecha específica */}
+              <div className="space-y-1">
+                <Label className="text-xs font-medium text-muted-foreground">Fecha</Label>
                 <Popover open={mostrarCalendario} onOpenChange={setMostrarCalendario}>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal h-8 sm:h-10 text-xs sm:text-sm">
-                      <CalendarIcon className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                    <Button variant="outline" className="w-full justify-start text-left font-normal h-9 text-sm">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
                       <span className="truncate">
                         {fechaBusqueda ? format(fechaBusqueda, "dd/MM/yyyy", { locale: es }) : "Seleccionar"}
                       </span>
@@ -582,22 +592,23 @@ export function VentasView() {
                       selected={fechaBusqueda}
                       onSelect={handleFechaBusquedaChange}
                       initialFocus
-                      className="p-2 sm:p-3 pointer-events-auto"
+                      className="p-3 pointer-events-auto"
                       disabled={(date) => date > new Date()}
                     />
                   </PopoverContent>
                 </Popover>
               </div>
 
-              <div>
-                <label className="text-xs sm:text-sm font-medium">Rango</label>
+              {/* Rango de fechas */}
+              <div className="space-y-1">
+                <Label className="text-xs font-medium text-muted-foreground">Rango</Label>
                 <Popover open={mostrarRango} onOpenChange={setMostrarRango}>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal h-8 sm:h-10 text-xs sm:text-sm">
-                      <CalendarRangeIcon className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                      <span className="truncate text-xs sm:text-sm">
+                    <Button variant="outline" className="w-full justify-start text-left font-normal h-9 text-sm">
+                      <CalendarRangeIcon className="mr-2 h-4 w-4" />
+                      <span className="truncate text-sm">
                         {fechaRangoAplicado.from && fechaRangoAplicado.to ?
-                          `${format(fechaRangoAplicado.from, "dd/MM/yyyy", { locale: es })} - ${format(fechaRangoAplicado.to, "dd/MM/yyyy", { locale: es })}` :
+                          `${format(fechaRangoAplicado.from, "dd/MM/yy", { locale: es })} - ${format(fechaRangoAplicado.to, "dd/MM/yy", { locale: es })}` :
                           "Seleccionar rango"
                         }
                       </span>
@@ -610,27 +621,27 @@ export function VentasView() {
                         selected={fechaRangoTemp}
                         onSelect={handleRangoTempChange}
                         numberOfMonths={1}
-                        className="p-2 sm:p-3 pointer-events-auto"
+                        className="p-3 pointer-events-auto"
                         disabled={(date) => date > new Date()}
                       />
-                      <div className="flex justify-end gap-2 p-2 sm:p-3 border-t">
+                      <div className="flex justify-end gap-2 p-3 border-t">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={cancelarRangoFechas}
                           disabled={!fechaRangoTemp.from && !fechaRangoTemp.to}
-                          className="h-7 sm:h-8 text-xs"
+                          className="h-8 text-sm"
                         >
-                          <X className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                          <X className="h-4 w-4 mr-1" />
                           Cancelar
                         </Button>
                         <Button
                           size="sm"
                           onClick={aplicarRangoFechas}
                           disabled={!fechaRangoTemp.from || !fechaRangoTemp.to}
-                          className="h-7 sm:h-8 text-xs"
+                          className="h-8 text-sm"
                         >
-                          <Check className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                          <Check className="h-4 w-4 mr-1" />
                           Aplicar
                         </Button>
                       </div>
@@ -639,72 +650,98 @@ export function VentasView() {
                 </Popover>
               </div>
 
+              {/* Botón limpiar */}
               <div className="flex items-end">
-                <Button variant="outline" onClick={limpiarFiltros} className="w-full h-8 sm:h-10 text-xs sm:text-sm">
-                  Limpiar Filtros
+                <Button
+                  variant="outline"
+                  onClick={limpiarFiltros}
+                  className="w-full h-9 text-sm"
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Limpiar todo
                 </Button>
               </div>
             </div>
 
-            {/* Indicador de filtros activos */}
-            <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t">
-              <div className="flex flex-wrap gap-1 sm:gap-2 text-xs sm:text-sm text-muted-foreground">
-                <span className="hidden xs:inline">Filtros activos:</span>
-                {fechaBusqueda && (
-                  <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-blue-100 text-blue-800 text-[10px] sm:text-xs rounded">
-                    Fecha: {format(fechaBusqueda, "dd/MM/yyyy", { locale: es })}
-                  </span>
-                )}
-                {fechaRangoAplicado.from && fechaRangoAplicado.to && (
-                  <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-blue-100 text-blue-800 text-[10px] sm:text-xs rounded">
-                    Rango: {format(fechaRangoAplicado.from, "dd/MM/yyyy", { locale: es })} - {format(fechaRangoAplicado.to, "dd/MM/yyyy", { locale: es })}
-                  </span>
-                )}
+            {/* Filtros activos */}
+            {contarFiltrosActivos() > 0 && (
+              <div className="mt-3 pt-3 border-t flex flex-wrap gap-1.5">
+                <span className="text-xs text-muted-foreground mr-1">Filtros activos:</span>
                 {filtroEmpleado !== "Todos" && (
-                  <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-blue-100 text-blue-800 text-[10px] sm:text-xs rounded">
-                    Empleado: {empleadosOptions.find(e => e.value === filtroEmpleado)?.label}
-                  </span>
+                  <Badge variant="secondary" className="text-xs">
+                    {empleadosOptions.find(e => e.value === filtroEmpleado)?.label}
+                  </Badge>
                 )}
                 {filtroMetodo !== "Todos" && (
-                  <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-blue-100 text-blue-800 text-[10px] sm:text-xs rounded">
+                  <Badge variant="secondary" className="text-xs">
                     {filtroMetodo}
-                  </span>
+                  </Badge>
                 )}
                 {filtroMedico !== "Todos" && (
-                  <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-blue-100 text-blue-800 text-[10px] sm:text-xs rounded">
-                    Médico: {filtroMedico}
-                  </span>
+                  <Badge variant="secondary" className="text-xs">
+                    {filtroMedico}
+                  </Badge>
                 )}
-                {!fechaBusqueda && !fechaRangoAplicado.from && !fechaRangoAplicado.to && filtroEmpleado === "Todos" && filtroMetodo === "Todos" && filtroMedico === "Todos" && (
-                  <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-gray-100 text-gray-800 text-[10px] sm:text-xs rounded">
-                    Ventas de hoy
-                  </span>
+                {fechaBusqueda && (
+                  <Badge variant="secondary" className="text-xs">
+                    📅 {format(fechaBusqueda, "dd/MM/yyyy", { locale: es })}
+                  </Badge>
+                )}
+                {fechaRangoAplicado.from && fechaRangoAplicado.to && (
+                  <Badge variant="secondary" className="text-xs">
+                    📅 {format(fechaRangoAplicado.from, "dd/MM/yyyy", { locale: es })} - {format(fechaRangoAplicado.to, "dd/MM/yyyy", { locale: es })}
+                  </Badge>
                 )}
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       )}
 
       {/* Información para asistentes */}
       {isAssistant && (
+        <div className="bg-muted/30 px-4 py-2 rounded-lg border text-center text-sm">
+          <p className="font-medium">Mostrando tus ventas de hoy - {formatDateForDisplay(fechaBoliviaHoy)}</p>
+          <p className="text-xs text-muted-foreground">Usuario: {currentUser?.nombres} {currentUser?.apellidos}</p>
+        </div>
+      )}
+
+      {/* Cards de totales */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Card>
-          <CardContent className="pt-4 sm:pt-6">
-            <div className="text-center text-muted-foreground text-sm sm:text-base">
-              <p className="text-base sm:text-lg font-medium">Mostrando tus ventas de hoy</p>
-              <p className="text-xs sm:text-sm">{formatDateForDisplay(fechaBoliviaHoy)}</p>
-              <p className="text-xs sm:text-sm mt-1 sm:mt-2">Usuario: {currentUser?.nombres} {currentUser?.apellidos}</p>
-            </div>
+          <CardHeader className="pb-1">
+            <CardTitle className="text-xs font-medium text-muted-foreground">Total General</CardTitle>
+          </CardHeader>
+          <CardContent className="pb-2">
+            <div className="text-xl font-bold text-primary">Bs {totales.totalGeneral.toFixed(2)}</div>
           </CardContent>
         </Card>
-      )}
+
+        <Card>
+          <CardHeader className="pb-1">
+            <CardTitle className="text-xs font-medium text-muted-foreground">Total Efectivo</CardTitle>
+          </CardHeader>
+          <CardContent className="pb-2">
+            <div className="text-xl font-bold text-green-600">Bs {totales.totalEfectivo.toFixed(2)}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-1">
+            <CardTitle className="text-xs font-medium text-muted-foreground">Total QR</CardTitle>
+          </CardHeader>
+          <CardContent className="pb-2">
+            <div className="text-xl font-bold text-blue-600">Bs {totales.totalQR.toFixed(2)}</div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Tabla de ventas */}
       <Card>
-        <CardHeader className="pb-2 sm:pb-3">
-          <CardTitle className="text-sm sm:text-base md:text-lg flex flex-wrap items-center gap-1 sm:gap-2">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm sm:text-base flex flex-wrap items-center gap-1 sm:gap-2">
             Registro de Ventas
-            <span className="text-xs sm:text-sm font-normal text-muted-foreground">
+            <span className="text-xs font-normal text-muted-foreground">
               ({ventasFiltradas.length} registros)
             </span>
             {esMovil && ventasFiltradas.length > 0 && (
@@ -721,28 +758,16 @@ export function VentasView() {
               <span>Cargando ventas...</span>
             </div>
           ) : ventasFiltradas.length === 0 ? (
-            <div className="text-center py-6 sm:py-8">
-              <div className="flex flex-col items-center">
-                <p className="text-muted-foreground mb-2 text-sm sm:text-base">No se encontraron ventas</p>
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  {fechaBusqueda && `Para la fecha: ${format(fechaBusqueda, "dd/MM/yyyy", { locale: es })}`}
-                  {fechaRangoAplicado.from && fechaRangoAplicado.to &&
-                    `En el rango: ${format(fechaRangoAplicado.from, "dd/MM/yyyy", { locale: es })} - ${format(fechaRangoAplicado.to, "dd/MM/yyyy", { locale: es })}`}
-                  {filtroEmpleado !== "Todos" && ` - Empleado: ${empleadosOptions.find(e => e.value === filtroEmpleado)?.label}`}
-                  {filtroMetodo !== "Todos" && ` - Método: ${filtroMetodo}`}
-                  {filtroMedico !== "Todos" && ` - Médico: ${filtroMedico}`}
-                </p>
-              </div>
+            <div className="text-center py-6">
+              <p className="text-muted-foreground text-sm">No se encontraron ventas</p>
             </div>
           ) : (
             <>
-              {/* Vista móvil: Tarjetas */}
               {esMovil ? (
                 <div className="space-y-2">
                   {ventasPaginadas.map(renderMobileCard)}
                 </div>
               ) : (
-                /* Vista desktop: Tabla */
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
@@ -770,59 +795,42 @@ export function VentasView() {
                               {formatTimeForDisplay(venta.fecha)}
                             </div>
                           </TableCell>
-
-                          <TableCell className="text-sm py-2">
-                            {venta.usuario}
-                          </TableCell>
-
+                          <TableCell className="text-sm py-2">{venta.usuario}</TableCell>
                           <TableCell className="text-sm py-2">
                             <div className="text-sm leading-relaxed line-clamp-2">
                               {venta.descripcion}
                             </div>
                           </TableCell>
-
                           <TableCell className="py-2">
                             {venta.medico ? (
                               <Badge variant="outline" className="text-xs">
                                 {venta.medico}
                               </Badge>
                             ) : (
-                              <span className="text-xs text-muted-foreground">No registrado</span>
+                              <span className="text-xs text-muted-foreground">—</span>
                             )}
                           </TableCell>
-
-                          <TableCell className="text-right text-sm py-2">
-                            Bs {venta.subtotal.toFixed(2)}
-                          </TableCell>
-
-                          <TableCell className="text-right text-sm py-2">
-                            Bs {venta.descuento.toFixed(2)}
-                          </TableCell>
-
+                          <TableCell className="text-right text-sm py-2">Bs {venta.subtotal.toFixed(2)}</TableCell>
+                          <TableCell className="text-right text-sm py-2">Bs {venta.descuento.toFixed(2)}</TableCell>
                           <TableCell className="text-right font-medium py-2">
-                            <span className="text-sm font-bold text-primary">
-                              Bs {venta.total.toFixed(2)}
-                            </span>
+                            <span className="text-sm font-bold text-primary">Bs {venta.total.toFixed(2)}</span>
                           </TableCell>
-
                           <TableCell className="py-2">
                             <Badge variant={venta.metodo === "Efectivo" ? "default" : "secondary"} className="text-xs">
                               {venta.metodo}
                             </Badge>
                           </TableCell>
-
                           <TableCell className="py-2">
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() => imprimirVenta(venta)}
-                              className="flex items-center gap-1 h-8 text-xs"
+                              className="flex items-center gap-1 h-7 text-xs px-2"
                             >
-                              <Printer className="h-3.5 w-3.5" />
+                              <Printer className="h-3 w-3" />
                               <span className="hidden sm:inline">Imprimir</span>
                             </Button>
                           </TableCell>
-
                           <TableCell className="py-2">
                             <Button
                               size="sm"
@@ -831,9 +839,9 @@ export function VentasView() {
                                 setVentaSeleccionada(venta);
                                 setMostrarDetalle(true);
                               }}
-                              className="flex items-center gap-1 h-8 w-8 sm:w-auto"
+                              className="flex items-center gap-1 h-7 w-7 sm:w-auto px-2"
                             >
-                              <Eye className="h-3.5 w-3.5" />
+                              <Eye className="h-3 w-3" />
                               <span className="hidden sm:inline">Detalle</span>
                             </Button>
                           </TableCell>
@@ -844,7 +852,6 @@ export function VentasView() {
                 </div>
               )}
 
-              {/* Paginación */}
               {ventasFiltradas.length > itemsPorPagina && (
                 <div className="flex items-center justify-between gap-2 mt-4 pt-3 border-t">
                   <div className="text-xs text-muted-foreground">
@@ -860,12 +867,12 @@ export function VentasView() {
                       size="sm"
                       onClick={() => setPaginaActual(p => Math.max(1, p - 1))}
                       disabled={paginaActual === 1}
-                      className="h-8 w-8 sm:w-auto px-1 sm:px-3"
+                      className="h-7 w-7 sm:w-auto px-1 sm:px-3"
                     >
-                      <ChevronLeft className="h-4 w-4" />
-                      <span className="hidden sm:inline">Anterior</span>
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline text-xs">Anterior</span>
                     </Button>
-                    <span className="text-xs sm:text-sm px-2">
+                    <span className="text-xs px-2">
                       {paginaActual} / {totalPaginas}
                     </span>
                     <Button
@@ -873,10 +880,10 @@ export function VentasView() {
                       size="sm"
                       onClick={() => setPaginaActual(p => Math.min(totalPaginas, p + 1))}
                       disabled={paginaActual === totalPaginas}
-                      className="h-8 w-8 sm:w-auto px-1 sm:px-3"
+                      className="h-7 w-7 sm:w-auto px-1 sm:px-3"
                     >
-                      <span className="hidden sm:inline">Siguiente</span>
-                      <ChevronRight className="h-4 w-4" />
+                      <span className="hidden sm:inline text-xs">Siguiente</span>
+                      <ChevronRight className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 </div>
@@ -886,15 +893,15 @@ export function VentasView() {
         </CardContent>
       </Card>
 
-      {/* Dialog para detalle de venta - Solo vista, sin impresión */}
+      {/* Dialog para detalle de venta */}
       <Dialog open={mostrarDetalle} onOpenChange={setMostrarDetalle}>
         <DialogContent className="max-w-[95vw] sm:max-w-3xl md:max-w-4xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="text-base sm:text-lg">Detalle de Venta</DialogTitle>
           </DialogHeader>
 
-          <div id="detalle-venta" className="space-y-4 sm:space-y-6">
-            <div className="info-cliente space-y-1 sm:space-y-2 text-sm sm:text-base">
+          <div className="space-y-4">
+            <div className="space-y-1 text-sm">
               <p><strong>Fecha:</strong> {ventaSeleccionada ? `${formatDateForDisplay(ventaSeleccionada.fecha)} ${formatTimeForDisplay(ventaSeleccionada.fecha)}` : ""}</p>
               <p><strong>Dirección:</strong> Av. Heroinas esq. Hamiraya #316</p>
               <p><strong>Números:</strong> 77950297 - 77918672</p>
@@ -903,44 +910,44 @@ export function VentasView() {
               )}
             </div>
 
-            <div className="descripcion-venta bg-muted/50 p-3 sm:p-4 rounded-lg">
-              <h3 className="font-semibold mb-1 sm:mb-2 text-sm sm:text-base">Descripción de la Venta:</h3>
-              <p className="text-xs sm:text-sm">{ventaSeleccionada?.descripcion}</p>
+            <div className="bg-muted/50 p-3 rounded-lg">
+              <h3 className="font-semibold mb-1 text-sm">Descripción de la Venta:</h3>
+              <p className="text-sm">{ventaSeleccionada?.descripcion}</p>
             </div>
             {ventaSeleccionada?.descripcion_descuento && (
-              <div className="descripcion-venta bg-muted/50 p-3 sm:p-4 rounded-lg">
-                <h3 className="font-semibold mb-1 sm:mb-2 text-sm sm:text-base">Descripción del descuento:</h3>
-                <p className="text-xs sm:text-sm">{ventaSeleccionada?.descripcion_descuento}</p>
+              <div className="bg-muted/50 p-3 rounded-lg">
+                <h3 className="font-semibold mb-1 text-sm">Descripción del descuento:</h3>
+                <p className="text-sm">{ventaSeleccionada?.descripcion_descuento}</p>
               </div>
             )}
 
             {ventaSeleccionada?.detalle && ventaSeleccionada.detalle.length > 0 && (
-              <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
+              <div className="flex flex-col lg:flex-row gap-4">
                 <div className="flex-1 overflow-x-auto">
-                  <h3 className="font-semibold mb-2 text-sm sm:text-base">Productos:</h3>
+                  <h3 className="font-semibold mb-2 text-sm">Productos:</h3>
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="text-xs sm:text-sm">Producto</TableHead>
-                        <TableHead className="text-xs sm:text-sm text-right">Precio</TableHead>
-                        <TableHead className="text-xs sm:text-sm text-center">Cantidad</TableHead>
-                        <TableHead className="text-xs sm:text-sm text-right">Total</TableHead>
+                        <TableHead className="text-xs">Producto</TableHead>
+                        <TableHead className="text-xs text-right">Precio</TableHead>
+                        <TableHead className="text-xs text-center">Cantidad</TableHead>
+                        <TableHead className="text-xs text-right">Total</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {ventaSeleccionada.detalle.map((item, index) => (
                         <TableRow key={index}>
-                          <TableCell className="text-xs sm:text-sm">{item.producto}</TableCell>
-                          <TableCell className="text-xs sm:text-sm text-right">Bs {item.precio_unitario.toFixed(2)}</TableCell>
-                          <TableCell className="text-xs sm:text-sm text-center">{item.cantidad}</TableCell>
-                          <TableCell className="text-xs sm:text-sm text-right">Bs {(item.precio_unitario * item.cantidad).toFixed(2)}</TableCell>
+                          <TableCell className="text-sm">{item.producto}</TableCell>
+                          <TableCell className="text-sm text-right">Bs {item.precio_unitario.toFixed(2)}</TableCell>
+                          <TableCell className="text-sm text-center">{item.cantidad}</TableCell>
+                          <TableCell className="text-sm text-right">Bs {(item.precio_unitario * item.cantidad).toFixed(2)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
                 </div>
 
-                <div className="totales w-full lg:w-48">
+                <div className="w-full lg:w-48">
                   <Table>
                     <TableBody>
                       <TableRow>
@@ -962,7 +969,7 @@ export function VentasView() {
             )}
           </div>
 
-          <div className="flex justify-end mt-4 sm:mt-6">
+          <div className="flex justify-end mt-4">
             <Button onClick={() => {
               if (ventaSeleccionada) imprimirVenta(ventaSeleccionada);
             }} className="flex items-center gap-2 text-sm">

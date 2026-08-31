@@ -113,7 +113,7 @@ export const getImageUrl = (imagen: any): string | null => {
   return 'https://static.vecteezy.com/system/resources/previews/011/781/801/non_2x/medicine-3d-render-icon-illustration-png.png';
 };
 
-// Componente DoctorSelect - solo nombre
+// Componente DoctorSelect - con botón + en el campo de búsqueda
 export const DoctorSelect = ({
   selectedDoctor,
   onDoctorChange,
@@ -134,6 +134,7 @@ export const DoctorSelect = ({
   const [doctorToDelete, setDoctorToDelete] = useState<Doctor | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const { toast } = useToast();
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const loadDoctors = async () => {
     try {
@@ -274,6 +275,11 @@ export const DoctorSelect = ({
     setShowDeleteDialog(true);
   };
 
+  const openAddDialog = () => {
+    setShowAddDialog(true);
+    setIsOpen(false);
+  };
+
   return (
     <div className="space-y-1.5">
       {/* Diálogo de confirmación para eliminar */}
@@ -304,34 +310,44 @@ export const DoctorSelect = ({
         </AlertDialogContent>
       </AlertDialog>
 
-      <div className="flex items-center justify-between">
-        <Label className="text-sm font-medium">Doctor</Label>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className="h-6 w-6 p-0"
-          onClick={() => setShowAddDialog(true)}
-          title="Agregar doctor"
-        >
-          <Plus className="h-3.5 w-3.5" />
-        </Button>
-      </div>
-
-      {/* Buscador con dropdown - SOLO si NO hay doctor seleccionado */}
+      {/* Buscador con dropdown y botón + integrado - SOLO si NO hay doctor seleccionado */}
       {!selectedDoctor && (
         <div className="relative">
-          <Input
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              setIsOpen(true);
-            }}
-            onFocus={() => setIsOpen(true)}
-            onBlur={() => setTimeout(() => setIsOpen(false), 200)}
-            placeholder="Buscar doctor..."
-            className="h-9 text-sm"
-          />
+          <div className="flex items-center gap-1.5">
+            <div className="relative flex-1">
+              <Input
+                ref={searchInputRef}
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setIsOpen(true);
+                }}
+                onFocus={() => setIsOpen(true)}
+                onBlur={() => setTimeout(() => setIsOpen(false), 200)}
+                placeholder="Buscar doctor..."
+                className="h-9 text-sm pr-8"
+              />
+              {searchTerm.length > 0 && (
+                <button
+                  type="button"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setSearchTerm("")}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-9 w-9 p-0 flex-shrink-0"
+              onClick={openAddDialog}
+              title="Agregar doctor"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
           
           {/* Dropdown de resultados */}
           {isOpen && searchTerm.length > 0 && (
@@ -401,10 +417,7 @@ export const DoctorSelect = ({
                     variant="link"
                     size="sm"
                     className="ml-2 h-auto p-0 text-primary"
-                    onMouseDown={() => {
-                      setShowAddDialog(true);
-                      setIsOpen(false);
-                    }}
+                    onMouseDown={openAddDialog}
                   >
                     Agregar nuevo
                   </Button>
@@ -418,13 +431,13 @@ export const DoctorSelect = ({
       {/* Doctor seleccionado - SOLO muestra el nombre y botón para deseleccionar */}
       {selectedDoctor && (
         <div className="flex items-center gap-2 bg-primary/5 border border-primary/20 p-2 rounded-lg">
-          <User className="h-4 w-4 text-primary" />
-          <span className="text-sm flex-1 font-medium text-primary">{selectedDoctor.nombre}</span>
+          <User className="h-4 w-4 text-primary flex-shrink-0" />
+          <span className="text-sm flex-1 font-medium text-primary truncate">{selectedDoctor.nombre}</span>
           <Button
             type="button"
             size="sm"
             variant="ghost"
-            className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+            className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive flex-shrink-0"
             onClick={handleDeselect}
             title="Deseleccionar doctor"
           >

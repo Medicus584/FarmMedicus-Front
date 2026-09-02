@@ -32,7 +32,7 @@ interface BackendVenta {
   usuario_nombre: string;
   usuario_apellidos: string;
   usuario_usuario: string;
-  medico?: string; // Campo opcional para el médico
+  medico?: string;
   detalle: BackendDetalleVenta[];
 }
 
@@ -53,7 +53,7 @@ export interface Venta {
   usuario_login: string;
   descripcion: string;
   descripcion_descuento?: string;
-  medico?: string; // Campo opcional para el médico
+  medico?: string;
   detalle: DetalleVenta[];
   subtotal: number;
   descuento: number;
@@ -74,6 +74,12 @@ export interface TotalesVentas {
   totalGeneral: number;
   totalEfectivo: number;
   totalQR: number;
+}
+
+// NUEVA INTERFAZ - Total Inversión y Ganancia
+export interface TotalesInversionGanancia {
+  total_invertido: number;
+  total_ganado: number;
 }
 
 const api = axios.create({
@@ -101,6 +107,7 @@ export const getUsuariosVentas = async (): Promise<BackendUsuario[]> => {
     return response.data;
   } catch (error) {
     console.error("Error fetching usuarios:", error);
+    return [];
   }
 };
 
@@ -203,6 +210,50 @@ export const getTotalesVentas = async (filtros?: VentasFiltros): Promise<Totales
   }
 };
 
+// NUEVA FUNCIÓN - Total Inversión y Ganancia
+export const getTotalesInversionGanancia = async (filtros?: VentasFiltros): Promise<TotalesInversionGanancia> => {
+  try {
+    const params: any = {};
+    
+    if (filtros?.empleado && filtros.empleado !== "Todos") {
+      params.empleado = filtros.empleado;
+    }
+    
+    if (filtros?.metodo && filtros.metodo !== "Todos") {
+      params.metodo = filtros.metodo;
+    }
+    
+    if (filtros?.medico && filtros.medico !== "Todos") {
+      params.medico = filtros.medico;
+    }
+    
+    if (filtros?.fechaEspecifica) {
+      params.fechaEspecifica = formatDateForAPI(filtros.fechaEspecifica);
+    }
+    
+    if (filtros?.fechaInicio && filtros?.fechaFin) {
+      params.fechaInicio = formatDateForAPI(filtros.fechaInicio);
+      params.fechaFin = formatDateForAPI(filtros.fechaFin);
+    }
+
+    const response = await api.get<{
+      total_invertido: string;
+      total_ganado: string;
+    }>("/ventas/totales-inversion-ganancia", { params });
+    
+    return {
+      total_invertido: parseFloat(response.data.total_invertido),
+      total_ganado: parseFloat(response.data.total_ganado)
+    };
+  } catch (error) {
+    console.error("Error fetching totales inversion ganancia:", error);
+    return {
+      total_invertido: 0,
+      total_ganado: 0
+    };
+  }
+};
+
 export const getVentasHoyAsistente = async (username: string): Promise<Venta[]> => {
   try {
     const response = await api.get<BackendVenta[]>(`/ventas/ventas/hoy/${username}`);
@@ -242,6 +293,7 @@ const formatDateForAPI = (date: Date): string => {
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
+
 export const anularVenta = async (id: number): Promise<{ success: boolean; message: string; data: any }> => {
   try {
     const response = await api.delete(`/ventas/${id}/anular`);

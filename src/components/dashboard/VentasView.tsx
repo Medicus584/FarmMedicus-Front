@@ -12,7 +12,20 @@ import { Label } from "@/components/ui/label";
 import { CalendarIcon, Download, Calendar as CalendarRangeIcon, Printer, Loader2, Check, X, Eye, ChevronLeft, ChevronRight, Filter, SlidersHorizontal, AlertTriangle, XCircle } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { getVentas, getTotalesVentas, getUsuariosVentas, getVentasHoyAsistente, getMedicos, Venta, VentasFiltros, TotalesVentas, BackendUsuario, anularVenta } from "@/api/VentasApi";
+import { 
+  getVentas, 
+  getTotalesVentas, 
+  getUsuariosVentas, 
+  getVentasHoyAsistente, 
+  getMedicos, 
+  Venta, 
+  VentasFiltros, 
+  TotalesVentas, 
+  BackendUsuario, 
+  anularVenta,
+  getTotalesInversionGanancia,
+  TotalesInversionGanancia
+} from "@/api/VentasApi";
 import { getUserRole, getCurrentUser } from "@/api/AuthApi";
 import { PrintSalesHistory } from "./VentasPDF";
 import { VentasTablaPDF } from "./VentasTablaPDF";
@@ -92,6 +105,10 @@ export function VentasView() {
   const [medicosOptions, setMedicosOptions] = useState<string[]>(["Todos"]);
   const [ventasFiltradas, setVentasFiltradas] = useState<Venta[]>([]);
   const [totales, setTotales] = useState<TotalesVentas>({ totalGeneral: 0, totalEfectivo: 0, totalQR: 0 });
+  const [totalesInversionGanancia, setTotalesInversionGanancia] = useState<TotalesInversionGanancia>({
+    total_invertido: 0,
+    total_ganado: 0
+  });
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -211,6 +228,7 @@ export function VentasView() {
 
       let ventas: Venta[] = [];
       let totalesData: TotalesVentas = { totalGeneral: 0, totalEfectivo: 0, totalQR: 0 };
+      let totalesInversionGananciaData: TotalesInversionGanancia = { total_invertido: 0, total_ganado: 0 };
 
       // Construir filtros comunes
       const filtros: VentasFiltros = {
@@ -231,14 +249,20 @@ export function VentasView() {
         ventas = await getVentas(filtros);
       }
 
-      // Calcular totales
+      // Calcular totales de ventas
       const totalGeneral = ventas.reduce((sum, venta) => sum + venta.total, 0);
       const totalEfectivo = ventas.filter(v => v.metodo === "Efectivo").reduce((sum, venta) => sum + venta.total, 0);
       const totalQR = ventas.filter(v => v.metodo === "QR").reduce((sum, venta) => sum + venta.total, 0);
       totalesData = { totalGeneral, totalEfectivo, totalQR };
 
+      // Obtener totales de inversión y ganancia (solo para Admin)
+      if (isAdmin) {
+        totalesInversionGananciaData = await getTotalesInversionGanancia(filtros);
+      }
+
       setVentasFiltradas(ventas);
       setTotales(totalesData);
+      setTotalesInversionGanancia(totalesInversionGananciaData);
 
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar las ventas");
@@ -763,35 +787,88 @@ export function VentasView() {
         </div>
       )}
 
-      {/* Cards de totales */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <Card>
-          <CardHeader className="pb-1">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Total General</CardTitle>
-          </CardHeader>
-          <CardContent className="pb-2">
-            <div className="text-xl font-bold text-primary">Bs {totales.totalGeneral.toFixed(2)}</div>
-          </CardContent>
-        </Card>
+      {/* Cards de totales - 4 cards para Admin, 3 para Asistente */}
+      {isAdmin ? (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Card>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground">Total General</CardTitle>
+            </CardHeader>
+            <CardContent className="pb-2">
+              <div className="text-xl font-bold text-primary">Bs {totales.totalGeneral.toFixed(2)}</div>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="pb-1">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Total Efectivo</CardTitle>
-          </CardHeader>
-          <CardContent className="pb-2">
-            <div className="text-xl font-bold text-green-600">Bs {totales.totalEfectivo.toFixed(2)}</div>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground">Total Efectivo</CardTitle>
+            </CardHeader>
+            <CardContent className="pb-2">
+              <div className="text-xl font-bold text-green-600">Bs {totales.totalEfectivo.toFixed(2)}</div>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="pb-1">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Total QR</CardTitle>
-          </CardHeader>
-          <CardContent className="pb-2">
-            <div className="text-xl font-bold text-blue-600">Bs {totales.totalQR.toFixed(2)}</div>
-          </CardContent>
-        </Card>
-      </div>
+          <Card>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground">Total QR</CardTitle>
+            </CardHeader>
+            <CardContent className="pb-2">
+              <div className="text-xl font-bold text-blue-600">Bs {totales.totalQR.toFixed(2)}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-1">
+            </CardHeader>
+            <CardContent className="pb-2">
+              <div className="flex flex-row items-center justify-between gap-4">
+                <div className="flex-1 text-center">
+                  <div className="text-xs font-medium text-muted-foreground">Inversión</div>
+                  <div className="text-lg font-bold text-orange-600">
+                    Bs {totalesInversionGanancia.total_invertido.toFixed(2)}
+                  </div>
+                </div>
+                <div className="h-10 w-px bg-border"></div>
+                <div className="flex-1 text-center">
+                  <div className="text-xs font-medium text-muted-foreground">Ganancia</div>
+                  <div className="text-lg font-bold text-purple-600">
+                    Bs {totalesInversionGanancia.total_ganado.toFixed(2)}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <Card>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground">Total General</CardTitle>
+            </CardHeader>
+            <CardContent className="pb-2">
+              <div className="text-xl font-bold text-primary">Bs {totales.totalGeneral.toFixed(2)}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground">Total Efectivo</CardTitle>
+            </CardHeader>
+            <CardContent className="pb-2">
+              <div className="text-xl font-bold text-green-600">Bs {totales.totalEfectivo.toFixed(2)}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground">Total QR</CardTitle>
+            </CardHeader>
+            <CardContent className="pb-2">
+              <div className="text-xl font-bold text-blue-600">Bs {totales.totalQR.toFixed(2)}</div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Tabla de ventas */}
       <Card>

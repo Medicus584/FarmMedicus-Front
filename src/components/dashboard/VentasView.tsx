@@ -39,25 +39,23 @@ interface UsuarioOption {
   username: string;
 }
 
-// ============================================
-// FUNCIONES DE FORMATEO - SIN CONVERSIÓN DE ZONA HORARIA
-// Mostrar exactamente lo que viene del backend
-// ============================================
-
-// Función para obtener la fecha actual (sin conversión)
-const getFechaActual = () => {
+// Función para obtener la fecha actual en Bolivia (GMT-4)
+const getFechaBolivia = () => {
   const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  return now;
+  const boliviaOffset = -4 * 60;
+  const localOffset = now.getTimezoneOffset();
+  const diff = boliviaOffset - localOffset;
+  const fechaBolivia = new Date(now.getTime() + diff * 60000);
+  fechaBolivia.setHours(0, 0, 0, 0);
+  return fechaBolivia;
 };
 
-// Función para formatear fecha para mostrar (SIN conversión)
+// Función para formatear fecha para mostrar
 const formatDateForDisplay = (dateInput: string | Date) => {
   try {
     const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-    // Mostrar la fecha tal cual, sin conversión de zona horaria
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = date.getDate();
+    const month = date.getMonth() + 1;
     const year = date.getFullYear();
     return `${day}/${month}/${year}`;
   } catch (error) {
@@ -66,14 +64,15 @@ const formatDateForDisplay = (dateInput: string | Date) => {
   }
 };
 
-// Función para formatear hora para mostrar (SIN conversión)
+// Función para formatear hora para mostrar
 const formatTimeForDisplay = (dateInput: string | Date) => {
   try {
     const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-    // Mostrar la hora tal cual, sin conversión de zona horaria
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${hours}:${minutes}`;
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
+    const formattedHours = hours < 10 ? `0${hours}` : hours.toString();
+    const formattedMinutes = minutes < 10 ? `0${minutes}` : minutes.toString();
+    return `${formattedHours}:${formattedMinutes}`;
   } catch (error) {
     console.error("Error formatting time:", error);
     return "";
@@ -100,7 +99,7 @@ export function VentasView() {
   const isAssistant = userRole === "Asistente";
   const isAdmin = userRole === "Admin";
 
-  const [fechaActual] = useState(() => getFechaActual());
+  const [fechaBoliviaHoy] = useState(() => getFechaBolivia());
 
   const [empleadosOptions, setEmpleadosOptions] = useState<UsuarioOption[]>([{ value: "Todos", label: "Todos", username: "" }]);
   const [medicosOptions, setMedicosOptions] = useState<string[]>(["Todos"]);
@@ -123,7 +122,7 @@ export function VentasView() {
   const [filtroMedico, setFiltroMedico] = useState("Todos");
 
   // Estados para fecha específica
-  const [fechaBusqueda, setFechaBusqueda] = useState<Date | undefined>(fechaActual);
+  const [fechaBusqueda, setFechaBusqueda] = useState<Date | undefined>(fechaBoliviaHoy);
   const [mostrarCalendario, setMostrarCalendario] = useState(false);
 
   // Estados para rango de fechas
@@ -335,8 +334,8 @@ export function VentasView() {
   };
 
   const limpiarFiltros = () => {
-    const hoy = getFechaActual();
-    setFechaBusqueda(hoy);
+    const hoyBolivia = getFechaBolivia();
+    setFechaBusqueda(hoyBolivia);
     setFechaRangoTemp({ from: undefined, to: undefined });
     setFechaRangoAplicado({ from: undefined, to: undefined });
 
@@ -387,7 +386,7 @@ export function VentasView() {
     if (filtroEmpleado !== "Todos" && !isAssistant) count++;
     if (filtroMetodo !== "Todos") count++;
     if (filtroMedico !== "Todos") count++;
-    if (fechaBusqueda && format(fechaBusqueda, "yyyy-MM-dd") !== format(fechaActual, "yyyy-MM-dd")) count++;
+    if (fechaBusqueda && format(fechaBusqueda, "yyyy-MM-dd") !== format(fechaBoliviaHoy, "yyyy-MM-dd")) count++;
     if (fechaRangoAplicado.from || fechaRangoAplicado.to) count++;
     return count;
   };

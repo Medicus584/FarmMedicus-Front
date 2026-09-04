@@ -76,7 +76,6 @@ export interface TotalesVentas {
   totalQR: number;
 }
 
-// NUEVA INTERFAZ - Total Inversión y Ganancia
 export interface TotalesInversionGanancia {
   total_invertido: number;
   total_ganado: number;
@@ -90,7 +89,6 @@ const api = axios.create({
   },
 });
 
-// FUNCIONES PARA OBTENER MÉDICOS
 export const getMedicos = async (): Promise<string[]> => {
   try {
     const response = await api.get<Doctor[]>("/sales/doctores");
@@ -111,7 +109,6 @@ export const getUsuariosVentas = async (): Promise<BackendUsuario[]> => {
   }
 };
 
-// Función principal para obtener ventas
 export const getVentas = async (filtros?: VentasFiltros): Promise<Venta[]> => {
   try {
     const params: any = {};
@@ -167,7 +164,6 @@ export const getVentas = async (filtros?: VentasFiltros): Promise<Venta[]> => {
   }
 };
 
-// Función para obtener totales
 export const getTotalesVentas = async (filtros?: VentasFiltros): Promise<TotalesVentas> => {
   try {
     const params: any = {};
@@ -210,7 +206,6 @@ export const getTotalesVentas = async (filtros?: VentasFiltros): Promise<Totales
   }
 };
 
-// NUEVA FUNCIÓN - Total Inversión y Ganancia
 export const getTotalesInversionGanancia = async (filtros?: VentasFiltros): Promise<TotalesInversionGanancia> => {
   try {
     const params: any = {};
@@ -286,7 +281,6 @@ export const getVentasHoyAsistente = async (username: string): Promise<Venta[]> 
   }
 };
 
-// Función auxiliar para formatear fechas para la API
 const formatDateForAPI = (date: Date): string => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');

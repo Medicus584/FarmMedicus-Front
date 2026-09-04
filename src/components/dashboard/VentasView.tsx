@@ -39,26 +39,33 @@ interface UsuarioOption {
   username: string;
 }
 
-// ============================================
-// FUNCIONES DE FORMATEO - SIN CONVERSIÓN DE ZONA HORARIA
-// Mostrar exactamente lo que viene del backend
-// ============================================
-
-// Función para obtener la fecha actual (sin conversión)
-const getFechaActual = () => {
+// Función para obtener la fecha actual en Bolivia (GMT-4)
+const getFechaBolivia = () => {
   const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  return now;
+  const boliviaOffset = -4 * 60;
+  const localOffset = now.getTimezoneOffset();
+  const diff = boliviaOffset - localOffset;
+  const fechaBolivia = new Date(now.getTime() + diff * 60000);
+  fechaBolivia.setHours(0, 0, 0, 0);
+  return fechaBolivia;
 };
 
-// Función para formatear fecha para mostrar (SIN conversión)
+// Función para ajustar una fecha a la zona horaria de Bolivia
+const ajustarFechaBolivia = (dateInput: string | Date): Date => {
+  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+  const boliviaOffset = -4 * 60;
+  const localOffset = date.getTimezoneOffset();
+  const diff = boliviaOffset - localOffset;
+  return new Date(date.getTime() + diff * 60000);
+};
+
+// Función para formatear fecha para mostrar (SOLO FECHA)
 const formatDateForDisplay = (dateInput: string | Date) => {
   try {
-    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-    // Mostrar la fecha tal cual, sin conversión de zona horaria
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
+    const fechaBolivia = ajustarFechaBolivia(dateInput);
+    const day = fechaBolivia.getDate();
+    const month = fechaBolivia.getMonth() + 1;
+    const year = fechaBolivia.getFullYear();
     return `${day}/${month}/${year}`;
   } catch (error) {
     console.error("Error formatting date:", error);
@@ -66,17 +73,36 @@ const formatDateForDisplay = (dateInput: string | Date) => {
   }
 };
 
-// Función para formatear hora para mostrar (SIN conversión)
+// Función para formatear hora para mostrar (SOLO HORA)
 const formatTimeForDisplay = (dateInput: string | Date) => {
   try {
-    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-    // Mostrar la hora tal cual, sin conversión de zona horaria
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${hours}:${minutes}`;
+    const fechaBolivia = ajustarFechaBolivia(dateInput);
+    const hours = fechaBolivia.getHours();
+    const minutes = fechaBolivia.getMinutes();
+    const formattedHours = hours < 10 ? `0${hours}` : hours.toString();
+    const formattedMinutes = minutes < 10 ? `0${minutes}` : minutes.toString();
+    return `${formattedHours}:${formattedMinutes}`;
   } catch (error) {
     console.error("Error formatting time:", error);
     return "";
+  }
+};
+
+// Función para formatear fecha y hora completa
+const formatDateTimeForDisplay = (dateInput: string | Date) => {
+  try {
+    const fechaBolivia = ajustarFechaBolivia(dateInput);
+    const day = fechaBolivia.getDate();
+    const month = fechaBolivia.getMonth() + 1;
+    const year = fechaBolivia.getFullYear();
+    const hours = fechaBolivia.getHours();
+    const minutes = fechaBolivia.getMinutes();
+    const formattedHours = hours < 10 ? `0${hours}` : hours.toString();
+    const formattedMinutes = minutes < 10 ? `0${minutes}` : minutes.toString();
+    return `${day}/${month}/${year} ${formattedHours}:${formattedMinutes}`;
+  } catch (error) {
+    console.error("Error formatting datetime:", error);
+    return typeof dateInput === 'string' ? dateInput.substring(0, 10) : "Fecha inválida";
   }
 };
 
@@ -100,7 +126,7 @@ export function VentasView() {
   const isAssistant = userRole === "Asistente";
   const isAdmin = userRole === "Admin";
 
-  const [fechaActual] = useState(() => getFechaActual());
+  const [fechaBoliviaHoy] = useState(() => getFechaBolivia());
 
   const [empleadosOptions, setEmpleadosOptions] = useState<UsuarioOption[]>([{ value: "Todos", label: "Todos", username: "" }]);
   const [medicosOptions, setMedicosOptions] = useState<string[]>(["Todos"]);
@@ -123,7 +149,7 @@ export function VentasView() {
   const [filtroMedico, setFiltroMedico] = useState("Todos");
 
   // Estados para fecha específica
-  const [fechaBusqueda, setFechaBusqueda] = useState<Date | undefined>(fechaActual);
+  const [fechaBusqueda, setFechaBusqueda] = useState<Date | undefined>(fechaBoliviaHoy);
   const [mostrarCalendario, setMostrarCalendario] = useState(false);
 
   // Estados para rango de fechas
@@ -335,8 +361,8 @@ export function VentasView() {
   };
 
   const limpiarFiltros = () => {
-    const hoy = getFechaActual();
-    setFechaBusqueda(hoy);
+    const hoyBolivia = getFechaBolivia();
+    setFechaBusqueda(hoyBolivia);
     setFechaRangoTemp({ from: undefined, to: undefined });
     setFechaRangoAplicado({ from: undefined, to: undefined });
 
@@ -387,7 +413,7 @@ export function VentasView() {
     if (filtroEmpleado !== "Todos" && !isAssistant) count++;
     if (filtroMetodo !== "Todos") count++;
     if (filtroMedico !== "Todos") count++;
-    if (fechaBusqueda && format(fechaBusqueda, "yyyy-MM-dd") !== format(fechaActual, "yyyy-MM-dd")) count++;
+    if (fechaBusqueda && format(fechaBusqueda, "yyyy-MM-dd") !== format(fechaBoliviaHoy, "yyyy-MM-dd")) count++;
     if (fechaRangoAplicado.from || fechaRangoAplicado.to) count++;
     return count;
   };
@@ -1054,7 +1080,7 @@ export function VentasView() {
 
           <div className="space-y-4">
             <div className="space-y-1 text-sm">
-              <p><strong>Fecha:</strong> {ventaSeleccionada ? `${formatDateForDisplay(ventaSeleccionada.fecha)} ${formatTimeForDisplay(ventaSeleccionada.fecha)}` : ""}</p>
+              <p><strong>Fecha:</strong> {ventaSeleccionada ? formatDateTimeForDisplay(ventaSeleccionada.fecha) : ""}</p>
               <p><strong>Dirección:</strong> Av. Heroinas esq. Hamiraya #316</p>
               <p><strong>Números:</strong> 77950297 - 77918672</p>
               {ventaSeleccionada?.medico && (
@@ -1164,7 +1190,7 @@ export function VentasView() {
                 </div>
                 <div className="flex justify-between items-center mt-1">
                   <span className="text-sm font-medium text-gray-500">Fecha:</span>
-                  <span className="text-sm text-gray-700">{formatDateForDisplay(ventaToAnular.fecha)} {formatTimeForDisplay(ventaToAnular.fecha)}</span>
+                  <span className="text-sm text-gray-700">{formatDateTimeForDisplay(ventaToAnular.fecha)}</span>
                 </div>
                 <div className="flex justify-between items-center mt-1">
                   <span className="text-sm font-medium text-gray-500">Descripción:</span>

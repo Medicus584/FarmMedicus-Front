@@ -54,9 +54,11 @@ const getFechaBolivia = () => {
 const formatDateForDisplay = (dateInput: string | Date) => {
   try {
     const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-    const day = date.getDate();
-    const month = date.getMonth() + 1;
-    const year = date.getFullYear();
+    // Ajustar a Bolivia (GMT-4) sumando 4 horas
+    const boliviaDate = new Date(date.getTime() + 4 * 60 * 60 * 1000);
+    const day = boliviaDate.getDate();
+    const month = boliviaDate.getMonth() + 1;
+    const year = boliviaDate.getFullYear();
     return `${day}/${month}/${year}`;
   } catch (error) {
     console.error("Error formatting date:", error);
@@ -68,8 +70,10 @@ const formatDateForDisplay = (dateInput: string | Date) => {
 const formatTimeForDisplay = (dateInput: string | Date) => {
   try {
     const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-    const hours = date.getHours();
-    const minutes = date.getMinutes();
+    // Ajustar a Bolivia (GMT-4) sumando 4 horas
+    const boliviaDate = new Date(date.getTime() + 4 * 60 * 60 * 1000);
+    const hours = boliviaDate.getHours();
+    const minutes = boliviaDate.getMinutes();
     const formattedHours = hours < 10 ? `0${hours}` : hours.toString();
     const formattedMinutes = minutes < 10 ? `0${minutes}` : minutes.toString();
     return `${formattedHours}:${formattedMinutes}`;

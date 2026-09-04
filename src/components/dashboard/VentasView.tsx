@@ -39,24 +39,28 @@ interface UsuarioOption {
   username: string;
 }
 
+// ============================================
+// FUNCIONES DE FORMATEO CON ZONA HORARIA BOLIVIA
+// ============================================
+
 // Función para obtener la fecha actual en Bolivia (GMT-4)
 const getFechaBolivia = () => {
   const now = new Date();
-  const boliviaOffset = -4 * 60;
-  const localOffset = now.getTimezoneOffset();
-  const diff = boliviaOffset - localOffset;
-  const fechaBolivia = new Date(now.getTime() + diff * 60000);
+  // Convertir a hora Bolivia usando toLocaleString
+  const fechaBolivia = new Date(now.toLocaleString('en-US', { timeZone: 'America/La_Paz' }));
   fechaBolivia.setHours(0, 0, 0, 0);
   return fechaBolivia;
 };
 
-// Función para formatear fecha para mostrar
+// Función para formatear fecha para mostrar (con zona horaria Bolivia)
 const formatDateForDisplay = (dateInput: string | Date) => {
   try {
     const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-    const day = date.getDate();
-    const month = date.getMonth() + 1;
-    const year = date.getFullYear();
+    // Convertir a hora Bolivia
+    const fechaBolivia = new Date(date.toLocaleString('en-US', { timeZone: 'America/La_Paz' }));
+    const day = String(fechaBolivia.getDate()).padStart(2, '0');
+    const month = String(fechaBolivia.getMonth() + 1).padStart(2, '0');
+    const year = fechaBolivia.getFullYear();
     return `${day}/${month}/${year}`;
   } catch (error) {
     console.error("Error formatting date:", error);
@@ -64,15 +68,15 @@ const formatDateForDisplay = (dateInput: string | Date) => {
   }
 };
 
-// Función para formatear hora para mostrar
+// Función para formatear hora para mostrar (con zona horaria Bolivia)
 const formatTimeForDisplay = (dateInput: string | Date) => {
   try {
     const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-    const hours = date.getHours();
-    const minutes = date.getMinutes();
-    const formattedHours = hours < 10 ? `0${hours}` : hours.toString();
-    const formattedMinutes = minutes < 10 ? `0${minutes}` : minutes.toString();
-    return `${formattedHours}:${formattedMinutes}`;
+    // Convertir a hora Bolivia
+    const fechaBolivia = new Date(date.toLocaleString('en-US', { timeZone: 'America/La_Paz' }));
+    const hours = String(fechaBolivia.getHours()).padStart(2, '0');
+    const minutes = String(fechaBolivia.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
   } catch (error) {
     console.error("Error formatting time:", error);
     return "";

@@ -40,27 +40,25 @@ interface UsuarioOption {
 }
 
 // ============================================
-// FUNCIONES DE FORMATEO CON ZONA HORARIA BOLIVIA
+// FUNCIONES DE FORMATEO - SIN CONVERSIÓN DE ZONA HORARIA
+// Mostrar exactamente lo que viene del backend
 // ============================================
 
-// Función para obtener la fecha actual en Bolivia (GMT-4)
-const getFechaBolivia = () => {
+// Función para obtener la fecha actual (sin conversión)
+const getFechaActual = () => {
   const now = new Date();
-  // Convertir a hora Bolivia usando toLocaleString
-  const fechaBolivia = new Date(now.toLocaleString('en-US', { timeZone: 'America/La_Paz' }));
-  fechaBolivia.setHours(0, 0, 0, 0);
-  return fechaBolivia;
+  now.setHours(0, 0, 0, 0);
+  return now;
 };
 
-// Función para formatear fecha para mostrar (con zona horaria Bolivia)
+// Función para formatear fecha para mostrar (SIN conversión)
 const formatDateForDisplay = (dateInput: string | Date) => {
   try {
     const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-    // Convertir a hora Bolivia
-    const fechaBolivia = new Date(date.toLocaleString('en-US', { timeZone: 'America/La_Paz' }));
-    const day = String(fechaBolivia.getDate()).padStart(2, '0');
-    const month = String(fechaBolivia.getMonth() + 1).padStart(2, '0');
-    const year = fechaBolivia.getFullYear();
+    // Mostrar la fecha tal cual, sin conversión de zona horaria
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
     return `${day}/${month}/${year}`;
   } catch (error) {
     console.error("Error formatting date:", error);
@@ -68,14 +66,13 @@ const formatDateForDisplay = (dateInput: string | Date) => {
   }
 };
 
-// Función para formatear hora para mostrar (con zona horaria Bolivia)
+// Función para formatear hora para mostrar (SIN conversión)
 const formatTimeForDisplay = (dateInput: string | Date) => {
   try {
     const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-    // Convertir a hora Bolivia
-    const fechaBolivia = new Date(date.toLocaleString('en-US', { timeZone: 'America/La_Paz' }));
-    const hours = String(fechaBolivia.getHours()).padStart(2, '0');
-    const minutes = String(fechaBolivia.getMinutes()).padStart(2, '0');
+    // Mostrar la hora tal cual, sin conversión de zona horaria
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
     return `${hours}:${minutes}`;
   } catch (error) {
     console.error("Error formatting time:", error);
@@ -103,7 +100,7 @@ export function VentasView() {
   const isAssistant = userRole === "Asistente";
   const isAdmin = userRole === "Admin";
 
-  const [fechaBoliviaHoy] = useState(() => getFechaBolivia());
+  const [fechaActual] = useState(() => getFechaActual());
 
   const [empleadosOptions, setEmpleadosOptions] = useState<UsuarioOption[]>([{ value: "Todos", label: "Todos", username: "" }]);
   const [medicosOptions, setMedicosOptions] = useState<string[]>(["Todos"]);
@@ -126,7 +123,7 @@ export function VentasView() {
   const [filtroMedico, setFiltroMedico] = useState("Todos");
 
   // Estados para fecha específica
-  const [fechaBusqueda, setFechaBusqueda] = useState<Date | undefined>(fechaBoliviaHoy);
+  const [fechaBusqueda, setFechaBusqueda] = useState<Date | undefined>(fechaActual);
   const [mostrarCalendario, setMostrarCalendario] = useState(false);
 
   // Estados para rango de fechas
@@ -338,8 +335,8 @@ export function VentasView() {
   };
 
   const limpiarFiltros = () => {
-    const hoyBolivia = getFechaBolivia();
-    setFechaBusqueda(hoyBolivia);
+    const hoy = getFechaActual();
+    setFechaBusqueda(hoy);
     setFechaRangoTemp({ from: undefined, to: undefined });
     setFechaRangoAplicado({ from: undefined, to: undefined });
 
@@ -390,7 +387,7 @@ export function VentasView() {
     if (filtroEmpleado !== "Todos" && !isAssistant) count++;
     if (filtroMetodo !== "Todos") count++;
     if (filtroMedico !== "Todos") count++;
-    if (fechaBusqueda && format(fechaBusqueda, "yyyy-MM-dd") !== format(fechaBoliviaHoy, "yyyy-MM-dd")) count++;
+    if (fechaBusqueda && format(fechaBusqueda, "yyyy-MM-dd") !== format(fechaActual, "yyyy-MM-dd")) count++;
     if (fechaRangoAplicado.from || fechaRangoAplicado.to) count++;
     return count;
   };

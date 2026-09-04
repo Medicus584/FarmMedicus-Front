@@ -40,70 +40,39 @@ interface UsuarioOption {
 }
 
 // ============================================
-// FUNCIONES DE FORMATEO - USAR STRING DIRECTAMENTE
-// Para evitar la conversión automática de zona horaria
+// FUNCIONES DE FORMATEO - SIN CONVERSIÓN DE ZONA HORARIA
+// Mostrar exactamente lo que viene del backend
 // ============================================
 
 // Función para obtener la fecha actual (sin conversión)
 const getFechaActual = () => {
   const now = new Date();
-  // Usar UTC para evitar problemas
-  return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  now.setHours(0, 0, 0, 0);
+  return now;
 };
 
-// Función para formatear fecha para mostrar (usando string directamente)
+// Función para formatear fecha para mostrar (SIN conversión)
 const formatDateForDisplay = (dateInput: string | Date) => {
   try {
-    // Si es string, usarlo directamente sin crear Date
-    if (typeof dateInput === 'string') {
-      // Extraer fecha del string ISO: "2026-09-04T09:46:06.474Z" -> "2026-09-04"
-      const dateMatch = dateInput.match(/^(\d{4})-(\d{2})-(\d{2})/);
-      if (dateMatch) {
-        const [, year, month, day] = dateMatch;
-        return `${day}/${month}/${year}`;
-      }
-      // Si no coincide con ISO, intentar con Date pero sin conversión
-      const date = new Date(dateInput);
-      const day = String(date.getUTCDate()).padStart(2, '0');
-      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-      const year = date.getUTCFullYear();
-      return `${day}/${month}/${year}`;
-    }
-    
-    // Si es Date, usar UTC para evitar conversión
-    const date = dateInput;
-    const day = String(date.getUTCDate()).padStart(2, '0');
-    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-    const year = date.getUTCFullYear();
+    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+    // Mostrar la fecha tal cual, sin conversión de zona horaria
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
     return `${day}/${month}/${year}`;
   } catch (error) {
     console.error("Error formatting date:", error);
-    return "Fecha inválida";
+    return typeof dateInput === 'string' ? dateInput.substring(0, 10) : "Fecha inválida";
   }
 };
 
-// Función para formatear hora para mostrar (usando string directamente)
+// Función para formatear hora para mostrar (SIN conversión)
 const formatTimeForDisplay = (dateInput: string | Date) => {
   try {
-    // Si es string, extraer la hora directamente
-    if (typeof dateInput === 'string') {
-      // Buscar hora en formato ISO: "2026-09-04T09:46:06.474Z" -> "09:46"
-      const timeMatch = dateInput.match(/T(\d{2}):(\d{2})/);
-      if (timeMatch) {
-        const [, hours, minutes] = timeMatch;
-        return `${hours}:${minutes}`;
-      }
-      // Si no tiene formato ISO, intentar con Date pero usando UTC
-      const date = new Date(dateInput);
-      const hours = String(date.getUTCHours()).padStart(2, '0');
-      const minutes = String(date.getUTCMinutes()).padStart(2, '0');
-      return `${hours}:${minutes}`;
-    }
-    
-    // Si es Date, usar UTC para evitar conversión
-    const date = dateInput;
-    const hours = String(date.getUTCHours()).padStart(2, '0');
-    const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+    // Mostrar la hora tal cual, sin conversión de zona horaria
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
     return `${hours}:${minutes}`;
   } catch (error) {
     console.error("Error formatting time:", error);

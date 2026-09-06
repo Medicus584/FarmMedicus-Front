@@ -74,6 +74,7 @@ interface ProductFormData {
 }
 
 interface LoteForm {
+  idlote?: number;
   stock: number;
   fechaVencimiento: string;
 }
@@ -1218,6 +1219,7 @@ export function FormularioProductos({
   useEffect(() => {
     if (product && product.lotes && product.lotes.length > 0) {
       setLotesForm(product.lotes.map((lote: any) => ({
+        idlote: lote.idlote,
         stock: lote.stock,
         fechaVencimiento: lote.fechaVencimiento || '',
       })));
@@ -1689,6 +1691,7 @@ export function FormularioProductos({
       }
 
       const lotesData = lotesValidos.map(l => ({
+        idlote: l.idlote,
         stock: l.stock,
         fecha_vencimiento: l.fechaVencimiento,
       }));

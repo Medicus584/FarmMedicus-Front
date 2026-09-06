@@ -61,8 +61,9 @@ interface ProductFormData {
   ubicacion: string;
   laboratorio: string;
   formaFarmaceutica: string;
+  precioCompra: string | number;
+  margenGanancia: string | number;
   precioVenta: string | number;
-  precioCompra?: string | number;
   stock: number | string;
   stockMinimo?: number | string;
   imagen?: string;
@@ -1023,6 +1024,16 @@ export function FormularioProductos({
         imagenFile = base64ToFile(product.imagen, "producto.jpg");
       }
 
+      // Calcular margen de ganancia si existe precioCompra y precioVenta
+      let margenGanancia = '';
+      if (product.precio_compra && product.precio_compra > 0 && product.precio_venta) {
+        const compra = Number(product.precio_compra);
+        const venta = Number(product.precio_venta);
+        if (venta > compra) {
+          margenGanancia = (((venta - compra) / compra) * 100).toFixed(1);
+        }
+      }
+
       return {
         id: product.idproducto?.toString(),
         codigoP: product.codigoP || '',
@@ -1032,8 +1043,9 @@ export function FormularioProductos({
         ubicacion: product.ubicacion || '',
         laboratorio: product.laboratorio || '',
         formaFarmaceutica: product.forma_farmaceutica || '',
-        precioVenta: product.precio_venta?.toString() || '',
         precioCompra: product.precio_compra?.toString() || '',
+        margenGanancia: margenGanancia,
+        precioVenta: product.precio_venta?.toString() || '',
         stock: product.stock_total?.toString() || '',
         stockMinimo: product.stock_minimo?.toString() || '',
         imagen: getImageUrl(product.imagen),
@@ -1052,8 +1064,9 @@ export function FormularioProductos({
       ubicacion: "",
       laboratorio: "",
       formaFarmaceutica: "",
-      precioVenta: "",
       precioCompra: "",
+      margenGanancia: "",
+      precioVenta: "",
       stock: "",
       stockMinimo: "",
       imagen: "",
@@ -1561,6 +1574,55 @@ export function FormularioProductos({
   };
 
   // ============================================
+  // FUNCIONES PARA CÁLCULO DE PRECIOS
+  // ============================================
+  const handlePrecioChange = (field: 'precioCompra' | 'margenGanancia', value: string) => {
+    const numValue = value === '' ? '' : Number(value);
+    
+    setFormData(prev => {
+      const newData = { ...prev, [field]: value };
+      
+      // Si ambos campos tienen valores válidos, calcular precio de venta
+      const compra = Number(newData.precioCompra);
+      const margen = Number(newData.margenGanancia);
+      
+      if (compra > 0 && margen >= 0 && !isNaN(compra) && !isNaN(margen)) {
+        const ventaCalculado = compra * (1 + (margen / 100));
+        newData.precioVenta = ventaCalculado.toFixed(2);
+      } else if (field === 'precioCompra' && newData.precioVenta) {
+        // Si solo se actualiza precioCompra y hay precioVenta, recalcular margen
+        const venta = Number(newData.precioVenta);
+        if (compra > 0 && venta > compra) {
+          const margenCalculado = ((venta - compra) / compra) * 100;
+          newData.margenGanancia = margenCalculado.toFixed(1);
+        }
+      }
+      
+      return newData;
+    });
+  };
+
+  // Manejar cambio manual en precio de venta
+  const handlePrecioVentaManual = (value: string) => {
+    setFormData(prev => {
+      const newData = { ...prev, precioVenta: value };
+      const compra = Number(newData.precioCompra);
+      const venta = Number(value);
+      
+      if (compra > 0 && venta > compra && !isNaN(compra) && !isNaN(venta)) {
+        const margenCalculado = ((venta - compra) / compra) * 100;
+        newData.margenGanancia = margenCalculado.toFixed(1);
+      } else if (compra > 0 && venta <= compra && venta > 0) {
+        newData.margenGanancia = '0';
+      } else if (venta === 0 || value === '') {
+        newData.margenGanancia = '';
+      }
+      
+      return newData;
+    });
+  };
+
+  // ============================================
   // SUBMIT
   // ============================================
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1610,6 +1672,18 @@ export function FormularioProductos({
 
     if (formData.categorias.length === 0) {
       toast({ title: "Error", description: "Debe seleccionar al menos una categoría", variant: "destructive" });
+      return;
+    }
+
+    // Validar precio de compra (opcional pero si tiene, debe ser válido)
+    if (formData.precioCompra && Number(formData.precioCompra) < 0) {
+      toast({ title: "Error", description: "El precio de compra no puede ser negativo", variant: "destructive" });
+      return;
+    }
+
+    // Validar margen de ganancia
+    if (formData.margenGanancia && Number(formData.margenGanancia) < 0) {
+      toast({ title: "Error", description: "El margen de ganancia no puede ser negativo", variant: "destructive" });
       return;
     }
 
@@ -1973,45 +2047,81 @@ export function FormularioProductos({
           </div>
         </div>
 
-        {/* Precios */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="precioVenta" className="text-sm font-medium">
-              Precio Venta (Bs) <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              id="precioVenta"
-              type="number"
-              step="0.01"
-              value={formData.precioVenta === "" ? "" : formData.precioVenta}
-              onChange={(e) => {
-                const value = e.target.value;
-                handleInputChange("precioVenta", value === "" ? "" : Number(value));
-              }}
-              placeholder="0"
-              className="h-9 text-sm number-input-no-scroll"
-              onWheel={(e) => e.currentTarget.blur()}
-            />
-          </div>
+        {/* Precios: Compra | Margen | Venta */}
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Precios</Label>
+          <div className="grid grid-cols-3 gap-3">
+            {/* Precio Compra */}
+            <div className="space-y-1">
+              <Label htmlFor="precioCompra" className="text-xs font-medium">
+                Compra (Bs)
+              </Label>
+              <Input
+                id="precioCompra"
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.precioCompra === "" ? "" : formData.precioCompra}
+                onChange={(e) => handlePrecioChange('precioCompra', e.target.value)}
+                placeholder="0.00"
+                className="h-9 text-sm number-input-no-scroll"
+                onWheel={(e) => e.currentTarget.blur()}
+              />
+            </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="precioCompra" className="text-sm font-medium">
-              Precio Compra (Bs)
-            </Label>
-            <Input
-              id="precioCompra"
-              type="number"
-              step="0.01"
-              value={formData.precioCompra === "" ? "" : formData.precioCompra}
-              onChange={(e) => {
-                const value = e.target.value;
-                handleInputChange("precioCompra", value === "" ? "" : Number(value));
-              }}
-              placeholder="0"
-              className="h-9 text-sm number-input-no-scroll"
-              onWheel={(e) => e.currentTarget.blur()}
-            />
+            {/* Margen de Ganancia */}
+            <div className="space-y-1">
+              <Label htmlFor="margenGanancia" className="text-xs font-medium">
+                Margen (%)
+              </Label>
+              <Input
+                id="margenGanancia"
+                type="number"
+                step="0.1"
+                min="0"
+                value={formData.margenGanancia === "" ? "" : formData.margenGanancia}
+                onChange={(e) => handlePrecioChange('margenGanancia', e.target.value)}
+                placeholder="20"
+                className="h-9 text-sm number-input-no-scroll"
+                onWheel={(e) => e.currentTarget.blur()}
+              />
+            </div>
+
+            {/* Precio Venta (calculado automáticamente o editable manualmente) */}
+            <div className="space-y-1">
+              <Label htmlFor="precioVenta" className="text-xs font-medium">
+                Venta (Bs) <span className="text-red-500">*</span>
+              </Label>
+              <div className="relative">
+                <Input
+                  id="precioVenta"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.precioVenta === "" ? "" : formData.precioVenta}
+                  onChange={(e) => handlePrecioVentaManual(e.target.value)}
+                  placeholder="0.00"
+                  className={`h-9 text-sm number-input-no-scroll font-medium ${
+                    formData.precioCompra && formData.margenGanancia && Number(formData.precioCompra) > 0 
+                      ? 'border-green-500/50 bg-green-50/50 dark:bg-green-950/20' 
+                      : ''
+                  }`}
+                  onWheel={(e) => e.currentTarget.blur()}
+                  required
+                />
+                {formData.precioCompra && formData.margenGanancia && Number(formData.precioCompra) > 0 && (
+                  <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
+          
+          {/* Resumen del cálculo */}
+          {formData.precioCompra && formData.margenGanancia && Number(formData.precioCompra) > 0 && (
+            <div className="text-xs text-muted-foreground text-center p-1.5 bg-muted/30 rounded-md">
+            </div>
+          )}
         </div>
 
         {/* Código de Barras */}

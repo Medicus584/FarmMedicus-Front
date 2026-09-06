@@ -6,8 +6,10 @@ import { useEffect, useState, useCallback } from "react";
 import { 
   getLowStockAlerts, 
   getExpirationAlerts, 
+  getLaboratorios,
   AlertStockBajo, 
-  AlertVencimiento 
+  AlertVencimiento,
+  Laboratorio
 } from "@/api/AlertsApi";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
@@ -21,7 +23,8 @@ import {
   ChevronRight,
   Search,
   X,
-  Loader2
+  Loader2,
+  FlaskConical
 } from "lucide-react";
 import { ImageCarousel } from "./ProductosView";
 import { getImageUrl } from "./VenderView";
@@ -166,6 +169,9 @@ export function AlertasView() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [prioridad, setPrioridad] = useState<Prioridad>("todas");
+  const [laboratorio, setLaboratorio] = useState<string>("todos");
+  const [laboratorios, setLaboratorios] = useState<Laboratorio[]>([]);
+  const [loadingLaboratorios, setLoadingLaboratorios] = useState(true);
 
   useEffect(() => {
     const detectarMovil = () => {
@@ -176,6 +182,22 @@ export function AlertasView() {
     return () => window.removeEventListener('resize', detectarMovil);
   }, []);
 
+  // Cargar laboratorios
+  useEffect(() => {
+    const loadLaboratorios = async () => {
+      try {
+        setLoadingLaboratorios(true);
+        const data = await getLaboratorios();
+        setLaboratorios(data);
+      } catch (error) {
+        console.error("Error loading laboratorios:", error);
+      } finally {
+        setLoadingLaboratorios(false);
+      }
+    };
+    loadLaboratorios();
+  }, []);
+
   const loadStockAlerts = useCallback(async () => {
     try {
       setLoading(true);
@@ -184,6 +206,7 @@ export function AlertasView() {
       const filters: any = { page: currentPage, limit: ITEMS_PER_PAGE };
       if (searchTerm) filters.search = searchTerm;
       if (prioridad !== 'todas') filters.prioridad = prioridad;
+      if (laboratorio !== 'todos') filters.laboratorio = laboratorio;
       
       const response = await getLowStockAlerts(filters);
       setStockBajo(response.items as AlertStockBajo[]);
@@ -194,7 +217,7 @@ export function AlertasView() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, searchTerm, prioridad]);
+  }, [currentPage, searchTerm, prioridad, laboratorio]);
 
   const loadExpirationAlerts = useCallback(async () => {
     try {
@@ -204,6 +227,7 @@ export function AlertasView() {
       const filters: any = { page: currentPage, limit: ITEMS_PER_PAGE };
       if (searchTerm) filters.search = searchTerm;
       if (prioridad !== 'todas') filters.prioridad = prioridad;
+      if (laboratorio !== 'todos') filters.laboratorio = laboratorio;
       
       const response = await getExpirationAlerts(filters);
       setVencimiento(response.items as AlertVencimiento[]);
@@ -214,7 +238,7 @@ export function AlertasView() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, searchTerm, prioridad]);
+  }, [currentPage, searchTerm, prioridad, laboratorio]);
 
   useEffect(() => {
     if (activeTab === "stock-bajo") {
@@ -226,7 +250,7 @@ export function AlertasView() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, prioridad]);
+  }, [searchTerm, prioridad, laboratorio]);
 
   useEffect(() => {
     if (activeTab === "stock-bajo") {
@@ -260,10 +284,11 @@ export function AlertasView() {
   const clearFilters = () => {
     setSearchTerm("");
     setPrioridad("todas");
+    setLaboratorio("todos");
     setCurrentPage(1);
   };
 
-  const hasFilters = searchTerm || prioridad !== "todas";
+  const hasFilters = searchTerm || prioridad !== "todas" || laboratorio !== "todos";
 
   if (loading && stockBajo.length === 0 && vencimiento.length === 0) {
     return (
@@ -336,7 +361,7 @@ export function AlertasView() {
           />
         </div>
         
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Select value={prioridad} onValueChange={(value: Prioridad) => setPrioridad(value)}>
             <SelectTrigger className="w-[160px]">
               <SelectValue placeholder="Prioridad" />
@@ -361,6 +386,33 @@ export function AlertasView() {
                   Verde (Normal)
                 </div>
               </SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={laboratorio} onValueChange={(value: string) => setLaboratorio(value)}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Laboratorio" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">
+                <div className="flex items-center gap-2">
+                  <FlaskConical className="h-4 w-4" />
+                  Todos los laboratorios
+                </div>
+              </SelectItem>
+              {!loadingLaboratorios && laboratorios.map((lab) => (
+                <SelectItem key={lab.idlaboratorio} value={lab.nombre_laboratorio}>
+                  <div className="flex items-center gap-2">
+                    <FlaskConical className="h-4 w-4" />
+                    {lab.nombre_laboratorio}
+                  </div>
+                </SelectItem>
+              ))}
+              {loadingLaboratorios && (
+                <SelectItem value="cargando" disabled>
+                  Cargando laboratorios...
+                </SelectItem>
+              )}
             </SelectContent>
           </Select>
 

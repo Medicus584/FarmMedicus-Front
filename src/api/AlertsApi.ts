@@ -48,6 +48,12 @@ export interface AlertasPaginadas {
   totalPages: number;
 }
 
+// Interface para laboratorios
+export interface Laboratorio {
+  idlaboratorio: number;
+  nombre_laboratorio: string;
+}
+
 const api = axios.create({
   baseURL: API_URL,
   withCredentials: true,
@@ -60,9 +66,21 @@ const getDefaultImage = (productName: string): string => {
   return "https://static.vecteezy.com/system/resources/previews/011/781/801/non_2x/medicine-3d-render-icon-illustration-png.png";
 };
 
+// Función para obtener laboratorios
+export const getLaboratorios = async (): Promise<Laboratorio[]> => {
+  try {
+    const response = await api.get<Laboratorio[]>("/laboratorios");
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching laboratorios:", error);
+    return [];
+  }
+};
+
 export const getLowStockAlerts = async (filters: {
   search?: string;
   prioridad?: string;
+  laboratorio?: string;
   page?: number;
   limit?: number;
 } = {}): Promise<AlertasPaginadas> => {
@@ -70,6 +88,7 @@ export const getLowStockAlerts = async (filters: {
     const params: any = {};
     if (filters.search) params.search = filters.search;
     if (filters.prioridad && filters.prioridad !== 'todas') params.prioridad = filters.prioridad;
+    if (filters.laboratorio && filters.laboratorio !== 'todos') params.laboratorio = filters.laboratorio;
     if (filters.page) params.page = filters.page;
     if (filters.limit) params.limit = filters.limit;
 
@@ -106,6 +125,7 @@ export const getLowStockAlerts = async (filters: {
 export const getExpirationAlerts = async (filters: {
   search?: string;
   prioridad?: string;
+  laboratorio?: string;
   page?: number;
   limit?: number;
 } = {}): Promise<AlertasPaginadas> => {
@@ -113,6 +133,7 @@ export const getExpirationAlerts = async (filters: {
     const params: any = {};
     if (filters.search) params.search = filters.search;
     if (filters.prioridad && filters.prioridad !== 'todas') params.prioridad = filters.prioridad;
+    if (filters.laboratorio && filters.laboratorio !== 'todos') params.laboratorio = filters.laboratorio;
     if (filters.page) params.page = filters.page;
     if (filters.limit) params.limit = filters.limit;
 

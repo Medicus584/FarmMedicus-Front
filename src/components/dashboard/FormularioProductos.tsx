@@ -31,7 +31,7 @@ import {
   createUbicacion,
   updateUbicacion,
   deleteUbicacion,
-  createCategoria,
+  createCategoria, 
   updateCategoria,
   deleteCategoria,
   createLaboratorio,
@@ -1675,13 +1675,11 @@ export function FormularioProductos({
       return;
     }
 
-    // Validar precio de compra (opcional pero si tiene, debe ser válido)
     if (formData.precioCompra && Number(formData.precioCompra) < 0) {
       toast({ title: "Error", description: "El precio de compra no puede ser negativo", variant: "destructive" });
       return;
     }
 
-    // Validar margen de ganancia
     if (formData.margenGanancia && Number(formData.margenGanancia) < 0) {
       toast({ title: "Error", description: "El margen de ganancia no puede ser negativo", variant: "destructive" });
       return;
@@ -1789,19 +1787,41 @@ export function FormularioProductos({
     } catch (error: any) {
       console.error("Error al guardar el producto:", error);
       
-      if (error.response?.status === 409 && error.response?.data?.code === "DUPLICATE_CODE") {
-        toast({
-          title: "Código duplicado",
-          description: error.response?.data?.error || "Ya existe un producto con este código.",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: error.message || "No se pudo guardar el producto. Por favor, intenta nuevamente.",
-          variant: "destructive",
-        });
+      let errorMessage = "No se pudo guardar el producto. Por favor, intenta nuevamente.";
+      let errorTitle = "Error";
+      
+      // Obtener el mensaje de error del backend
+      if (error.response?.data) {
+        const data = error.response.data;
+        
+        if (data.code === "DUPLICATE_CODE") {
+          errorTitle = "Código duplicado";
+          errorMessage = data.error || "Ya existe un producto con este código.";
+        } else if (data.code === "DUPLICATE_BARCODE") {
+          errorTitle = "Código de barras duplicado";
+          errorMessage = data.error || "Ya existe un producto con este código de barras.";
+        } else if (data.code === "INVALID_DATE") {
+          errorTitle = "Fecha inválida";
+          errorMessage = data.error || "La fecha de vencimiento no puede ser anterior a la fecha actual.";
+        } else if (data.code === "INVALID_IMAGE") {
+          errorTitle = "Imagen inválida";
+          errorMessage = data.error || "Solo se permiten imágenes (jpeg, jpg, png, gif).";
+        } else if (data.error) {
+          errorMessage = data.error;
+          if (data.details) {
+            errorMessage += `\nDetalle: ${data.details}`;
+          }
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
       }
+      
+      toast({
+        title: errorTitle,
+        description: errorMessage,
+        variant: "destructive",
+        duration: 6000,
+      });
     } finally {
       setIsSubmittingProduct(false);
     }

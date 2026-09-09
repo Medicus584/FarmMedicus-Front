@@ -112,6 +112,12 @@ export interface ProductoSelect {
   descripcion: string;
 }
 
+export interface ApiError {
+  error: string;
+  code?: string;
+  details?: string;
+}
+
 const api = axios.create({
   baseURL: API_URL,
   withCredentials: true,
@@ -119,6 +125,24 @@ const api = axios.create({
     "Content-Type": "application/json",
   },
 });
+
+// Interceptor para manejar errores
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.data) {
+      // Propagar el error con los datos del backend
+      throw {
+        ...error,
+        response: {
+          ...error.response,
+          data: error.response.data
+        }
+      };
+    }
+    throw error;
+  }
+);
 
 // ============ FUNCIONES PARA UBICACIONES ============
 
@@ -307,7 +331,6 @@ export const getTodosProductosParaSelect = async (searchTerm?: string): Promise<
     const params = searchTerm ? { search: searchTerm } : {};
     const response = await api.get("/todos-select", { params });
     
-    // Asegurar que los datos tengan la estructura correcta
     const productos = response.data || [];
     return productos.map((p: any) => ({
       idproducto: p.idproducto || 0,
@@ -465,7 +488,6 @@ export const getAllProductos = async (
 export const getProductoById = async (id: number): Promise<Producto> => {
   try {
     const response = await api.get<any>(`/productos/${id}`);
-    console.log("Respuesta de getProductoById:", response.data);
     return mapBackendProducto(response.data);
   } catch (error) {
     console.error("Error fetching producto:", error);
@@ -481,8 +503,15 @@ export const createProducto = async (formData: FormData): Promise<Producto> => {
       },
     });
     return mapBackendProducto(response.data);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error creating producto:", error);
+    // Propagar el error con los datos del backend
+    if (error.response?.data) {
+      throw {
+        response: error.response,
+        message: error.response.data.error || error.message
+      };
+    }
     throw error;
   }
 };
@@ -503,8 +532,15 @@ export const updateProducto = async (
     );
 
     return mapBackendProducto(response.data);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error updating producto:", error);
+    // Propagar el error con los datos del backend
+    if (error.response?.data) {
+      throw {
+        response: error.response,
+        message: error.response.data.error || error.message
+      };
+    }
     throw error;
   }
 };
@@ -551,14 +587,9 @@ export const updateStockProducto = async (
   }
 };
 
-// ============ FUNCIÓN DE MAPEO CORREGIDA ============
+// ============ FUNCIÓN DE MAPEO ============
 
 function mapBackendProducto(producto: any): Producto {
-  // Log para depuración
-  console.log("Mapeando producto - codigoP:", producto.codigoP);
-  console.log("Producto completo recibido:", producto);
-  
-  // Asegurar que codigoP se mapee correctamente (soporta codigoP o codigop)
   const codigoP = producto.codigoP || producto.codigop || null;
   
   return {

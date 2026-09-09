@@ -76,10 +76,10 @@ export interface TotalesVentas {
   totalQR: number;
 }
 
-// NUEVA INTERFAZ - Total Inversión y Ganancia
+// ✅ NUEVA INTERFAZ CORREGIDA - Total Inversión y Ganancia
 export interface TotalesInversionGanancia {
-  total_invertido: number;
-  total_ganado: number;
+  total_invertido: number;  // Costo de los productos vendidos (precio_compra)
+  total_ganado: number;     // ✅ Ganancia real = Total General - Inversión
 }
 
 const api = axios.create({
@@ -210,7 +210,7 @@ export const getTotalesVentas = async (filtros?: VentasFiltros): Promise<Totales
   }
 };
 
-// NUEVA FUNCIÓN - Total Inversión y Ganancia
+// ✅ NUEVA FUNCIÓN CORREGIDA - Total Inversión y Ganancia
 export const getTotalesInversionGanancia = async (filtros?: VentasFiltros): Promise<TotalesInversionGanancia> => {
   try {
     const params: any = {};
@@ -243,7 +243,7 @@ export const getTotalesInversionGanancia = async (filtros?: VentasFiltros): Prom
     
     return {
       total_invertido: parseFloat(response.data.total_invertido),
-      total_ganado: parseFloat(response.data.total_ganado)
+      total_ganado: parseFloat(response.data.total_ganado) // ✅ Ahora es la ganancia real
     };
   } catch (error) {
     console.error("Error fetching totales inversion ganancia:", error);

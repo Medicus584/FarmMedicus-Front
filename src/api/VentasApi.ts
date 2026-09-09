@@ -76,7 +76,7 @@ export interface TotalesVentas {
   totalQR: number;
 }
 
-// ✅ NUEVA INTERFAZ CORREGIDA - Total Inversión y Ganancia
+// ✅ INTERFAZ CORREGIDA - Total Inversión y Ganancia
 export interface TotalesInversionGanancia {
   total_invertido: number;  // Costo de los productos vendidos (precio_compra)
   total_ganado: number;     // ✅ Ganancia real = Total General - Inversión
@@ -210,7 +210,7 @@ export const getTotalesVentas = async (filtros?: VentasFiltros): Promise<Totales
   }
 };
 
-// ✅ NUEVA FUNCIÓN CORREGIDA - Total Inversión y Ganancia
+// ✅ FUNCIÓN CORREGIDA - Total Inversión y Ganancia
 export const getTotalesInversionGanancia = async (filtros?: VentasFiltros): Promise<TotalesInversionGanancia> => {
   try {
     const params: any = {};

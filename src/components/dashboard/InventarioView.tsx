@@ -5,9 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Eye, Filter, RefreshCw, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Eye, Filter, RefreshCw, X, ChevronLeft, ChevronRight, FlaskConical } from "lucide-react";
 import { DashboardView } from "@/pages/Dashboard";
-import { getInventory, getLowMarginCount, InventoryItem, getCategories, Category } from "@/api/InventoryApi";
+import { getInventory, getLowMarginCount, InventoryItem, getCategories, Category, getLaboratories, Laboratory } from "@/api/InventoryApi";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -86,7 +86,9 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showLowMarginOnly, setShowLowMarginOnly] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedLaboratories, setSelectedLaboratories] = useState<string[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [laboratories, setLaboratories] = useState<Laboratory[]>([]);
   const [inventoryData, setInventoryData] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [lowMarginCount, setLowMarginCount] = useState(0);
@@ -101,16 +103,17 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
     loadInventoryData();
     loadLowMarginCount();
     loadCategories();
+    loadLaboratories();
   }, []);
 
   useEffect(() => {
     loadInventoryData();
-  }, [searchTerm, showLowMarginOnly, selectedCategories]);
+  }, [searchTerm, showLowMarginOnly, selectedCategories, selectedLaboratories]);
 
   // Resetear a página 1 cuando cambian los filtros
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, showLowMarginOnly, selectedCategories]);
+  }, [searchTerm, showLowMarginOnly, selectedCategories, selectedLaboratories]);
 
   const loadInventoryData = async () => {
     try {
@@ -119,7 +122,8 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
       const response = await getInventory(
         searchTerm || undefined, 
         showLowMarginOnly || undefined,
-        selectedCategories.length > 0 ? selectedCategories : undefined
+        selectedCategories.length > 0 ? selectedCategories : undefined,
+        selectedLaboratories.length > 0 ? selectedLaboratories : undefined
       );
       setInventoryData(response.items);
     } catch (err) {
@@ -148,6 +152,15 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
     }
   };
 
+  const loadLaboratories = async () => {
+    try {
+      const laboratoriesData = await getLaboratories();
+      setLaboratories(laboratoriesData);
+    } catch (err) {
+      console.error("Error loading laboratories:", err);
+    }
+  };
+
   const handleRefresh = () => {
     loadInventoryData();
     loadLowMarginCount();
@@ -161,12 +174,25 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
     );
   };
 
+  const handleLaboratoryChange = (laboratoryId: string) => {
+    setSelectedLaboratories(prev =>
+      prev.includes(laboratoryId)
+        ? prev.filter(id => id !== laboratoryId)
+        : [...prev, laboratoryId]
+    );
+  };
+
   const clearCategoryFilters = () => {
     setSelectedCategories([]);
   };
 
+  const clearLaboratoryFilters = () => {
+    setSelectedLaboratories([]);
+  };
+
   const clearAllFilters = () => {
     setSelectedCategories([]);
+    setSelectedLaboratories([]);
     setSearchTerm("");
     setShowLowMarginOnly(false);
   };
@@ -227,7 +253,8 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h1 className="text-2xl sm:text-3xl font-bold text-primary">Inventario</h1>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-          <div className="relative flex-1 sm:min-w-[250px]">
+          {/* Barra de búsqueda más larga */}
+          <div className="relative flex-1 sm:min-w-[400px] lg:min-w-[500px]">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
               placeholder="Buscar por nombre, código o descripción..."
@@ -279,6 +306,48 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
             </PopoverContent>
           </Popover>
 
+          {/* Filtro de Laboratorios */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-full sm:w-auto">
+                <FlaskConical className="mr-2 h-4 w-4" />
+                Laboratorios
+                {selectedLaboratories.length > 0 && (
+                  <Badge variant="secondary" className="ml-2">
+                    {selectedLaboratories.length}
+                  </Badge>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium">Laboratorios</h4>
+                  {selectedLaboratories.length > 0 && (
+                    <Button variant="ghost" size="sm" onClick={clearLaboratoryFilters}>
+                      <X className="h-3 w-3 mr-1" />
+                      Limpiar
+                    </Button>
+                  )}
+                </div>
+                <div className="max-h-60 overflow-y-auto space-y-2">
+                  {laboratories.map((laboratory) => (
+                    <div key={laboratory.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`laboratory-${laboratory.id}`}
+                        checked={selectedLaboratories.includes(laboratory.id)}
+                        onCheckedChange={() => handleLaboratoryChange(laboratory.id)}
+                      />
+                      <Label htmlFor={`laboratory-${laboratory.id}`} className="flex-1">
+                        {laboratory.nombre}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+
           <Button
             variant={showLowMarginOnly ? "default" : "outline"}
             onClick={() => setShowLowMarginOnly(!showLowMarginOnly)}
@@ -288,7 +357,7 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
             Margen Bajo ({lowMarginCount})
           </Button>
           
-          {(selectedCategories.length > 0 || searchTerm || showLowMarginOnly) && (
+          {(selectedCategories.length > 0 || selectedLaboratories.length > 0 || searchTerm || showLowMarginOnly) && (
             <Button
               variant="outline"
               onClick={clearAllFilters}
@@ -299,20 +368,11 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
             </Button>
           )}
           
-          <Button
-            variant="outline"
-            onClick={handleRefresh}
-            disabled={loading}
-            className="w-full sm:w-auto"
-          >
-            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Actualizar
-          </Button>
         </div>
       </div>
 
       {/* Indicadores de filtros activos */}
-      {(selectedCategories.length > 0 ) && (
+      {(selectedCategories.length > 0 || selectedLaboratories.length > 0) && (
         <div className="flex flex-wrap gap-2">
           {selectedCategories.map(categoryId => {
             const category = categories.find(c => c.id === categoryId);
@@ -322,6 +382,18 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
                 <X 
                   className="h-3 w-3 cursor-pointer" 
                   onClick={() => handleCategoryChange(categoryId)}
+                />
+              </Badge>
+            ) : null;
+          })}
+          {selectedLaboratories.map(laboratoryId => {
+            const laboratory = laboratories.find(l => l.id === laboratoryId);
+            return laboratory ? (
+              <Badge key={laboratoryId} variant="outline" className="flex items-center gap-1 border-blue-300 bg-blue-50 text-blue-700">
+                Laboratorio: {laboratory.nombre}
+                <X 
+                  className="h-3 w-3 cursor-pointer" 
+                  onClick={() => handleLaboratoryChange(laboratoryId)}
                 />
               </Badge>
             ) : null;
@@ -345,6 +417,7 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
                   <TableHead className="px-4 py-3">Código</TableHead>
                   <TableHead className="px-4 py-3">N. Comercial</TableHead>
                   <TableHead className="px-4 py-3 min-w-[200px]">N. Genérico</TableHead>
+                  <TableHead className="px-4 py-3">Laboratorio</TableHead>
                   <TableHead className="px-4 py-3">P. Compra</TableHead>
                   <TableHead className="px-4 py-3">P. Venta</TableHead>
                   <TableHead className="px-4 py-3">Cantidad</TableHead>
@@ -356,7 +429,7 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">
+                    <TableCell colSpan={10} className="text-center py-8">
                       <div className="flex justify-center">
                         <RefreshCw className="h-6 w-6 animate-spin" />
                       </div>
@@ -364,7 +437,7 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
                   </TableRow>
                 ) : filteredData.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                       {showLowMarginOnly 
                         ? "No hay productos con margen bajo" 
                         : "No se encontraron productos que coincidan con la búsqueda"
@@ -385,6 +458,11 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
                       </TableCell>
                       <TableCell className="hidden md:table-cell px-4 py-3">
                         <DescripcionCell descripcion={item.descripcion} />
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell px-4 py-3">
+                        <span className="text-xs text-muted-foreground">
+                          {item.nombreLaboratorio || "—"}
+                        </span>
                       </TableCell>
                       <TableCell className="hidden md:table-cell px-4 py-3">
                         <div className="text-sm">Bs. {item.precioCompra.toFixed(2)}</div>
@@ -436,6 +514,12 @@ export const InventarioView = ({ onViewChange }: InventarioViewProps) => {
                               {item.codigo && (
                                 <div className="text-xs font-mono text-primary mt-0.5">
                                   Código: {item.codigo}
+                                </div>
+                              )}
+                              {item.nombreLaboratorio && (
+                                <div className="text-xs text-blue-600 mt-0.5 flex items-center gap-1">
+                                  <FlaskConical className="h-3 w-3" />
+                                  {item.nombreLaboratorio}
                                 </div>
                               )}
                             </div>

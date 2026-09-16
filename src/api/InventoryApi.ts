@@ -14,6 +14,8 @@ interface BackendInventoryItem {
   stock_minimo: number;
   ultima_edicion: string;
   estado: number;
+  idlaboratorio: number | null;
+  nombre_laboratorio: string | null;
 }
 
 export interface InventoryItem {
@@ -29,6 +31,8 @@ export interface InventoryItem {
   ultimaEdicion: string;
   stockMinimo: number;
   estado: number;
+  idLaboratorio: number | null;
+  nombreLaboratorio: string | null;
 }
 
 export interface InventoryResponse {
@@ -37,6 +41,11 @@ export interface InventoryResponse {
 }
 
 export interface Category {
+  id: string;
+  nombre: string;
+}
+
+export interface Laboratory {
   id: string;
   nombre: string;
 }
@@ -52,13 +61,15 @@ const api = axios.create({
 export const getInventory = async (
   searchTerm?: string, 
   lowMarginOnly?: boolean,
-  categories?: string[]
+  categories?: string[],
+  laboratories?: string[]
 ): Promise<InventoryResponse> => {
   try {
     const params: any = {};
     if (searchTerm) params.search = searchTerm;
     if (lowMarginOnly) params.lowMarginOnly = true;
     if (categories && categories.length > 0) params.categories = categories.join(',');
+    if (laboratories && laboratories.length > 0) params.laboratories = laboratories.join(',');
 
     const response = await api.get<BackendInventoryItem[]>("/inventory/inventory", { params });
     
@@ -80,7 +91,9 @@ export const getInventory = async (
         margenPorcentaje,
         ultimaEdicion: new Date(item.ultima_edicion).toLocaleDateString(),
         stockMinimo: item.stock_minimo,
-        estado: item.estado
+        estado: item.estado,
+        idLaboratorio: item.idlaboratorio,
+        nombreLaboratorio: item.nombre_laboratorio
       };
     });
 
@@ -110,6 +123,16 @@ export const getCategories = async (): Promise<Category[]> => {
     return response.data;
   } catch (error) {
     console.error("Error fetching categories:", error);
+    return [];
+  }
+};
+
+export const getLaboratories = async (): Promise<Laboratory[]> => {
+  try {
+    const response = await api.get<Laboratory[]>("/inventory/laboratories");
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching laboratories:", error);
     return [];
   }
 };

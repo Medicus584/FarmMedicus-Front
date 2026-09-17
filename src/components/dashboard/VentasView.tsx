@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { CalendarIcon, Download, Calendar as CalendarRangeIcon, Printer, Loader2, Check, X, Eye, ChevronLeft, ChevronRight, Filter, SlidersHorizontal, AlertTriangle, XCircle } from "lucide-react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { 
   getVentas, 
@@ -39,7 +39,8 @@ interface UsuarioOption {
   username: string;
 }
 
-// Función para obtener la fecha actual en Bolivia (GMT-4)
+// ✅ Función para obtener la fecha actual en Bolivia (GMT-4) SOLO para el filtro inicial
+// Esto es correcto porque necesitamos saber qué día es HOY en Bolivia para el filtro por defecto
 const getFechaBolivia = () => {
   const now = new Date();
   const boliviaOffset = -4 * 60;
@@ -50,33 +51,28 @@ const getFechaBolivia = () => {
   return fechaBolivia;
 };
 
-// Función para formatear fecha para mostrar
+// ✅ CORREGIDO: Solo formatea, NO manipula la fecha
+// El backend ya devuelve la fecha/hora correcta en zona Bolivia
 const formatDateForDisplay = (dateInput: string | Date) => {
   try {
-    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-    // Ajustar a Bolivia (GMT-4) sumando 4 horas
-    const boliviaDate = new Date(date.getTime() + 4 * 60 * 60 * 1000);
-    const day = boliviaDate.getDate();
-    const month = boliviaDate.getMonth() + 1;
-    const year = boliviaDate.getFullYear();
-    return `${day}/${month}/${year}`;
+    // Si es string, parsearlo como ISO. Si ya es Date, usarlo directamente.
+    const date = typeof dateInput === 'string' ? parseISO(dateInput) : dateInput;
+    
+    // ✅ Usar date-fns para formatear directamente, sin sumar horas
+    return format(date, "dd/MM/yyyy", { locale: es });
   } catch (error) {
     console.error("Error formatting date:", error);
     return typeof dateInput === 'string' ? dateInput.substring(0, 10) : "Fecha inválida";
   }
 };
 
-// Función para formatear hora para mostrar
+// ✅ CORREGIDO: Solo formatea, NO manipula la fecha
 const formatTimeForDisplay = (dateInput: string | Date) => {
   try {
-    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-    // Ajustar a Bolivia (GMT-4) sumando 4 horas
-    const boliviaDate = new Date(date.getTime() + 4 * 60 * 60 * 1000);
-    const hours = boliviaDate.getHours();
-    const minutes = boliviaDate.getMinutes();
-    const formattedHours = hours < 10 ? `0${hours}` : hours.toString();
-    const formattedMinutes = minutes < 10 ? `0${minutes}` : minutes.toString();
-    return `${formattedHours}:${formattedMinutes}`;
+    const date = typeof dateInput === 'string' ? parseISO(dateInput) : dateInput;
+    
+    // ✅ Usar date-fns para formatear directamente, sin sumar horas
+    return format(date, "HH:mm", { locale: es });
   } catch (error) {
     console.error("Error formatting time:", error);
     return "";

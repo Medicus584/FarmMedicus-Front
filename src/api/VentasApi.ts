@@ -76,10 +76,9 @@ export interface TotalesVentas {
   totalQR: number;
 }
 
-// ✅ INTERFAZ CORREGIDA - Total Inversión y Ganancia
 export interface TotalesInversionGanancia {
-  total_invertido: number;  // Costo de los productos vendidos (precio_compra)
-  total_ganado: number;     // ✅ Ganancia real = Total General - Inversión
+  total_invertido: number;
+  total_ganado: number;
 }
 
 const api = axios.create({
@@ -89,6 +88,41 @@ const api = axios.create({
     "Content-Type": "application/json",
   },
 });
+
+// ✅ Helper para transformar venta del backend al frontend
+const transformVenta = (venta: BackendVenta): Venta => ({
+  id: venta.idventa,
+  fecha: venta.fecha_hora,
+  usuario: `${venta.usuario_nombre} ${venta.usuario_apellidos}`,
+  usuario_completo: `${venta.usuario_nombre} ${venta.usuario_apellidos}`,
+  usuario_login: venta.usuario_usuario,
+  descripcion: venta.descripcion,
+  descripcion_descuento: venta.descripcion_descuento,
+  medico: venta.medico || "",
+  detalle: venta.detalle.map((detalle) => ({
+    iddetalle_venta: detalle.iddetalle_venta,
+    idproducto: detalle.idproducto,
+    cantidad: detalle.cantidad,
+    precio_unitario: parseFloat(detalle.precio_unitario),
+    subtotal_linea: parseFloat(detalle.subtotal_linea),
+    producto: detalle.nombre_producto || "Producto sin nombre"
+  })),
+  subtotal: parseFloat(venta.sub_total),
+  descuento: parseFloat(venta.descuento),
+  total: parseFloat(venta.total),
+  metodo: venta.metodo_pago
+});
+
+// ✅ Helper para ordenar ventas por fecha descendente (más reciente primero)
+const ordenarVentas = (ventas: Venta[]): Venta[] => {
+  return [...ventas].sort((a, b) => {
+    const fechaA = new Date(a.fecha).getTime();
+    const fechaB = new Date(b.fecha).getTime();
+    if (fechaB !== fechaA) return fechaB - fechaA;
+    // Si tienen la misma fecha, ordenar por ID descendente
+    return b.id - a.id;
+  });
+};
 
 // FUNCIONES PARA OBTENER MÉDICOS
 export const getMedicos = async (): Promise<string[]> => {
@@ -139,28 +173,10 @@ export const getVentas = async (filtros?: VentasFiltros): Promise<Venta[]> => {
 
     const response = await api.get<BackendVenta[]>("/ventas/ventas", { params });
     
-    return response.data.map((venta) => ({
-      id: venta.idventa,
-      fecha: venta.fecha_hora,
-      usuario: `${venta.usuario_nombre} ${venta.usuario_apellidos}`,
-      usuario_completo: `${venta.usuario_nombre} ${venta.usuario_apellidos}`,
-      usuario_login: venta.usuario_usuario,
-      descripcion: venta.descripcion,
-      descripcion_descuento: venta.descripcion_descuento,
-      medico: venta.medico || "",
-      detalle: venta.detalle.map((detalle) => ({
-        iddetalle_venta: detalle.iddetalle_venta,
-        idproducto: detalle.idproducto,
-        cantidad: detalle.cantidad,
-        precio_unitario: parseFloat(detalle.precio_unitario),
-        subtotal_linea: parseFloat(detalle.subtotal_linea),
-        producto: detalle.nombre_producto || "Producto sin nombre"
-      })),
-      subtotal: parseFloat(venta.sub_total),
-      descuento: parseFloat(venta.descuento),
-      total: parseFloat(venta.total),
-      metodo: venta.metodo_pago
-    }));
+    const ventas = response.data.map(transformVenta);
+    
+    // ✅ Ordenar explícitamente por fecha descendente
+    return ordenarVentas(ventas);
   } catch (error) {
     console.error("Error fetching ventas:", error);
     throw new Error("No se pudieron cargar las ventas");
@@ -243,7 +259,7 @@ export const getTotalesInversionGanancia = async (filtros?: VentasFiltros): Prom
     
     return {
       total_invertido: parseFloat(response.data.total_invertido),
-      total_ganado: parseFloat(response.data.total_ganado) // ✅ Ahora es la ganancia real
+      total_ganado: parseFloat(response.data.total_ganado)
     };
   } catch (error) {
     console.error("Error fetching totales inversion ganancia:", error);
@@ -258,35 +274,16 @@ export const getVentasHoyAsistente = async (username: string): Promise<Venta[]> 
   try {
     const response = await api.get<BackendVenta[]>(`/ventas/ventas/hoy/${username}`);
     
-    return response.data.map((venta) => ({
-      id: venta.idventa,
-      fecha: venta.fecha_hora,
-      usuario: `${venta.usuario_nombre} ${venta.usuario_apellidos}`,
-      usuario_completo: `${venta.usuario_nombre} ${venta.usuario_apellidos}`,
-      usuario_login: venta.usuario_usuario,
-      descripcion: venta.descripcion,
-      descripcion_descuento: venta.descripcion_descuento,
-      medico: venta.medico || "",
-      detalle: venta.detalle.map((detalle) => ({
-        iddetalle_venta: detalle.iddetalle_venta,
-        idproducto: detalle.idproducto,
-        cantidad: detalle.cantidad,
-        precio_unitario: parseFloat(detalle.precio_unitario),
-        subtotal_linea: parseFloat(detalle.subtotal_linea),
-        producto: detalle.nombre_producto || "Producto sin nombre"
-      })),
-      subtotal: parseFloat(venta.sub_total),
-      descuento: parseFloat(venta.descuento),
-      total: parseFloat(venta.total),
-      metodo: venta.metodo_pago
-    }));
+    const ventas = response.data.map(transformVenta);
+    return ordenarVentas(ventas);
   } catch (error) {
     console.error("Error fetching ventas hoy:", error);
     throw new Error("No se pudieron cargar las ventas de hoy");
   }
 };
 
-// Función auxiliar para formatear fechas para la API
+// ✅ Función auxiliar para formatear fechas para la API
+// IMPORTANTE: Usamos los componentes locales de la fecha (que ya vienen en hora Bolivia)
 const formatDateForAPI = (date: Date): string => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');

@@ -70,6 +70,7 @@ CREATE TABLE lotes (
     idproducto INTEGER REFERENCES productos(idproducto) NOT NULL,
     stock INTEGER NOT NULL DEFAULT 0,
     fecha_vencimiento DATE,
+    fecha_compra DATE,
     estado SMALLINT DEFAULT 0 CHECK (estado IN (0, 1)) -- 0 activo, 1 eliminado
 );
 

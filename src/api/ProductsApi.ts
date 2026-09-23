@@ -46,6 +46,7 @@ export interface ProductoLote {
   idlote: number;
   stock: number;
   fechaVencimiento: string;
+  fechaCompra: string;
 }
 
 export interface Producto {
@@ -558,7 +559,8 @@ export const updateStockProducto = async (
   idproducto: number,
   idlote: number,
   cantidad: number,
-  fechaVencimiento?: string
+  fechaVencimiento?: string,
+  fechaCompra?: string
 ): Promise<Producto> => {
   try {
     let endpoint = `/productos/${idproducto}/stock`;
@@ -568,7 +570,8 @@ export const updateStockProducto = async (
     if ((idlote === 0 || idlote === null || idlote === undefined) && fechaVencimiento) {
       requestBody = {
         cantidad,
-        fecha_vencimiento: fechaVencimiento
+        fecha_vencimiento: fechaVencimiento,
+        fecha_compra: fechaCompra
       };
       response = await api.post<Producto>(endpoint, requestBody);
     } else if (idlote > 0 && !fechaVencimiento) {
@@ -618,6 +621,7 @@ function mapBackendProducto(producto: any): Producto {
       idlote: lote.idlote,
       stock: lote.stock,
       fechaVencimiento: lote.fechaVencimiento || lote.fecha_vencimiento || '',
+      fechaCompra: lote.fechaCompra || lote.fecha_compra || '',
     })),
     productos_similares: producto.productos_similares || [],
   };

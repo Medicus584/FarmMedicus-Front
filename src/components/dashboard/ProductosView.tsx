@@ -70,6 +70,7 @@ interface StockFormData {
   productoNombre: string;
   loteId: number;
   fechaVencimiento: string;
+  fechaCompra: string;
   modoNuevoLote: boolean;
 }
 
@@ -488,6 +489,31 @@ function DetallesProductoDialog({
                 </div>
               </div>
             </div>
+            <div>
+              <div className="text-xs font-medium text-muted-foreground mb-1">Lotes</div>
+              {product.lotes && product.lotes.length > 0 ? (
+                <div className="space-y-1">
+                  {product.lotes.map((lote, index) => (
+                    <div
+                      key={lote.idlote ?? index}
+                      className="flex items-center justify-between gap-2 text-xs border rounded-md px-2 py-1.5"
+                    >
+                      <Badge variant="outline" className="text-[10px] px-1 py-0 shrink-0">
+                        L{index + 1}
+                      </Badge>
+                      <span className="font-medium shrink-0">{lote.stock} u.</span>
+                      <span className="text-muted-foreground text-right">
+                        Compra: {lote.fechaCompra ? formatDateToLocal(lote.fechaCompra) : "—"}
+                        {" · "}
+                        Vence: {lote.fechaVencimiento ? formatDateToLocal(lote.fechaVencimiento) : "—"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-sm text-muted-foreground">Sin lotes</span>
+              )}
+            </div>
           </div>
           <DialogFooter>
             <Button onClick={() => setOpen(false)}>Cerrar</Button>
@@ -771,6 +797,7 @@ export function ProductosView() {
     productoNombre: "",
     loteId: 0,
     fechaVencimiento: "",
+    fechaCompra: "",
     modoNuevoLote: true,
   });
 
@@ -985,6 +1012,7 @@ export function ProductosView() {
       productoNombre: product.nombre,
       loteId: primerLote?.idlote || 0,
       fechaVencimiento: primerLote?.fechaVencimiento || "",
+      fechaCompra: primerLote?.fechaCompra || "",
       modoNuevoLote: product.lotes?.length === 0,
     });
     setIsStockFormOpen(true);
@@ -1020,11 +1048,21 @@ export function ProductosView() {
         return;
       }
 
+      if (stockFormData.modoNuevoLote && !stockFormData.fechaCompra) {
+        toast({
+          title: "Error",
+          description: "Debe seleccionar una fecha de compra para el nuevo lote",
+          variant: "destructive",
+        });
+        return;
+      }
+
       await updateStockProducto(
         stockFormData.productoId,
         stockFormData.modoNuevoLote ? 0 : stockFormData.loteId,
         cantidad,
-        stockFormData.modoNuevoLote ? stockFormData.fechaVencimiento : undefined
+        stockFormData.modoNuevoLote ? stockFormData.fechaVencimiento : undefined,
+        stockFormData.modoNuevoLote ? stockFormData.fechaCompra : undefined
       );
 
       toast({
@@ -1042,6 +1080,7 @@ export function ProductosView() {
         productoNombre: "",
         loteId: 0,
         fechaVencimiento: "",
+        fechaCompra: "",
         modoNuevoLote: true,
       });
     } catch (error) {
@@ -1253,43 +1292,83 @@ export function ProductosView() {
               </div>
 
               {!stockFormData.modoNuevoLote && currentStockProduct?.lotes && (
-                <div className="space-y-1">
-                  <Label className="text-xs">Seleccionar lote</Label>
-                  <select
-                    value={stockFormData.loteId}
-                    onChange={(e) => {
-                      const loteId = Number(e.target.value);
-                      const lote = currentStockProduct.lotes.find((l: any) => l.idlote === loteId);
-                      setStockFormData(prev => ({
-                        ...prev,
-                        loteId,
-                        fechaVencimiento: lote?.fechaVencimiento || '',
-                      }));
-                    }}
-                    className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-xs"
-                  >
-                    <option value={0}>Seleccionar lote</option>
-                    {currentStockProduct.lotes.map((lote: any) => (
-                      <option key={lote.idlote} value={lote.idlote}>
-                        Lote {lote.idlote} - {lote.stock} u. - Vence: {formatDateToLocal(lote.fechaVencimiento)}
-                      </option>
-                    ))}
-                  </select>
+                <div className="space-y-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Seleccionar lote</Label>
+                    <select
+                      value={stockFormData.loteId}
+                      onChange={(e) => {
+                        const loteId = Number(e.target.value);
+                        const lote = currentStockProduct.lotes.find((l: any) => l.idlote === loteId);
+                        setStockFormData(prev => ({
+                          ...prev,
+                          loteId,
+                          fechaVencimiento: lote?.fechaVencimiento || '',
+                          fechaCompra: lote?.fechaCompra || '',
+                        }));
+                      }}
+                      className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-xs"
+                    >
+                      <option value={0}>Seleccionar lote</option>
+                      {currentStockProduct.lotes.map((lote: any) => (
+                        <option key={lote.idlote} value={lote.idlote}>
+                          Lote {lote.idlote} - {lote.stock} u. - Vence: {formatDateToLocal(lote.fechaVencimiento)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {stockFormData.loteId !== 0 && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Fecha de compra</Label>
+                        <Input
+                          type="date"
+                          value={stockFormData.fechaCompra}
+                          disabled
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Fecha de vencimiento</Label>
+                        <Input
+                          type="date"
+                          value={stockFormData.fechaVencimiento}
+                          disabled
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
               {stockFormData.modoNuevoLote && (
-                <div className="space-y-1">
-                  <Label className="text-xs">Fecha de vencimiento</Label>
-                  <Input
-                    type="date"
-                    value={stockFormData.fechaVencimiento}
-                    onChange={(e) => setStockFormData(prev => ({
-                      ...prev,
-                      fechaVencimiento: e.target.value
-                    }))}
-                    className="h-8 text-xs"
-                  />
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Fecha de compra</Label>
+                    <Input
+                      type="date"
+                      value={stockFormData.fechaCompra}
+                      onChange={(e) => setStockFormData(prev => ({
+                        ...prev,
+                        fechaCompra: e.target.value
+                      }))}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Fecha de vencimiento</Label>
+                    <Input
+                      type="date"
+                      value={stockFormData.fechaVencimiento}
+                      onChange={(e) => setStockFormData(prev => ({
+                        ...prev,
+                        fechaVencimiento: e.target.value
+                      }))}
+                      className="h-8 text-xs"
+                    />
+                  </div>
                 </div>
               )}
             </div>

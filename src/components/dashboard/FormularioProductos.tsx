@@ -78,6 +78,7 @@ interface LoteForm {
   idlote?: number;
   stock: number;
   fechaVencimiento: string;
+  fechaCompra: string;
 }
 
 interface FormularioProductosProps {
@@ -1087,7 +1088,7 @@ export function FormularioProductos({
   const [loadingProductos, setLoadingProductos] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [lotesForm, setLotesForm] = useState<LoteForm[]>([
-    { stock: 0, fechaVencimiento: "" }
+    { stock: 0, fechaVencimiento: "", fechaCompra: "" }
   ]);
 
   const [buscandoCodigo, setBuscandoCodigo] = useState(false);
@@ -1235,6 +1236,7 @@ export function FormularioProductos({
         idlote: lote.idlote,
         stock: lote.stock,
         fechaVencimiento: lote.fechaVencimiento || '',
+        fechaCompra: lote.fechaCompra || '',
       })));
     }
   }, [product]);
@@ -1337,7 +1339,7 @@ export function FormularioProductos({
   };
 
   const addLoteRow = () => {
-    setLotesForm([...lotesForm, { stock: 0, fechaVencimiento: "" }]);
+    setLotesForm([...lotesForm, { stock: 0, fechaVencimiento: "", fechaCompra: "" }]);
   };
 
   const removeLoteRow = (index: number) => {
@@ -1706,6 +1708,16 @@ export function FormularioProductos({
       return;
     }
 
+    const loteNuevoSinFechaCompra = lotesValidos.some(l => !l.idlote && !l.fechaCompra);
+    if (loteNuevoSinFechaCompra) {
+      toast({
+        title: "Error",
+        description: "Debe indicar la fecha de compra de cada nuevo lote",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmittingProduct(true);
 
     try {
@@ -1766,6 +1778,7 @@ export function FormularioProductos({
         idlote: l.idlote,
         stock: l.stock,
         fecha_vencimiento: l.fechaVencimiento,
+        fecha_compra: l.fechaCompra || null,
       }));
       formDataToSend.append("lotes", JSON.stringify(lotesData));
 
@@ -2190,8 +2203,8 @@ export function FormularioProductos({
           </div>
 
           {lotesForm.map((lote, index) => (
-            <div key={index} className="flex items-center gap-2 p-2.5 border rounded-md">
-              <div className="flex-1">
+            <div key={index} className="flex flex-wrap items-center gap-2 p-2.5 border rounded-md">
+              <div className="flex-1 min-w-[90px]">
                 <Label className="text-xs text-muted-foreground">Stock</Label>
                 <Input
                   type="number"
@@ -2202,7 +2215,17 @@ export function FormularioProductos({
                   min="0"
                 />
               </div>
-              <div className="flex-1">
+              <div className="flex-1 min-w-[130px]">
+                <Label className="text-xs text-muted-foreground">Fecha de Compra</Label>
+                <Input
+                  type="date"
+                  value={lote.fechaCompra}
+                  onChange={(e) => handleLoteChange(index, 'fechaCompra', e.target.value)}
+                  disabled={!!lote.idlote}
+                  className="h-9 text-sm"
+                />
+              </div>
+              <div className="flex-1 min-w-[130px]">
                 <Label className="text-xs text-muted-foreground">Fecha de Vencimiento</Label>
                 <Input
                   type="date"

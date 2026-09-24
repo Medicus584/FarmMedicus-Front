@@ -64,7 +64,7 @@ export function VenderView() {
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [ventaItems, setVentaItems] = useState<SaleItemWithLotes[]>([]);
   const [descuentoPorcentaje, setDescuentoPorcentaje] = useState(0);
-  const [metodoPago, setMetodoPago] = useState<"Efectivo" | "QR">("Efectivo");
+  const [metodoPago, setMetodoPago] = useState<"Efectivo" | "QR" | null>(null);
   const [montoPagado, setMontoPagado] = useState(0);
   const [showConfirm, setShowConfirm] = useState(false);
   const [cajaAbierta, setCajaAbierta] = useState(false);
@@ -1019,7 +1019,7 @@ export function VenderView() {
         descuento: descuentoTotal,
         descripcion_descuento: discountReason,
         total: total,
-        metodo_pago: metodoPago,
+        metodo_pago: metodoPago!,
         items: items,
         doctorId: selectedDoctor?.id,
       };
@@ -1051,6 +1051,7 @@ export function VenderView() {
 
       setVentaItems([]);
       setDescuentoPorcentaje(0);
+      setMetodoPago(null);
       setMontoPagado(0);
       setShowConfirm(false);
       setDiscountReason("");
@@ -1842,7 +1843,8 @@ export function VenderView() {
                     !cajaAbierta ||
                     tieneItemsInvalidos ||
                     (isDoctorMode && !selectedDoctor) ||
-                    (tieneDescuentos && !discountReason.trim())
+                    (tieneDescuentos && !discountReason.trim()) ||
+                    !metodoPago
                   }
                 >
                   {!cajaAbierta
@@ -1853,6 +1855,8 @@ export function VenderView() {
                     ? "Seleccionar doctor"
                     : tieneDescuentos && !discountReason.trim()
                     ? "Justificar descuento"
+                    : !metodoPago
+                    ? "Seleccionar método de pago"
                     : "Procesar Venta"}
                 </Button>
               </DialogTrigger>

@@ -1,5 +1,5 @@
 // src/components/dashboard/VentasView.tsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -9,7 +9,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { CalendarIcon, Download, Calendar as CalendarRangeIcon, Printer, Loader2, Check, X, Eye, ChevronLeft, ChevronRight, Filter, SlidersHorizontal, AlertTriangle, XCircle } from "lucide-react";
+import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
+import { CalendarIcon, Download, Calendar as CalendarRangeIcon, Printer, Loader2, Check, X, Eye, ChevronLeft, ChevronRight, Filter, SlidersHorizontal, AlertTriangle, XCircle, ChevronsUpDown, Search } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { 
@@ -18,6 +19,7 @@ import {
   getUsuariosVentas, 
   getVentasHoyAsistente, 
   getMedicos, 
+  getProductosVentas,
   Venta, 
   VentasFiltros, 
   TotalesVentas, 
@@ -40,7 +42,6 @@ interface UsuarioOption {
 }
 
 // ✅ Función para obtener la fecha actual en Bolivia (GMT-4) SOLO para el filtro inicial
-// Esto es correcto porque necesitamos saber qué día es HOY en Bolivia para el filtro por defecto
 const getFechaBolivia = () => {
   const now = new Date();
   const boliviaOffset = -4 * 60;
@@ -52,13 +53,9 @@ const getFechaBolivia = () => {
 };
 
 // ✅ CORREGIDO: Solo formatea, NO manipula la fecha
-// El backend ya devuelve la fecha/hora correcta en zona Bolivia
 const formatDateForDisplay = (dateInput: string | Date) => {
   try {
-    // Si es string, parsearlo como ISO. Si ya es Date, usarlo directamente.
     const date = typeof dateInput === 'string' ? parseISO(dateInput) : dateInput;
-    
-    // ✅ Usar date-fns para formatear directamente, sin sumar horas
     return format(date, "dd/MM/yyyy", { locale: es });
   } catch (error) {
     console.error("Error formatting date:", error);
@@ -70,8 +67,6 @@ const formatDateForDisplay = (dateInput: string | Date) => {
 const formatTimeForDisplay = (dateInput: string | Date) => {
   try {
     const date = typeof dateInput === 'string' ? parseISO(dateInput) : dateInput;
-    
-    // ✅ Usar date-fns para formatear directamente, sin sumar horas
     return format(date, "HH:mm", { locale: es });
   } catch (error) {
     console.error("Error formatting time:", error);
@@ -103,6 +98,7 @@ export function VentasView() {
 
   const [empleadosOptions, setEmpleadosOptions] = useState<UsuarioOption[]>([{ value: "Todos", label: "Todos", username: "" }]);
   const [medicosOptions, setMedicosOptions] = useState<string[]>(["Todos"]);
+  const [productosOptions, setProductosOptions] = useState<string[]>(["Todos"]);
   const [ventasFiltradas, setVentasFiltradas] = useState<Venta[]>([]);
   const [totales, setTotales] = useState<TotalesVentas>({ totalGeneral: 0, totalEfectivo: 0, totalQR: 0 });
   const [totalesInversionGanancia, setTotalesInversionGanancia] = useState<TotalesInversionGanancia>({
@@ -120,6 +116,11 @@ export function VentasView() {
   const [filtroEmpleado, setFiltroEmpleado] = useState("Todos");
   const [filtroMetodo, setFiltroMetodo] = useState("Todos");
   const [filtroMedico, setFiltroMedico] = useState("Todos");
+  const [filtroProducto, setFiltroProducto] = useState("Todos");
+
+  // ✅ Estados para el buscador de producto
+  const [buscadorProductoAbierto, setBuscadorProductoAbierto] = useState(false);
+  const [busquedaProducto, setBusquedaProducto] = useState("");
 
   // Estados para fecha específica
   const [fechaBusqueda, setFechaBusqueda] = useState<Date | undefined>(fechaBoliviaHoy);
@@ -150,6 +151,20 @@ export function VentasView() {
   const [itemsPorPagina, setItemsPorPagina] = useState(10);
   const [esMovil, setEsMovil] = useState(false);
 
+  // ✅ Filtrar productos según búsqueda
+  const productosFiltrados = useMemo(() => {
+    if (!busquedaProducto.trim()) return productosOptions;
+    
+    const term = busquedaProducto.toLowerCase().trim();
+    return productosOptions.filter((producto) =>
+      producto.toLowerCase().includes(term)
+    );
+  }, [productosOptions, busquedaProducto]);
+
+  // ✅ Separar "Todos" para mostrarlo siempre primero
+  const todosProductoOption = productosFiltrados.find(p => p.toLowerCase() === "todos");
+  const productosSinTodos = productosFiltrados.filter(p => p.toLowerCase() !== "todos");
+
   // Detectar si es dispositivo móvil
   useEffect(() => {
     const detectarMovil = () => {
@@ -171,7 +186,7 @@ export function VentasView() {
   // Resetear página cuando cambian los filtros
   useEffect(() => {
     setPaginaActual(1);
-  }, [filtroEmpleado, filtroMetodo, filtroMedico, fechaBusqueda, fechaRangoAplicado]);
+  }, [filtroEmpleado, filtroMetodo, filtroMedico, filtroProducto, fechaBusqueda, fechaRangoAplicado]);
 
   // Cargar datos iniciales
   useEffect(() => {
@@ -183,7 +198,7 @@ export function VentasView() {
     if (datosCargados) {
       buscarDatos();
     }
-  }, [filtroEmpleado, filtroMetodo, filtroMedico, fechaBusqueda, fechaRangoAplicado, datosCargados]);
+  }, [filtroEmpleado, filtroMetodo, filtroMedico, filtroProducto, fechaBusqueda, fechaRangoAplicado, datosCargados]);
 
   const cargarDatosIniciales = async () => {
     try {
@@ -193,6 +208,10 @@ export function VentasView() {
 
       const medicos = await getMedicos();
       setMedicosOptions(["Todos", ...medicos]);
+
+      // ✅ Cargar productos
+      const productos = await getProductosVentas();
+      setProductosOptions(["Todos", ...productos]);
 
       // Para asistentes, solo mostrar su propio usuario
       if (isAssistant) {
@@ -234,17 +253,16 @@ export function VentasView() {
       const filtros: VentasFiltros = {
         metodo: filtroMetodo !== "Todos" ? filtroMetodo : undefined,
         medico: filtroMedico !== "Todos" ? filtroMedico : undefined,
+        producto: filtroProducto !== "Todos" ? filtroProducto : undefined,
         fechaEspecifica: fechaBusqueda,
         fechaInicio: fechaRangoAplicado.from,
         fechaFin: fechaRangoAplicado.to
       };
 
       if (isAssistant) {
-        // Asistente: siempre filtra por su propio usuario
         filtros.empleado = currentUser.usuario;
         ventas = await getVentas(filtros);
       } else {
-        // Admin: puede filtrar por cualquier usuario
         filtros.empleado = filtroEmpleado !== "Todos" ? filtroEmpleado : undefined;
         ventas = await getVentas(filtros);
       }
@@ -302,6 +320,11 @@ export function VentasView() {
         nombreArchivo += `_medico_${filtroMedico.replace(/\s+/g, '_')}`;
       }
 
+      // ✅ Agregar producto al nombre del archivo
+      if (filtroProducto !== "Todos") {
+        nombreArchivo += `_producto_${filtroProducto.replace(/\s+/g, '_')}`;
+      }
+
       nombreArchivo += ".pdf";
 
       const pdfDocument = (
@@ -313,8 +336,10 @@ export function VentasView() {
             filtroEmpleado,
             filtroMetodo,
             filtroMedico,
+            filtroProducto,
             empleadosOptions,
             medicosOptions,
+            productosOptions,
             userRole,
             currentUserName: currentUser ? `${currentUser.nombres} ${currentUser.apellidos}` : "Usuario",
           }}
@@ -347,6 +372,8 @@ export function VentasView() {
 
     setFiltroMetodo("Todos");
     setFiltroMedico("Todos");
+    setFiltroProducto("Todos");
+    setBusquedaProducto(""); // ✅ Limpiar buscador
   };
 
   const handleFechaBusquedaChange = async (date: Date | undefined) => {
@@ -386,6 +413,7 @@ export function VentasView() {
     if (filtroEmpleado !== "Todos" && !isAssistant) count++;
     if (filtroMetodo !== "Todos") count++;
     if (filtroMedico !== "Todos") count++;
+    if (filtroProducto !== "Todos") count++;
     if (fechaBusqueda && format(fechaBusqueda, "yyyy-MM-dd") !== format(fechaBoliviaHoy, "yyyy-MM-dd")) count++;
     if (fechaRangoAplicado.from || fechaRangoAplicado.to) count++;
     return count;
@@ -605,7 +633,7 @@ export function VentasView() {
       {mostrarFiltros && (
         <Card className="border-2">
           <CardContent className="pt-4">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
               {/* Empleado - Solo visible para Admin */}
               {!isAssistant && (
                 <div className="space-y-1">
@@ -665,6 +693,93 @@ export function VentasView() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* ✅ Producto con buscador integrado */}
+              <div className="space-y-1">
+                <Label className="text-xs font-medium text-muted-foreground">Producto</Label>
+                <Popover open={buscadorProductoAbierto} onOpenChange={setBuscadorProductoAbierto}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={buscadorProductoAbierto}
+                      className="w-full justify-between h-9 text-sm font-normal px-3"
+                    >
+                      <span className="truncate">
+                        {filtroProducto === "Todos" ? (
+                          <span className="text-muted-foreground">Todos</span>
+                        ) : (
+                          filtroProducto
+                        )}
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <Command shouldFilter={false}>
+                      <div className="flex items-center border-b px-3">
+                        <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                        <input
+                          className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
+                          placeholder="Buscar producto..."
+                          value={busquedaProducto}
+                          onChange={(e) => setBusquedaProducto(e.target.value)}
+                        />
+                      </div>
+                      <CommandList>
+                        {productosFiltrados.length === 0 ? (
+                          <CommandEmpty>No se encontraron productos.</CommandEmpty>
+                        ) : (
+                          <CommandGroup>
+                            {/* ✅ Mostrar "Todos" siempre primero */}
+                            {todosProductoOption && (
+                              <CommandItem
+                                value="Todos"
+                                onSelect={() => {
+                                  setFiltroProducto("Todos");
+                                  setBuscadorProductoAbierto(false);
+                                  setBusquedaProducto("");
+                                }}
+                                className="cursor-pointer"
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    filtroProducto === "Todos" ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                <span className="font-medium">Todos</span>
+                              </CommandItem>
+                            )}
+
+                            {/* ✅ Mostrar productos filtrados */}
+                            {productosSinTodos.map((producto) => (
+                              <CommandItem
+                                key={producto}
+                                value={producto}
+                                onSelect={() => {
+                                  setFiltroProducto(producto);
+                                  setBuscadorProductoAbierto(false);
+                                  setBusquedaProducto("");
+                                }}
+                                className="cursor-pointer"
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    filtroProducto === producto ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                <span className="truncate">{producto}</span>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        )}
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
 
               {/* Fecha específica */}
@@ -761,6 +876,11 @@ export function VentasView() {
                 {filtroMedico !== "Todos" && (
                   <Badge variant="secondary" className="text-xs">
                     {filtroMedico}
+                  </Badge>
+                )}
+                {filtroProducto !== "Todos" && (
+                  <Badge variant="secondary" className="text-xs">
+                    📦 {filtroProducto}
                   </Badge>
                 )}
                 {fechaBusqueda && (

@@ -199,8 +199,10 @@ interface VentasTablaPDFProps {
     filtroEmpleado: string;
     filtroMetodo: string;
     filtroMedico: string;
+    filtroProducto?: string; // ✅ NUEVO
     empleadosOptions: Array<{ value: string; label: string; username: string }>;
     medicosOptions: string[];
+    productosOptions?: string[]; // ✅ NUEVO
     userRole: string;
     currentUserName?: string;
   };
@@ -216,23 +218,6 @@ export const VentasTablaPDF: React.FC<VentasTablaPDFProps> = ({
   filtros,
   totales,
 }) => {
-  const formatDate = (dateInput: string | Date): string => {
-    try {
-      const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-      const day = date.getDate();
-      const month = date.getMonth() + 1;
-      const year = date.getFullYear();
-      const hours = date.getHours();
-      const minutes = date.getMinutes();
-      const formattedHours = hours < 10 ? `0${hours}` : hours.toString();
-      const formattedMinutes = minutes < 10 ? `0${minutes}` : minutes.toString();
-      
-      return `${day}/${month}/${year} ${formattedHours}:${formattedMinutes}`;
-    } catch {
-      return typeof dateInput === 'string' ? dateInput.substring(0, 10) : 'Fecha inválida';
-    }
-  };
-
   const formatCurrency = (amount: number): string => {
     return `Bs ${amount.toFixed(2)}`;
   };
@@ -265,6 +250,11 @@ export const VentasTablaPDF: React.FC<VentasTablaPDFProps> = ({
 
   if (filtros.filtroMedico !== "Todos") {
     filtroTexto += filtroTexto ? ` | Médico: ${filtros.filtroMedico}` : `Médico: ${filtros.filtroMedico}`;
+  }
+
+  // ✅ NUEVO: Filtro por producto
+  if (filtros.filtroProducto && filtros.filtroProducto !== "Todos") {
+    filtroTexto += filtroTexto ? ` | Producto: ${filtros.filtroProducto}` : `Producto: ${filtros.filtroProducto}`;
   }
 
   return (

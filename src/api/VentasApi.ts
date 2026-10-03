@@ -10,6 +10,11 @@ export interface BackendUsuario {
   usuario: string;
 }
 
+export interface BackendProducto {
+  idproducto: number;
+  nombre: string;
+}
+
 interface BackendDetalleVenta {
   iddetalle_venta: number;
   idproducto: number;
@@ -65,6 +70,7 @@ export interface VentasFiltros {
   empleado?: string;
   metodo?: string;
   medico?: string;
+  producto?: string; // ✅ NUEVO
   fechaEspecifica?: Date;
   fechaInicio?: Date;
   fechaFin?: Date;
@@ -119,7 +125,6 @@ const ordenarVentas = (ventas: Venta[]): Venta[] => {
     const fechaA = new Date(a.fecha).getTime();
     const fechaB = new Date(b.fecha).getTime();
     if (fechaB !== fechaA) return fechaB - fechaA;
-    // Si tienen la misma fecha, ordenar por ID descendente
     return b.id - a.id;
   });
 };
@@ -145,6 +150,17 @@ export const getUsuariosVentas = async (): Promise<BackendUsuario[]> => {
   }
 };
 
+// ✅ NUEVA FUNCIÓN - Obtener productos para filtro
+export const getProductosVentas = async (): Promise<string[]> => {
+  try {
+    const response = await api.get<BackendProducto[]>("/ventas/productos");
+    return response.data.map((producto) => producto.nombre);
+  } catch (error) {
+    console.error("Error fetching productos:", error);
+    return [];
+  }
+};
+
 // Función principal para obtener ventas
 export const getVentas = async (filtros?: VentasFiltros): Promise<Venta[]> => {
   try {
@@ -161,6 +177,11 @@ export const getVentas = async (filtros?: VentasFiltros): Promise<Venta[]> => {
     if (filtros?.medico && filtros.medico !== "Todos") {
       params.medico = filtros.medico;
     }
+
+    // ✅ NUEVO: Filtro por producto
+    if (filtros?.producto && filtros.producto !== "Todos") {
+      params.producto = filtros.producto;
+    }
     
     if (filtros?.fechaEspecifica) {
       params.fechaEspecifica = formatDateForAPI(filtros.fechaEspecifica);
@@ -174,8 +195,6 @@ export const getVentas = async (filtros?: VentasFiltros): Promise<Venta[]> => {
     const response = await api.get<BackendVenta[]>("/ventas/ventas", { params });
     
     const ventas = response.data.map(transformVenta);
-    
-    // ✅ Ordenar explícitamente por fecha descendente
     return ordenarVentas(ventas);
   } catch (error) {
     console.error("Error fetching ventas:", error);
@@ -198,6 +217,11 @@ export const getTotalesVentas = async (filtros?: VentasFiltros): Promise<Totales
     
     if (filtros?.medico && filtros.medico !== "Todos") {
       params.medico = filtros.medico;
+    }
+
+    // ✅ NUEVO: Filtro por producto
+    if (filtros?.producto && filtros.producto !== "Todos") {
+      params.producto = filtros.producto;
     }
     
     if (filtros?.fechaEspecifica) {
@@ -226,7 +250,7 @@ export const getTotalesVentas = async (filtros?: VentasFiltros): Promise<Totales
   }
 };
 
-// ✅ FUNCIÓN CORREGIDA - Total Inversión y Ganancia
+// Total Inversión y Ganancia
 export const getTotalesInversionGanancia = async (filtros?: VentasFiltros): Promise<TotalesInversionGanancia> => {
   try {
     const params: any = {};
@@ -241,6 +265,11 @@ export const getTotalesInversionGanancia = async (filtros?: VentasFiltros): Prom
     
     if (filtros?.medico && filtros.medico !== "Todos") {
       params.medico = filtros.medico;
+    }
+
+    // ✅ NUEVO: Filtro por producto
+    if (filtros?.producto && filtros.producto !== "Todos") {
+      params.producto = filtros.producto;
     }
     
     if (filtros?.fechaEspecifica) {
@@ -273,7 +302,6 @@ export const getTotalesInversionGanancia = async (filtros?: VentasFiltros): Prom
 export const getVentasHoyAsistente = async (username: string): Promise<Venta[]> => {
   try {
     const response = await api.get<BackendVenta[]>(`/ventas/ventas/hoy/${username}`);
-    
     const ventas = response.data.map(transformVenta);
     return ordenarVentas(ventas);
   } catch (error) {
@@ -282,8 +310,6 @@ export const getVentasHoyAsistente = async (username: string): Promise<Venta[]> 
   }
 };
 
-// ✅ Función auxiliar para formatear fechas para la API
-// IMPORTANTE: Usamos los componentes locales de la fecha (que ya vienen en hora Bolivia)
 const formatDateForAPI = (date: Date): string => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');

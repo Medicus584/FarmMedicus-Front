@@ -13,17 +13,17 @@ import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@
 import { CalendarIcon, Download, Calendar as CalendarRangeIcon, Printer, Loader2, Check, X, Eye, ChevronLeft, ChevronRight, Filter, SlidersHorizontal, AlertTriangle, XCircle, ChevronsUpDown, Search } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
-import { 
-  getVentas, 
-  getTotalesVentas, 
-  getUsuariosVentas, 
-  getVentasHoyAsistente, 
-  getMedicos, 
+import {
+  getVentas,
+  getTotalesVentas,
+  getUsuariosVentas,
+  getVentasHoyAsistente,
+  getMedicos,
   getProductosVentas,
-  Venta, 
-  VentasFiltros, 
-  TotalesVentas, 
-  BackendUsuario, 
+  Venta,
+  VentasFiltros,
+  TotalesVentas,
+  BackendUsuario,
   anularVenta,
   getTotalesInversionGanancia,
   TotalesInversionGanancia
@@ -154,7 +154,7 @@ export function VentasView() {
   // ✅ Filtrar productos según búsqueda
   const productosFiltrados = useMemo(() => {
     if (!busquedaProducto.trim()) return productosOptions;
-    
+
     const term = busquedaProducto.toLowerCase().trim();
     return productosOptions.filter((producto) =>
       producto.toLowerCase().includes(term)
@@ -457,18 +457,18 @@ export function VentasView() {
     try {
       setAnulando(true);
       const result = await anularVenta(ventaToAnular.id);
-      
+
       toast({
         title: "✅ Venta anulada",
         description: result.message || `La venta #${ventaToAnular.id} fue anulada correctamente`,
       });
-      
+
       setIsAnularModalOpen(false);
       setVentaToAnular(null);
-      
+
       // Recargar datos
       await buscarDatos();
-      
+
     } catch (error: any) {
       console.error("Error al anular venta:", error);
       toast({
@@ -936,12 +936,28 @@ export function VentasView() {
               <div className="text-xl font-bold text-blue-600">Bs {totales.totalQR.toFixed(2)}</div>
             </CardContent>
           </Card>
-
           <Card>
             <CardHeader className="pb-1">
             </CardHeader>
             <CardContent className="pb-2">
-              <div className="flex flex-row items-center justify-between gap-4">
+              {/* ✅ Móvil: formato vertical apilado y compacto */}
+              <div className="flex flex-col gap-0.5 sm:hidden">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground">Inversión</span>
+                  <span className="text-sm font-bold text-orange-600">
+                    {totalesInversionGanancia.total_invertido.toFixed(2)} Bs
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground">Ganancia</span>
+                  <span className="text-sm font-bold text-purple-600">
+                    {totalesInversionGanancia.total_ganado.toFixed(2)} Bs
+                  </span>
+                </div>
+              </div>
+
+              {/* ✅ Desktop: formato horizontal original */}
+              <div className="hidden sm:flex flex-row items-center justify-between gap-4">
                 <div className="flex-1 text-center">
                   <div className="text-xs font-medium text-muted-foreground">Inversión</div>
                   <div className="text-lg font-bold text-orange-600">
@@ -1323,8 +1339,8 @@ export function VentasView() {
           )}
 
           <div className="flex justify-end gap-3 mt-4">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => {
                 setIsAnularModalOpen(false);
                 setVentaToAnular(null);
@@ -1332,8 +1348,8 @@ export function VentasView() {
             >
               Cancelar
             </Button>
-            <Button 
-              variant="destructive" 
+            <Button
+              variant="destructive"
               onClick={confirmarAnularVenta}
               disabled={anulando}
               className="gap-2"

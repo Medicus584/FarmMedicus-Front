@@ -13,17 +13,17 @@ import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@
 import { CalendarIcon, Download, Calendar as CalendarRangeIcon, Printer, Loader2, Check, X, Eye, ChevronLeft, ChevronRight, Filter, SlidersHorizontal, AlertTriangle, XCircle, ChevronsUpDown, Search } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
-import {
-  getVentas,
-  getTotalesVentas,
-  getUsuariosVentas,
-  getVentasHoyAsistente,
-  getMedicos,
+import { 
+  getVentas, 
+  getTotalesVentas, 
+  getUsuariosVentas, 
+  getVentasHoyAsistente, 
+  getMedicos, 
   getProductosVentas,
-  Venta,
-  VentasFiltros,
-  TotalesVentas,
-  BackendUsuario,
+  Venta, 
+  VentasFiltros, 
+  TotalesVentas, 
+  BackendUsuario, 
   anularVenta,
   getTotalesInversionGanancia,
   TotalesInversionGanancia
@@ -154,7 +154,7 @@ export function VentasView() {
   // ✅ Filtrar productos según búsqueda
   const productosFiltrados = useMemo(() => {
     if (!busquedaProducto.trim()) return productosOptions;
-
+    
     const term = busquedaProducto.toLowerCase().trim();
     return productosOptions.filter((producto) =>
       producto.toLowerCase().includes(term)
@@ -457,18 +457,18 @@ export function VentasView() {
     try {
       setAnulando(true);
       const result = await anularVenta(ventaToAnular.id);
-
+      
       toast({
         title: "✅ Venta anulada",
         description: result.message || `La venta #${ventaToAnular.id} fue anulada correctamente`,
       });
-
+      
       setIsAnularModalOpen(false);
       setVentaToAnular(null);
-
+      
       // Recargar datos
       await buscarDatos();
-
+      
     } catch (error: any) {
       console.error("Error al anular venta:", error);
       toast({
@@ -633,7 +633,8 @@ export function VentasView() {
       {mostrarFiltros && (
         <Card className="border-2">
           <CardContent className="pt-4">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            {/* ✅ En móvil: 1 columna (apilados verticalmente). En sm+: 3 columnas. md: 4. lg: 6 */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
               {/* Empleado - Solo visible para Admin */}
               {!isAssistant && (
                 <div className="space-y-1">
@@ -936,11 +937,12 @@ export function VentasView() {
               <div className="text-xl font-bold text-blue-600">Bs {totales.totalQR.toFixed(2)}</div>
             </CardContent>
           </Card>
+
           <Card>
             <CardHeader className="pb-1">
             </CardHeader>
             <CardContent className="pb-2">
-              {/* ✅ Móvil: formato vertical apilado y compacto */}
+              {/* ✅ Móvil: formato vertical compacto (label izquierda, monto derecha) */}
               <div className="flex flex-col gap-0.5 sm:hidden">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-medium text-muted-foreground">Inversión</span>
@@ -1339,8 +1341,8 @@ export function VentasView() {
           )}
 
           <div className="flex justify-end gap-3 mt-4">
-            <Button
-              variant="outline"
+            <Button 
+              variant="outline" 
               onClick={() => {
                 setIsAnularModalOpen(false);
                 setVentaToAnular(null);
@@ -1348,8 +1350,8 @@ export function VentasView() {
             >
               Cancelar
             </Button>
-            <Button
-              variant="destructive"
+            <Button 
+              variant="destructive" 
               onClick={confirmarAnularVenta}
               disabled={anulando}
               className="gap-2"

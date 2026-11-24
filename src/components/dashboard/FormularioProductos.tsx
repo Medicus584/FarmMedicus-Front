@@ -1324,12 +1324,22 @@ export function FormularioProductos({
       .trim();
   };
 
+  const getItemId = (item: ManagementItem): number =>
+    item.idubicacion ||
+    item.idcategoria ||
+    item.idlaboratorio ||
+    item.idforma_farmaceutica ||
+    item.id ||
+    0;
+
+  const normalizeName = (value: string): string =>
+    (value || "").trim().toLocaleLowerCase();
+
   const getItemIdByName = (items: ManagementItem[], name: string): number => {
-    const item = items.find((item) => item.nombre === name);
-    if (item) {
-      return (item as any).idubicacion || (item as any).idcategoria || (item as any).idlaboratorio || (item as any).idforma_farmaceutica || item.id || 0;
-    }
-    return 0;
+    const item =
+      items.find((i) => i.nombre === name) ||
+      items.find((i) => normalizeName(i.nombre) === normalizeName(name));
+    return item ? getItemId(item) : 0;
   };
 
   const handleLoteChange = (index: number, field: keyof LoteForm, value: any) => {
@@ -1513,7 +1523,21 @@ export function FormularioProductos({
     setIsAddingElement(true);
 
     try {
+      let nombreAnterior: string | null = null;
+
       if (id) {
+        const listaActual =
+          type === "categoria"
+            ? managementItems.categorias
+            : type === "ubicacion"
+            ? managementItems.ubicaciones
+            : type === "laboratorio"
+            ? managementItems.laboratorios
+            : managementItems.formasFarmaceuticas;
+
+        nombreAnterior =
+          listaActual.find((item) => getItemId(item) === id)?.nombre ?? null;
+
         switch (type) {
           case "categoria":
             await updateCategoria(id, { nombre: name });
@@ -1546,6 +1570,31 @@ export function FormularioProductos({
       }
 
       await loadManagementItems();
+
+      // Si se renombró un elemento que está seleccionado en el formulario,
+      // actualizar la selección para que no quede apuntando a un nombre inexistente
+      if (nombreAnterior && nombreAnterior !== name) {
+        const anterior = nombreAnterior;
+        setFormData((prev) => {
+          switch (type) {
+            case "categoria":
+              return {
+                ...prev,
+                categorias: prev.categorias.map((c) => (c === anterior ? name : c)),
+              };
+            case "ubicacion":
+              return prev.ubicacion === anterior ? { ...prev, ubicacion: name } : prev;
+            case "laboratorio":
+              return prev.laboratorio === anterior ? { ...prev, laboratorio: name } : prev;
+            case "formaFarmaceutica":
+              return prev.formaFarmaceutica === anterior
+                ? { ...prev, formaFarmaceutica: name }
+                : prev;
+            default:
+              return prev;
+          }
+        });
+      }
 
       toast({
         title: `${type === "formaFarmaceutica" ? "Forma farmacéutica" : type.charAt(0).toUpperCase() + type.slice(1)} agregado`,
@@ -1753,10 +1802,29 @@ export function FormularioProductos({
       formDataToSend.append("idlaboratorio", idlaboratorio.toString());
       formDataToSend.append("idforma_farmaceutica", idformaFarmaceutica.toString());
 
-      const categoriaIds = formData.categorias.map((cat) =>
-        getItemIdByName(managementItems.categorias, cat)
+      const categoriasResueltas = formData.categorias.map((cat) => ({
+        nombre: cat,
+        id: getItemIdByName(managementItems.categorias, cat),
+      }));
+
+      const categoriasInvalidas = categoriasResueltas
+        .filter((cat) => !cat.id)
+        .map((cat) => cat.nombre);
+
+      if (categoriasInvalidas.length > 0) {
+        toast({
+          title: "Error",
+          description: `Categoría no válida: ${categoriasInvalidas.join(", ")}. Vuelve a seleccionarla de la lista.`,
+          variant: "destructive",
+        });
+        setIsSubmittingProduct(false);
+        return;
+      }
+
+      formDataToSend.append(
+        "categorias",
+        JSON.stringify(categoriasResueltas.map((cat) => cat.id))
       );
-      formDataToSend.append("categorias", JSON.stringify(categoriaIds));
 
       formDataToSend.append("precio_venta", precioVentaNum.toString());
       

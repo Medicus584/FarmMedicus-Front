@@ -13,6 +13,8 @@ import {
   X,
   CreditCard,
   DollarSign,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -78,6 +80,11 @@ export function VenderView() {
   );
   const [discountReason, setDiscountReason] = useState("");
   const [showScanner, setShowScanner] = useState(false);
+  const [imagenAmpliada, setImagenAmpliada] = useState<{ url: string; nombre: string } | null>(null);
+  const [zoomImagen, setZoomImagen] = useState(1);
+  const [errorImagen, setErrorImagen] = useState(false);
+  const visorImagenAbiertoRef = useRef(false);
+  const visorImagenScrollRef = useRef<HTMLDivElement>(null);
 
   // Estados para Doctor
   const [isDoctorMode, setIsDoctorMode] = useState(false);
@@ -123,7 +130,7 @@ export function VenderView() {
 
   // Efecto para mantener el foco en el input de búsqueda
   useEffect(() => {
-    if (shouldFocusRef.current && searchInputRef.current) {
+    if (shouldFocusRef.current && !visorImagenAbiertoRef.current && searchInputRef.current) {
       searchInputRef.current.focus();
     }
   }, [searchResults, loading, ventaItems]); // Se ejecuta cuando cambian estos estados
@@ -184,6 +191,28 @@ export function VenderView() {
     });
     setCantidadInputValues(prev => ({ ...prev, ...newValues }));
   }, [ventaItems]);
+
+  const abrirImagenAmpliada = (url: string, nombre: string) => {
+    visorImagenAbiertoRef.current = true;
+    barcodeBufferRef.current = "";
+    if (barcodeTimeoutRef.current) {
+      clearTimeout(barcodeTimeoutRef.current);
+      barcodeTimeoutRef.current = null;
+    }
+    setZoomImagen(1);
+    setErrorImagen(false);
+    setImagenAmpliada({ url, nombre });
+  };
+
+  const cerrarImagenAmpliada = () => {
+    visorImagenAbiertoRef.current = false;
+    setImagenAmpliada(null);
+  };
+
+  const restablecerZoomImagen = () => {
+    setZoomImagen(1);
+    visorImagenScrollRef.current?.scrollTo({ top: 0, left: 0 });
+  };
 
   const openScanner = () => {
     setShowScanner(true);
@@ -761,6 +790,8 @@ export function VenderView() {
   };
 
   const handleKeyPress = (event: KeyboardEvent) => {
+    if (visorImagenAbiertoRef.current) return;
+
     if (event.ctrlKey || event.altKey || event.metaKey) {
       return;
     }
@@ -1088,6 +1119,58 @@ export function VenderView() {
 
   return (
     <div className="space-y-4 md:space-y-6">
+      <Dialog open={imagenAmpliada !== null} onOpenChange={(open) => {
+        if (!open) cerrarImagenAmpliada();
+      }}>
+        <DialogContent
+          className="w-[95vw] max-w-[900px] max-h-[90vh] overflow-y-auto p-3 md:p-5"
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            searchInputRef.current?.focus();
+          }}
+        >
+          <DialogHeader className="pr-6">
+            <DialogTitle className="text-sm md:text-lg break-words">
+              {imagenAmpliada?.nombre}
+            </DialogTitle>
+            <DialogDescription className="text-xs md:text-sm">
+              Amplía la imagen y desplázate para ver sus detalles.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <Button type="button" variant="outline" size="sm"
+              aria-label="Reducir zoom" disabled={zoomImagen <= 1 || errorImagen}
+              onClick={() => setZoomImagen((prev) => Math.max(1, prev - 0.5))}>
+              <ZoomOut className="h-4 w-4" />
+            </Button>
+            <span className="min-w-[50px] text-center text-sm tabular-nums" aria-live="polite">
+              {Math.round(zoomImagen * 100)}%
+            </span>
+            <Button type="button" variant="outline" size="sm"
+              aria-label="Aumentar zoom" disabled={zoomImagen >= 4 || errorImagen}
+              onClick={() => setZoomImagen((prev) => Math.min(4, prev + 0.5))}>
+              <ZoomIn className="h-4 w-4" />
+            </Button>
+            <Button type="button" variant="ghost" size="sm"
+              disabled={zoomImagen === 1 || errorImagen} onClick={restablecerZoomImagen}>
+              Restablecer
+            </Button>
+          </div>
+          <div ref={visorImagenScrollRef} className="h-[55vh] w-full overflow-auto rounded-md border bg-muted/20">
+            {imagenAmpliada && !errorImagen ? (
+              <div className="flex items-center justify-center" style={{ width: `${zoomImagen * 100}%`, height: `${zoomImagen * 100}%` }}>
+                <img src={imagenAmpliada.url} alt={imagenAmpliada.nombre}
+                  className="w-full h-full object-contain select-none" draggable={false}
+                  onError={() => setErrorImagen(true)} />
+              </div>
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                No se pudo cargar la imagen.
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
       {showScanner && (
         <BarcodeScanner
           onScanSuccess={handleBarcodeScanned}
@@ -1201,14 +1284,28 @@ export function VenderView() {
                           {(() => {
                             const imageUrl = getImageUrl(product.imagen);
                             return imageUrl ? (
-                              <img
-                                src={imageUrl}
-                                alt={product.nombre}
-                                className="w-12 h-12 md:w-16 md:h-16 rounded-md object-cover flex-shrink-0"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = "none";
+                              <button
+                                type="button"
+                                className="relative w-12 h-12 md:w-16 md:h-16 rounded-md overflow-hidden flex-shrink-0 cursor-zoom-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                title="Ampliar imagen"
+                                aria-label={`Ampliar imagen de ${product.nombre}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  abrirImagenAmpliada(imageUrl, product.nombre);
                                 }}
-                              />
+                              >
+                                <img
+                                  src={imageUrl}
+                                  alt={product.nombre}
+                                  className="w-12 h-12 md:w-16 md:h-16 rounded-md object-cover"
+                                  onError={(e) => {
+                                    e.currentTarget.parentElement!.style.display = "none";
+                                  }}
+                                />
+                                <span className="absolute bottom-0 right-0 rounded-tl bg-black/60 p-0.5 text-white pointer-events-none">
+                                  <ZoomIn className="h-3 w-3" />
+                                </span>
+                              </button>
                             ) : (
                               <div className="w-12 h-12 md:w-16 md:h-16 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
                                 <span className="text-[10px] md:text-xs text-muted-foreground">
@@ -1313,15 +1410,29 @@ export function VenderView() {
                                           similar.imagen,
                                         );
                                         return imageUrl ? (
-                                          <img
-                                            src={imageUrl}
-                                            alt={similar.nombre}
-                                            className="w-8 h-8 md:w-10 md:h-10 rounded-md object-cover flex-shrink-0"
-                                            onError={(e) => {
-                                              e.currentTarget.style.display =
-                                                "none";
+                                          <button
+                                            type="button"
+                                            className="relative w-8 h-8 md:w-10 md:h-10 rounded-md overflow-hidden flex-shrink-0 cursor-zoom-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                            title="Ampliar imagen"
+                                            aria-label={`Ampliar imagen de ${similar.nombre}`}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              abrirImagenAmpliada(imageUrl, similar.nombre);
                                             }}
-                                          />
+                                          >
+                                            <img
+                                              src={imageUrl}
+                                              alt={similar.nombre}
+                                              className="w-8 h-8 md:w-10 md:h-10 rounded-md object-cover"
+                                              onError={(e) => {
+                                                e.currentTarget.parentElement!.style.display =
+                                                  "none";
+                                              }}
+                                            />
+                                            <span className="absolute bottom-0 right-0 rounded-tl bg-black/60 p-0.5 text-white pointer-events-none">
+                                              <ZoomIn className="h-3 w-3" />
+                                            </span>
+                                          </button>
                                         ) : (
                                           <div className="w-8 h-8 md:w-10 md:h-10 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
                                             <span className="text-[8px] md:text-[10px] text-muted-foreground">

@@ -56,6 +56,7 @@ import {
   getFormasFarmaceuticas,
   buscarProductos,
   getAllProductos,
+  getProductoById,
   deleteProducto,
   Producto,
   updateStockProducto,
@@ -524,22 +525,6 @@ function DetallesProductoDialog({
   );
 }
 
-function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState<T>(value);
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [value, delay]);
-
-  return debouncedValue;
-}
-
 function FiltrosProductos({
   categorias,
   laboratorios,
@@ -758,7 +743,11 @@ export function ProductosView() {
   const [isStockFormOpen, setIsStockFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Producto | null>(null);
   const [currentStockProduct, setCurrentStockProduct] = useState<any>(null);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(() => sessionStorage.getItem("searchProductName") || "");
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(() => {
+    const id = Number(sessionStorage.getItem("searchProductId"));
+    return sessionStorage.getItem("searchProductName") && Number.isSafeInteger(id) && id > 0 ? id : null;
+  });
   const [products, setProducts] = useState<Producto[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingAll, setLoadingAll] = useState(false);
@@ -803,12 +792,9 @@ export function ProductosView() {
 
   const { toast } = useToast();
 
-  const debouncedSearchTerm = useDebounce(searchTerm, 500);
-
-  const hasProcessedSessionStorage = useRef(false);
-  const isInitialMount = useRef(true);
-  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isPerformingSearch = useRef(false);
+  const requestId = useRef(0);
+  const criteriaRef = useRef({ searchTerm, selectedProductId, categoriaSeleccionada, laboratorioSeleccionado });
+  criteriaRef.current = { searchTerm, selectedProductId, categoriaSeleccionada, laboratorioSeleccionado };
 
   const openImageViewer = useCallback((images: string[], productName: string, index: number = 0) => {
     setImageViewerData({
@@ -819,27 +805,16 @@ export function ProductosView() {
     setImageViewerOpen(true);
   }, []);
 
-  useBarcodeCapture((barcode) => {
-    setSearchTerm(barcode);
-    if (barcode.trim().length >= 2) {
-      performSearch(barcode, 1);
-    }
-  });
+  const changeSearchTerm = (value: string) => {
+    setSelectedProductId(null);
+    setSearchTerm(value);
+  };
+
+  useBarcodeCapture(changeSearchTerm);
 
   useEffect(() => {
-    if (hasProcessedSessionStorage.current) return;
-    
-    const storedProductName = sessionStorage.getItem('searchProductName');
-    
-    if (storedProductName) {
-      setSearchTerm(storedProductName);
-      hasProcessedSessionStorage.current = true;
-      
-      setTimeout(() => {
-        sessionStorage.removeItem('searchProductId');
-        sessionStorage.removeItem('searchProductName');
-      }, 300);
-    }
+    sessionStorage.removeItem("searchProductId");
+    sessionStorage.removeItem("searchProductName");
   }, []);
 
   useEffect(() => {
@@ -872,123 +847,62 @@ export function ProductosView() {
     loadBasicData();
   }, [toast]);
 
-  const loadProducts = useCallback(async (page: number = 1) => {
-    setLoadingAll(true);
+  const loadProductsWithFilters = useCallback(async (page: number = 1) => {
+    const criteria = criteriaRef.current;
+    const id = ++requestId.current;
+    const term = criteria.searchTerm.trim();
+    const hasSearch = criteria.selectedProductId !== null || term.length >= 2 ||
+      !!criteria.categoriaSeleccionada || !!criteria.laboratorioSeleccionado;
+    const isCurrent = () => id === requestId.current && criteria.searchTerm === criteriaRef.current.searchTerm &&
+      criteria.selectedProductId === criteriaRef.current.selectedProductId &&
+      criteria.categoriaSeleccionada === criteriaRef.current.categoriaSeleccionada &&
+      criteria.laboratorioSeleccionado === criteriaRef.current.laboratorioSeleccionado;
+
+    setLoadingAll(!hasSearch);
+    setSearching(hasSearch);
     try {
-      const response = await getAllProductos(page, 15);
+      let response;
+      if (criteria.selectedProductId !== null) {
+        const product = await getProductoById(criteria.selectedProductId);
+        response = { productos: [product], totalPages: 1, total: 1, page: 1 };
+      } else if (hasSearch) {
+        response = await buscarProductos(term.length >= 2 ? term : "",
+          criteria.categoriaSeleccionada || undefined,
+          criteria.laboratorioSeleccionado || undefined, page, ITEMS_PER_PAGE);
+      } else {
+        response = await getAllProductos(page, ITEMS_PER_PAGE);
+      }
+      if (!isCurrent()) return;
       setProducts(response.productos);
       setTotalPages(response.totalPages);
       setTotalProducts(response.total);
       setCurrentPage(response.page);
     } catch (error) {
+      if (!isCurrent()) return;
       console.error("Error cargando productos:", error);
-      toast({
-        title: "Error",
-        description: "No se pudieron cargar los productos",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: hasSearch ? "No se pudieron buscar los productos" : "No se pudieron cargar los productos", variant: "destructive" });
+      if (hasSearch) {
+        setProducts([]);
+        setTotalPages(0);
+        setTotalProducts(0);
+      }
     } finally {
-      setLoadingAll(false);
+      if (isCurrent()) {
+        setLoadingAll(false);
+        setSearching(false);
+      }
     }
   }, [toast]);
 
-  const performSearch = useCallback(async (query: string, page: number = 1) => {
-    const hasFilters = categoriaSeleccionada || laboratorioSeleccionado;
-    
-    if ((!query || query.trim().length < 2) && !hasFilters) {
-      await loadProducts(page);
-      return;
-    }
-
-    if (isPerformingSearch.current) return;
-    isPerformingSearch.current = true;
-
-    setSearching(true);
-    try {
-      const response = await buscarProductos(
-        query && query.trim().length >= 2 ? query : "",
-        categoriaSeleccionada || undefined,
-        laboratorioSeleccionado || undefined,
-        page,
-        15
-      );
-      setProducts(response.productos);
-      setTotalPages(response.totalPages);
-      setTotalProducts(response.total);
-      setCurrentPage(response.page);
-    } catch (error) {
-      console.error("Error buscando productos:", error);
-      toast({
-        title: "Error",
-        description: "No se pudieron buscar los productos",
-        variant: "destructive",
-      });
-      setProducts([]);
-      setTotalPages(0);
-      setTotalProducts(0);
-    } finally {
-      setSearching(false);
-      isPerformingSearch.current = false;
-    }
-  }, [categoriaSeleccionada, laboratorioSeleccionado, loadProducts, toast]);
-
-  const loadProductsWithFilters = useCallback(async (page: number = 1) => {
-    const hasFilters = categoriaSeleccionada || laboratorioSeleccionado;
-    
-    if (searchTerm.trim().length >= 2 || hasFilters) {
-      await performSearch(searchTerm, page);
-    } else {
-      await loadProducts(page);
-    }
-  }, [searchTerm, categoriaSeleccionada, laboratorioSeleccionado, performSearch, loadProducts]);
-
   useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      return;
-    }
-    
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-      searchTimeoutRef.current = null;
-    }
-
-    if (searchTerm.trim().length < 2 && !categoriaSeleccionada && !laboratorioSeleccionado) {
-      loadProducts(1);
-      return;
-    }
-
-    searchTimeoutRef.current = setTimeout(() => {
-      loadProductsWithFilters(1);
-    }, 500);
-
+    ++requestId.current;
+    const delay = selectedProductId !== null || searchTerm.trim().length < 2 ? 0 : 500;
+    const timer = setTimeout(() => { void loadProductsWithFilters(1); }, delay);
     return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-        searchTimeoutRef.current = null;
-      }
+      clearTimeout(timer);
+      ++requestId.current;
     };
-  }, [searchTerm]);
-
-  useEffect(() => {
-    if (isInitialMount.current) return;
-    
-    loadProductsWithFilters(1);
-    
-  }, [categoriaSeleccionada, laboratorioSeleccionado]);
-
-  useEffect(() => {
-    const storedProductName = sessionStorage.getItem('searchProductName');
-    
-    if (storedProductName && storedProductName.trim().length >= 2) {
-      const searchQuery = storedProductName;
-      sessionStorage.removeItem('searchProductName');
-      setSearchTerm(searchQuery);
-      performSearch(searchQuery, 1);
-    } else {
-      loadProducts(1);
-    }
-  }, []);
+  }, [searchTerm, selectedProductId, categoriaSeleccionada, laboratorioSeleccionado, loadProductsWithFilters]);
 
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages && newPage !== currentPage) {
@@ -1142,11 +1056,6 @@ export function ProductosView() {
   const clearFilters = () => {
     setCategoriaSeleccionada("");
     setLaboratorioSeleccionado("");
-    if (!searchTerm || searchTerm.trim().length < 2) {
-      loadProducts(1);
-    } else {
-      performSearch(searchTerm, 1);
-    }
   };
 
   if (loading) {
@@ -1177,7 +1086,7 @@ export function ProductosView() {
             <Input
               placeholder="Buscar por nombre, código o escanear..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => changeSearchTerm(e.target.value)}
               className="pl-10 h-10 border-2 border-[#3A5A40] focus-visible:ring-[#3A5A40] focus-visible:ring-offset-2"
             />
             {searching && (
@@ -1192,8 +1101,8 @@ export function ProductosView() {
             laboratorios={laboratorios}
             categoriaSeleccionada={categoriaSeleccionada}
             laboratorioSeleccionado={laboratorioSeleccionado}
-            onCategoriaChange={setCategoriaSeleccionada}
-            onLaboratorioChange={setLaboratorioSeleccionado}
+            onCategoriaChange={(value) => { setSelectedProductId(null); setCategoriaSeleccionada(value); }}
+            onLaboratorioChange={(value) => { setSelectedProductId(null); setLaboratorioSeleccionado(value); }}
             onClearFilters={clearFilters}
           />
 
